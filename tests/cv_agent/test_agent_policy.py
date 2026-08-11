@@ -146,8 +146,15 @@ def test_instructions_preserve_contribution_provenance_and_proprietary_code():
 
     assert "autoría verificable" in instructions
     assert "participación confirmada" in instructions
-    assert "autoría exclusiva" in instructions
+    assert "autoría exclusiva sobre repositorios" in instructions
+    assert "equipos ni soluciones completas" in instructions
+    assert "arquitectura pública" in instructions
     assert "código propietario" in instructions
+    assert "nombres internos" in instructions
+    assert "rutas internas" in instructions
+    assert "identificadores internos" in instructions
+    assert "urls privadas" in instructions
+    assert "topología sensible" in instructions
 
 
 def test_apim_question_routes_to_architecture_with_specific_evidence():
