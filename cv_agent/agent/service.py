@@ -78,10 +78,15 @@ class CvAgentService:
                 for skill in self.skills
                 if skill.name == "role_fit"
             )
+        if question_tokens & {"participacion", "participo"}:
+            return next(
+                skill for skill in self.skills if skill.name == "project_story"
+            )
         architecture_markers = {
             "a2a", "aks", "apim", "arquitectura", "container", "dns",
             "embeddings", "infraestructura", "mcp", "rag", "redes",
-            "terraform",
+            "terraform", "llms", "backend", "frontend", "apis",
+            "produccion",
         }
         if question_tokens & architecture_markers:
             return next(
@@ -103,7 +108,6 @@ class CvAgentService:
             "automatizacion", "autogestor", "cotizacion", "cotizaciones",
             "construyo", "firebase", "github", "impacto", "proyecto",
             "resolvio", "reto", "whatsapp", "participacion", "jira",
-            "proyectos", "empresariales",
         }
         if question_tokens & project_markers:
             return next(
