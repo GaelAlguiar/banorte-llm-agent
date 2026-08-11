@@ -6,6 +6,27 @@ import pytest
 from cv_agent.knowledge.loader import load_knowledge
 
 
+ENTERPRISE_KNOWLEDGE_FORBIDDEN_PATTERNS = {
+    "web URL": r"https?://",
+    "private 10/8 address": r"\b10(?:\.\d{1,3}){3}\b",
+    "private 172.16/12 address": r"\b172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}\b",
+    "private 192.168/16 address": r"\b192\.168(?:\.\d{1,3}){2}\b",
+    "CIDR value": r"\b\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}\b",
+    "Unix path": r"(?m)(?:^|[\s\"'=])(?:~|/)(?:[a-z0-9._-]+/)*[a-z0-9._-]+",
+    "Windows path": r"\b[a-z]:\\(?:[^\s\\]+\\)*[^\s\\]+",
+    "repository host": r"\b(?:github\.com|gitlab\.com|bitbucket\.org)\b",
+    "repository identifier": r"(?:\bgit@|\.git\b|terraform\.tfvars)",
+    "secret term": r"\b(?:password|contraseña|token|credential|credencial|api[ _-]?key|private[ _-]?key|bearer)\b",
+    "UUID": r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b",
+    "internal domain": r"\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:internal|local|corp|lan)\b",
+    "database connection URL": r"\b(?:postgres(?:ql)?|mongodb(?:\+srv)?|redis|mysql|sqlserver)://",
+    "connection string field": r"\b(?:server|data source|host|accountname|accountkey|sharedaccesssignature)\s*=",
+    "SAS parameter": r"(?:^|[?&])(?:sig|se|sp|sv|sr)=",
+    "AWS resource identifier": r"\barn:aws[a-z-]*:[^\s]+",
+    "Azure resource identifier": r"/subscriptions/[0-9a-f-]+/resourcegroups/[a-z0-9._()-]+",
+}
+
+
 def test_knowledge_has_core_categories():
     documents = load_knowledge(Path("knowledge"))
     categories = {document.category for document in documents}
@@ -151,30 +172,49 @@ def test_enterprise_portfolio_documents_have_expected_metadata(tmp_path: Path):
         ) == metadata
 
 
-def test_enterprise_portfolio_documents_are_safe_for_public_use():
-    text = "\n".join(
-        Path(f"knowledge/{number}_{name}.md").read_text(encoding="utf-8")
-        for number, name in (
-            (13, "heytech_apim_chatbot"),
-            (14, "heytech_terraform_multicloud"),
-            (15, "heytech_ia_plataforma"),
-            (16, "entrega_jira"),
-        )
-    ).lower()
-    forbidden_patterns = (
-        r"https?://",
-        r"\b10(?:\.\d{1,3}){3}\b",
-        r"\b172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}\b",
-        r"\b192\.168(?:\.\d{1,3}){2}\b",
-        r"\b\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}\b",
-        r"(?m)(?:^|[\s\"'=])(?:~|/)(?:[a-z0-9._-]+/)*[a-z0-9._-]+",
-        r"\b[a-z]:\\(?:[^\s\\]+\\)*[^\s\\]+",
-        r"\b(?:github\.com|gitlab\.com|bitbucket\.org)\b",
-        r"(?:\bgit@|\.git\b|terraform\.tfvars)",
-        r"\b(?:password|contraseña|token|credential|credencial|api[ _-]?key|private[ _-]?key|bearer)\b",
-    )
+def test_enterprise_portfolio_documents_match_no_known_private_markers():
+    paths = tuple(Path("knowledge").glob("1[3-6]_*.md"))
 
-    assert not any(
-        re.search(pattern, text, flags=re.IGNORECASE)
-        for pattern in forbidden_patterns
-    )
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for label, pattern in ENTERPRISE_KNOWLEDGE_FORBIDDEN_PATTERNS.items():
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            assert match is None, (
+                f"{path} matched forbidden {label!r} pattern: "
+                f"{match.group(0)!r}"
+            )
+
+
+@pytest.mark.parametrize(
+    ("label", "example"),
+    (
+        ("web URL", "https://service.example"),
+        ("private 10/8 address", "10.24.3.8"),
+        ("private 172.16/12 address", "172.28.4.2"),
+        ("private 192.168/16 address", "192.168.7.9"),
+        ("CIDR value", "203.0.113.0/24"),
+        ("Unix path", "/opt/company/config.yml"),
+        ("Windows path", r"C:\work\config.yml"),
+        ("repository host", "gitlab.com"),
+        ("repository identifier", "git@code-host"),
+        ("secret term", "api_key"),
+        ("UUID", "123e4567-e89b-42d3-a456-426614174000"),
+        ("internal domain", "api.platform.internal"),
+        ("database connection URL", "postgresql://db-user@db-host/app"),
+        ("connection string field", "AccountKey=redacted"),
+        ("SAS parameter", "?sig=redacted"),
+        ("AWS resource identifier", "arn:aws:iam::123456789012:role/example"),
+        (
+            "Azure resource identifier",
+            "/subscriptions/123e4567-e89b-42d3-a456-426614174000/"
+            "resourceGroups/example",
+        ),
+    ),
+)
+def test_enterprise_privacy_pattern_rejects_representative_example(
+    label: str,
+    example: str,
+):
+    pattern = ENTERPRISE_KNOWLEDGE_FORBIDDEN_PATTERNS[label]
+
+    assert re.search(pattern, example, flags=re.IGNORECASE), label

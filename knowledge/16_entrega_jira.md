@@ -9,7 +9,7 @@ source: experiencia laboral confirmada en equipos empresariales
 ---
 ## Evidencia directa
 
-En cada sprint, Gael utilizó Jira para convertir objetivos de trabajo en
+Durante los sprints, Gael utilizó Jira para convertir objetivos de trabajo en
 historias de usuario y subtareas con alcance verificable. Dio seguimiento a
 dependencias y bloqueos, coordinó actividades con otros equipos y mantuvo
 visibles las condiciones necesarias para avanzar o cerrar una entrega.

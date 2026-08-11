@@ -27,6 +27,6 @@ el diseño o la construcción completa del chatbot.
 La fachada estableció un punto controlado para validar identidad, obtener
 configuración protegida, seleccionar rutas y reducir la exposición de
 encabezados. Cualitativamente, esto favoreció una integración más segura,
-probable de probar y comprensible para los equipos que mantenían el flujo. No
-se atribuyen cifras de ahorro, disponibilidad o volumen porque no hay métricas
-auditadas para sostenerlas.
+más fácil de probar y mantener, y comprensible para los equipos responsables
+del flujo. No se atribuyen cifras de ahorro, disponibilidad o volumen porque no
+hay métricas auditadas para sostenerlas.

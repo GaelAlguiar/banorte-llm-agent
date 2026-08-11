@@ -1,6 +1,6 @@
 ---
 id: heytech-terraform-multicloud
-title: Infraestructura modular y conectividad multicloud con Terraform
+title: Conectividad multicloud Site-to-Site entre Azure, AWS y GCP
 category: proyecto
 evidence_level: directa
 impact_type: inferido
@@ -9,21 +9,18 @@ source: experiencia laboral confirmada y artefactos de infraestructura revisados
 ---
 ## Evidencia directa
 
-Gael trabajó directamente con Terraform para estructurar infraestructura
-modular en Azure. El alcance abarcó componentes de red, aplicaciones, datos,
-IAM, seguridad, bastion, Redis y recursos compartidos, organizados para su uso
-consistente en distintos ambientes.
+Gael reutilizó módulos existentes de infraestructura como código del entorno
+Azure como base para trabajar en conectividad Site-to-Site entre Azure y AWS, y
+entre Azure y GCP. Su labor se concentró en el diseño y configuración de
+gateways, sesiones BGP y rutas para comunicar las redes de cada proveedor.
 
-También participó en conectividad Site-to-Site entre Azure y AWS, y entre Azure
-y GCP. La labor incluyó gateways, configuración BGP, rutas, separación por
-ambientes y validaciones del despliegue y la conectividad. El trabajo combinó
-la definición declarativa de recursos con la revisión de dependencias entre
-capas de red y nube.
+La solución separaba la configuración por ambientes. Gael revisó las
+dependencias entre gateways y tablas de rutas, validó los despliegues y comprobó
+la conectividad entre los extremos para identificar problemas por capa.
 
 ## Impacto inferido
 
-La modularidad favoreció la reutilización, la revisión de cambios y una
-configuración más consistente. Las conexiones multicloud permitieron integrar
-servicios a través de límites de proveedor con rutas explícitas y verificables.
-El impacto se expresa solo de forma cualitativa: no se afirman reducciones de
-costo, tiempos o incidentes sin métricas auditadas.
+Las conexiones multicloud establecieron rutas explícitas y verificables entre
+los proveedores. La separación por ambientes y la validación por capas ayudaron
+a localizar fallas de conectividad sin atribuir cifras de costo, tiempo o
+incidentes que no cuentan con métricas auditadas.
