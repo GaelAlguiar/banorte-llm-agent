@@ -92,6 +92,34 @@ def test_retrieval_prioritizes_enerey_for_professional_ai_experience():
     assert "genai" not in hits[0].document_id
 
 
+def test_retrieval_prioritizes_enerey_whatsapp_order_tracking_story():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Cómo funcionaba el chatbot de WhatsApp para seguimiento de pedidos?",
+        top_k=5,
+    )
+
+    assert hits[0].document_id == "enerey-ia-clientes"
+    assert "seguimiento personalizado" in hits[0].excerpt.lower()
+
+
+def test_retrieval_prioritizes_enerey_ios_internal_assistant_story():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Qué resolvía el chatbot interno de la aplicación iOS de Enerey?",
+        top_k=5,
+    )
+
+    assert hits[0].document_id == "enerey-ia-clientes"
+    assert "archivos de excel" in hits[0].excerpt.lower()
+
+
 def test_retrieval_prioritizes_apim_chatbot_contribution():
     retrieval = HybridCvRetrieval.from_directory(
         Path("knowledge"), relevance_threshold=0.10

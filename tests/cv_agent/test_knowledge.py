@@ -134,6 +134,25 @@ def test_rag_story_describes_the_deployed_search_backend():
     assert "poder migrar" not in document.text
 
 
+def test_enerey_ai_evidence_distinguishes_customer_and_internal_chatbots():
+    document = next(
+        item
+        for item in load_knowledge(Path("knowledge"))
+        if item.id == "enerey-ia-clientes"
+    )
+
+    text = " ".join(document.text.lower().split())
+    assert "clientes" in text
+    assert "seguimiento personalizado" in text
+    assert {"cargado", "terminal", "ruta"} <= set(re.findall(r"\w+", text))
+    assert "trabajadores" in text
+    assert "aplicación ios" in text
+    assert "archivos de excel" in text
+    assert "acceso autorizado" in text
+    assert "autoría exclusiva" not in text
+    assert "sin dar acceso irrestricto" in text
+
+
 def test_enterprise_portfolio_documents_have_expected_metadata(tmp_path: Path):
     filenames = (
         "13_heytech_apim_chatbot.md",

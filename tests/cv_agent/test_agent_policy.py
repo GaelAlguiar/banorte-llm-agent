@@ -156,6 +156,47 @@ def test_professional_ai_experience_prioritizes_enerey_over_demo():
     assert not demo_positions or demo_positions[0] > 0
 
 
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Cómo funcionaba el chatbot de WhatsApp para seguimiento de pedidos?",
+        "¿Qué resolvía el chatbot interno de la aplicación iOS de Enerey?",
+    ),
+)
+def test_enerey_chatbot_questions_use_a_concrete_project_story(question):
+    agent, model = build_agent()
+
+    result = agent.answer(question)
+
+    assert result.skill_name == "project_story"
+    assert model.calls[0]["evidence"][0]["document_id"] == "enerey-ia-clientes"
+    assert model.calls[0]["evidence"][0]["source_kind"] == "laboral"
+
+
+def test_best_ai_project_suggestion_returns_concrete_enerey_labor_evidence():
+    agent, model = build_agent()
+
+    result = agent.answer(SUGGESTED_QUESTIONS[1])
+
+    assert result.skill_name == "project_story"
+    evidence = model.calls[0]["evidence"]
+    assert evidence[0]["document_id"] == "enerey-ia-clientes"
+    assert evidence[0]["source_kind"] == "laboral"
+    assert any("cotizaciones" in item["excerpt"].lower() for item in evidence)
+
+
+def test_enerey_ai_story_does_not_displace_role_fit_evidence():
+    agent, model = build_agent()
+
+    result = agent.answer("¿Qué valor aportaría como Ingeniero de IA?")
+
+    assert result.skill_name == "role_fit"
+    evidence_ids = {
+        item["document_id"] for item in model.calls[0]["evidence"]
+    }
+    assert "ajuste-vacante-banorte" in evidence_ids
+
+
 def test_instructions_never_deny_direct_professional_evidence():
     instructions = " ".join(build_instructions().split())
 

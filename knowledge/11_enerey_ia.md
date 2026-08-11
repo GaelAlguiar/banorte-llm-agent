@@ -1,25 +1,31 @@
 ---
 id: enerey-ia-clientes
-title: Chatbots y automatización con inteligencia artificial en Enerey
+title: Experiencia laboral de inteligencia artificial: WhatsApp e iOS
 category: proyecto
 evidence_level: directa
 impact_type: estimado
 source_kind: laboral
 source: experiencia profesional relatada por Gael
 ---
-En Enerey, Gael integró soluciones de inteligencia artificial dentro de
-productos y procesos utilizados en el trabajo real. Participó en un chatbot
-incorporado a la aplicación de Enerey y en automatizaciones conversacionales
-por WhatsApp orientadas a la atención y comunicación con clientes.
+En Enerey, Gael colaboró directamente en proyectos de inteligencia artificial
+usados en el trabajo real. Esta experiencia laboral tuvo impacto al reducir
+trabajo repetitivo y acelerar la comunicación. Para clientes, desplegó e
+integró un chatbot mediante comandos de
+WhatsApp: permitía pedir seguimiento personalizado y saber si un pedido estaba
+cargado, en terminal, en ruta o en otro estado operativo. La conversación se
+conectaba con datos autorizados de pedidos y operación. Facilitaba consultar el
+estatus sin exponer datos de clientes, identificadores, APIs ni rutas internas.
 
-Uno de los flujos principales combinaba información comercial, personalización
-asistida por IA y automatización para preparar y enviar cotizaciones masivas
-por WhatsApp. El alcance operativo llegó aproximadamente a 400 grupos de
-clientes. Gael integró las distintas funciones necesarias para seleccionar la
-información, adaptar los mensajes y coordinar los envíos.
+Para trabajadores de Enerey, colaboró en un chatbot interno de la aplicación
+iOS. Permitía solicitar información autorizada de bases de datos sin buscar en
+archivos de Excel ni navegar por la aplicación. La conversación se integraba
+con servicios y datos sujetos al acceso autorizado del trabajador. Así
+agilizaba el acceso a información operativa y reducía consultas manuales
+repetitivas, sin dar acceso irrestricto a las bases de datos.
 
-Según su experiencia operativa, un proceso que podía ocupar cerca de ocho
-horas pasó a realizarse aproximadamente en una. Las cifras de tiempo y alcance
-son estimaciones de operación, no métricas auditadas. El resultado fue reducir
-trabajo repetitivo, acelerar la comunicación comercial y facilitar el
-seguimiento de clientes.
+En un flujo distinto, Gael integró selección de información, personalización
+con IA y envío de cotizaciones masivas por WhatsApp. Llegó aproximadamente a
+400 grupos y, según la experiencia operativa, un proceso de ocho horas pasó a
+cerca de una. Son estimaciones, no métricas auditadas; permitió reducir trabajo
+repetitivo y acelerar la comunicación comercial. Puede explicarse junto con
+los chatbots como experiencia conversacional, pero no era el mismo sistema.
