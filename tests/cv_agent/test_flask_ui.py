@@ -28,6 +28,16 @@ def build_client() -> tuple[TestClient, StubAgent]:
 
 def test_chat_page_is_served_by_flask_without_secrets() -> None:
     client, _ = build_client()
+    suggestions = (
+        "¿Qué proyectos empresariales demuestran mejor la experiencia de Gael con IA, cloud e integración?",
+        "¿Cómo diseñó Gael una fachada segura entre clientes, Azure Functions y APIM?",
+        "¿Qué experiencia tiene Gael construyendo infraestructura modular con Terraform en Azure?",
+        "¿Cómo implementó conectividad multicloud entre Azure, AWS y Google Cloud?",
+        "¿Qué participación tuvo Gael en el chatbot y los servicios de análisis de documentos con IA de HeyTech?",
+        "¿Cómo trabajó Gael con microservicios Java, seguridad cloud, pagos y políticas de APIM?",
+        "¿Cómo organizaba Gael historias, subtareas, dependencias y entregables mediante Jira en cada sprint?",
+        "¿Por qué esta experiencia convierte a Gael en un candidato valioso para un equipo de IA empresarial?",
+    )
 
     response = client.get("/chat/")
 
@@ -39,10 +49,8 @@ def test_chat_page_is_served_by_flask_without_secrets() -> None:
     assert 'aria-live="polite"' in response.text
     assert 'id="message-input"' in response.text
     assert response.text.count('class="suggestion"') == 8
-    assert "candidato valioso para este puesto de IA Generativa" in response.text
-    assert "solución de inteligencia artificial implementó Gael en Enerey" in response.text
-    assert "rol de Gael en el proyecto de Banregio" in response.text
-    assert "primeros meses dentro de un equipo de Ingeniería de IA" in response.text
+    for suggestion in suggestions:
+        assert suggestion in response.text
     assert '/chat/static/chat.css' in response.text
     assert '/chat/static/chat.js' in response.text
 

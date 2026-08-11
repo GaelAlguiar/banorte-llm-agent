@@ -90,3 +90,31 @@ def test_retrieval_prioritizes_enerey_for_professional_ai_experience():
     assert hits[0].document_id == "enerey-ia-clientes"
     assert hits[0].source_kind == "laboral"
     assert "genai" not in hits[0].document_id
+
+
+def test_retrieval_prioritizes_apim_chatbot_contribution():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Cómo trabajó Gael con APIM en el chatbot empresarial?",
+        top_k=5,
+    )
+
+    assert hits
+    assert hits[0].document_id == "heytech-apim-chatbot"
+
+
+def test_retrieval_prioritizes_jira_sprint_delivery():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Cómo organizó Gael un proyecto con Jira durante los sprints?",
+        top_k=5,
+    )
+
+    assert hits
+    assert hits[0].document_id == "entrega-jira-sprints"
