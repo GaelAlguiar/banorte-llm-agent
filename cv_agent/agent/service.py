@@ -98,7 +98,7 @@ class CvAgentService:
         project_markers = {
             "automatizacion", "autogestor", "cotizacion", "cotizaciones",
             "construyo", "firebase", "github", "impacto", "proyecto",
-            "resolvio", "reto", "whatsapp",
+            "resolvio", "reto", "whatsapp", "participacion", "jira",
         }
         if question_tokens & project_markers:
             return next(

@@ -19,7 +19,9 @@ propagar información sensible o innecesaria entre capas.
 El alcance verificable de su autoría incluye la implementación de esta fachada,
 sus pruebas y su documentación técnica. De forma separada, está confirmada su
 participación dentro del equipo que trabajó en la comunicación y orquestación
-de un chatbot empresarial; esa participación no implica atribuirle en exclusiva
+de un chatbot empresarial, incluido el soporte al flujo de preparación,
+validación, despliegue e integración de sus componentes de IA; esa
+participación no implica atribuirle en exclusiva
 el diseño o la construcción completa del chatbot.
 
 ## Impacto inferido

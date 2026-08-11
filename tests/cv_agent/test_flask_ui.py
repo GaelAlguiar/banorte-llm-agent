@@ -29,14 +29,14 @@ def build_client() -> tuple[TestClient, StubAgent]:
 def test_chat_page_is_served_by_flask_without_secrets() -> None:
     client, _ = build_client()
     suggestions = (
-        "¿Qué proyectos empresariales demuestran mejor la experiencia de Gael con IA, cloud e integración?",
+        "¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para un equipo de IA Generativa?",
+        "¿Qué proyecto demuestra mejor la experiencia laboral de Gael con inteligencia artificial y qué impacto tuvo?",
+        "¿Qué proyectos empresariales demuestran mejor la experiencia de Gael con cloud, integración y seguridad?",
         "¿Cómo diseñó Gael una fachada segura entre clientes, Azure Functions y APIM?",
-        "¿Qué experiencia tiene Gael construyendo infraestructura modular con Terraform en Azure?",
-        "¿Cómo implementó conectividad multicloud entre Azure, AWS y Google Cloud?",
+        "¿Qué experiencia tiene Gael con Terraform y conectividad multicloud entre Azure, AWS y Google Cloud?",
         "¿Qué participación tuvo Gael en el chatbot y los servicios de análisis de documentos con IA de HeyTech?",
-        "¿Cómo trabajó Gael con microservicios Java, seguridad cloud, pagos y políticas de APIM?",
         "¿Cómo organizaba Gael historias, subtareas, dependencias y entregables mediante Jira en cada sprint?",
-        "¿Por qué esta experiencia convierte a Gael en un candidato valioso para un equipo de IA empresarial?",
+        "¿Qué diferencia a Gael de otros candidatos y qué aportaría durante sus primeros meses en un equipo de IA?",
     )
 
     response = client.get("/chat/")
