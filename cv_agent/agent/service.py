@@ -60,61 +60,23 @@ class CvAgentService:
                 for skill in self.skills
                 if skill.name == "privacy_guard"
             )
-        role_markers = {
-            "banorte",
-            "candidato",
-            "candidatos",
-            "contratar",
-            "contratarlo",
-            "elegir",
-            "diferencia",
-            "generativa",
-            "vacante",
-            "valioso",
-        }
-        if question_tokens & role_markers:
-            return next(
-                skill
-                for skill in self.skills
-                if skill.name == "role_fit"
-            )
-        if question_tokens & {"participacion", "participo"}:
-            return next(
-                skill for skill in self.skills if skill.name == "project_story"
-            )
-        architecture_markers = {
-            "a2a", "aks", "apim", "arquitectura", "container", "dns",
-            "embeddings", "infraestructura", "mcp", "rag", "redes",
-            "terraform", "llms", "backend", "frontend", "apis",
-            "produccion",
-        }
-        if question_tokens & architecture_markers:
-            return next(
-                skill
-                for skill in self.skills
-                if skill.name == "architecture_explainer"
-            )
-        learning_markers = {
-            "aprende", "aprendizaje", "autodidacta", "c#", "domina",
-            "langchain", "mejora", "persistente", "trasladaria",
-        }
-        if question_tokens & learning_markers:
-            return next(
-                skill
-                for skill in self.skills
-                if skill.name == "learning_evidence"
-            )
-        project_markers = {
-            "automatizacion", "autogestor", "cotizacion", "cotizaciones",
-            "construyo", "firebase", "github", "impacto", "proyecto",
-            "resolvio", "reto", "whatsapp", "participacion", "jira",
-        }
-        if question_tokens & project_markers:
-            return next(
-                skill
-                for skill in self.skills
-                if skill.name == "project_story"
-            )
+        scores = {name: 0 for name in ("role_fit", "architecture_explainer", "learning_evidence", "project_story")}
+        scores["architecture_explainer"] += 5 * len(question_tokens & {"arquitectura", "rag", "terraform", "apim", "infraestructura"})
+        scores["architecture_explainer"] += 2 * len(question_tokens & {"a2a", "aks", "container", "dns", "embeddings", "mcp", "redes", "llms", "backend", "frontend", "apis", "produccion"})
+        scores["learning_evidence"] += 5 * len(question_tokens & {"aprende", "aprendizaje", "autodidacta", "domina", "mejora", "persistente", "trasladaria"})
+        scores["project_story"] += 5 * len(question_tokens & {"proyecto", "proyectos"})
+        scores["project_story"] += 3 * len(question_tokens & {"automatizacion", "automatizaciones", "cotizacion", "cotizaciones", "construyo", "impacto", "resolvio", "whatsapp", "jira", "chatbot", "github"})
+        if question_tokens & {"participacion", "participo"} and question_tokens & {"chatbot", "documentos", "servicios", "proyecto"}:
+            scores["project_story"] += 5
+        if question_tokens & {"contratar", "elegir", "vacante", "banorte", "aportaria", "diferencia"}:
+            scores["role_fit"] += 5
+        if question_tokens & {"candidato", "candidatos"} and question_tokens & {"por", "valioso", "aportaria", "diferencia"}:
+            scores["role_fit"] += 4
+        if {"primeros", "meses"} <= question_tokens:
+            scores["role_fit"] += 5
+        best_name, best_score = max(scores.items(), key=lambda item: item[1])
+        if best_score:
+            return next(skill for skill in self.skills if skill.name == best_name)
         scored: list[tuple[int, AgentSkill]] = []
         for skill in self.skills:
             examples = set(tokenize(" ".join(skill.intent_examples)))

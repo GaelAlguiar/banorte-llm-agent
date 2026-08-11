@@ -17,4 +17,4 @@ Gael puede entender la cadena completa desde los datos y el modelo hasta la API,
 
 ## Potencial
 
-Para una posición junior, combina experiencia práctica con una actitud de aprendizaje constante. No se presenta como experto absoluto en todas las herramientas; demuestra fundamentos sólidos, capacidad de adopción y persistencia para llevar pruebas a resultados funcionales.
+Para una posición junior, combina experiencia práctica con una actitud de aprendizaje constante. No afirma dominio total de todas las herramientas; demuestra fundamentos sólidos, capacidad de adopción y persistencia para llevar pruebas a resultados funcionales.
