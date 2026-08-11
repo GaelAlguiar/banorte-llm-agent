@@ -4,7 +4,7 @@ from typing import Protocol
 from cv_agent.agent.prompts import build_instructions
 from cv_agent.agent.tools import ProfileTools
 from cv_agent.api.models import UserAttachment
-from cv_agent.retrieval.service import HybridCvRetrieval
+from cv_agent.retrieval.base import RetrievalService
 from cv_agent.skills.models import AgentSkill
 from cv_agent.retrieval.text import tokenize
 
@@ -33,7 +33,7 @@ class AgentAnswer:
 class CvAgentService:
     def __init__(
         self,
-        retrieval: HybridCvRetrieval,
+        retrieval: RetrievalService,
         skills: list[AgentSkill],
         model: ModelClient,
     ):

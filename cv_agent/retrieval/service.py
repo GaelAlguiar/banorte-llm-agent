@@ -188,3 +188,6 @@ class HybridCvRetrieval:
             key=lambda hit: hit.score,
             reverse=True,
         )[:max(1, min(top_k, 8))]
+
+    def ready(self) -> bool:
+        return True

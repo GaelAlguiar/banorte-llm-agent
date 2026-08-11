@@ -1,10 +1,10 @@
 from dataclasses import asdict
 
-from cv_agent.retrieval.service import HybridCvRetrieval
+from cv_agent.retrieval.base import RetrievalService
 
 
 class ProfileTools:
-    def __init__(self, retrieval: HybridCvRetrieval):
+    def __init__(self, retrieval: RetrievalService):
         self.retrieval = retrieval
 
     def search_profile(
