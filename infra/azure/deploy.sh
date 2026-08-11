@@ -49,6 +49,7 @@ if ! az search service show --name "$SEARCH_NAME" --resource-group "$RESOURCE_GR
     --location "$LOCATION" \
     --sku free \
     --auth-options aadOrApiKey \
+    --aad-auth-failure-mode http401WithBearerChallenge \
     --semantic-search free \
     --output none
 fi

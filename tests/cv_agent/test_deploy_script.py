@@ -15,7 +15,10 @@ def test_deploy_script_uses_explicit_isolated_resources() -> None:
         "ca-prueba-b-gael-ai",
     ):
         assert value in text
-    lowered = text.lower()
+    lowered = text.lower().replace(
+        "http401withbearerchallenge",
+        "",
+    )
     assert "banorte" not in lowered
     assert "challenge" not in lowered
     assert "reto" not in lowered
@@ -54,6 +57,7 @@ def test_deploy_script_provisions_only_free_search_with_rbac() -> None:
         "Microsoft.Search",
         "az search service create",
         "--sku free",
+        "--aad-auth-failure-mode http401WithBearerChallenge",
         "Search Index Data Reader",
         "AZURE_SEARCH_ENDPOINT",
         "AZURE_SEARCH_INDEX",
