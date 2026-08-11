@@ -8,6 +8,7 @@ from cv_agent.security.guardrails import (
     requests_sensitive_information,
 )
 from cv_agent.security.limits import SlidingWindowLimiter
+from cv_agent.web.suggestions import SUGGESTED_QUESTIONS
 
 
 def _error(status: int, message: str, code: str):
@@ -36,7 +37,7 @@ def create_flask_app(agent_provider: Callable[[], Any]) -> Flask:
 
     @app.get("/")
     def chat_page():
-        return render_template("chat.html")
+        return render_template("chat.html", suggestions=SUGGESTED_QUESTIONS)
 
     @app.post("/api/messages")
     def create_message():

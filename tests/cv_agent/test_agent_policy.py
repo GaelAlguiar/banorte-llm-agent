@@ -6,6 +6,7 @@ from cv_agent.agent.prompts import build_instructions
 from cv_agent.agent.service import CvAgentService
 from cv_agent.retrieval.service import HybridCvRetrieval
 from cv_agent.skills.registry import load_skills
+from cv_agent.web.suggestions import SUGGESTED_QUESTIONS
 
 
 class RecordingModel:
@@ -232,20 +233,26 @@ def test_confirmed_collaborative_work_routes_as_project_story(question: str):
     assert agent.answer(question).skill_name == "project_story"
 
 
-@pytest.mark.parametrize(
-    ("question", "expected_skill"),
-    [
-        ("¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para un equipo de IA Generativa?", "role_fit"),
-        ("¿Qué proyecto demuestra mejor la experiencia laboral de Gael con inteligencia artificial y qué impacto tuvo?", "project_story"),
-        ("¿Qué experiencia tiene Gael construyendo agentes, sistemas RAG y soluciones con LLMs?", "architecture_explainer"),
-        ("¿Cómo participó Gael en el chatbot, el análisis de documentos con IA, el despliegue en AKS y el uso de Vertex AI en HeyTech?", "project_story"),
-        ("¿Cómo diseñó Gael una fachada segura entre clientes, Azure Functions y APIM?", "architecture_explainer"),
-        ("¿Qué experiencia tiene Gael con Terraform y conectividad multicloud entre Azure, AWS y Google Cloud?", "architecture_explainer"),
-        ("¿Cómo combina Gael backend, frontend, APIs y cloud para llevar soluciones de IA a producción?", "architecture_explainer"),
-        ("¿Qué diferencia a Gael de otros candidatos y qué aportaría durante sus primeros meses en un equipo de IA?", "role_fit"),
-    ],
-)
+@pytest.mark.parametrize(("question", "expected_skill"), tuple(zip(SUGGESTED_QUESTIONS, (
+    "role_fit", "project_story", "architecture_explainer", "project_story",
+    "architecture_explainer", "architecture_explainer", "architecture_explainer", "role_fit",
+), strict=True)))
 def test_all_ui_suggestions_route_by_intent(question: str, expected_skill: str):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == expected_skill
+
+
+@pytest.mark.parametrize(("question", "expected_skill"), [
+    ("¿Qué proyecto de IA generativa construyó Gael?", "project_story"),
+    ("¿Cómo diseñó Gael la arquitectura de IA generativa?", "architecture_explainer"),
+    ("¿Qué proyectos construyó el candidato?", "project_story"),
+    ("¿Qué aprendizaje valioso obtuvo Gael en HeyTech?", "learning_evidence"),
+    ("¿Cómo participó Gael en la arquitectura de AKS?", "architecture_explainer"),
+    ("¿Por qué sería un candidato valioso?", "role_fit"),
+    ("¿Qué aportaría en sus primeros meses?", "role_fit"),
+    ("¿Cómo participó Gael en el chatbot de HeyTech?", "project_story"),
+])
+def test_intent_routing_resolves_single_token_collisions(question, expected_skill):
     agent, _ = build_agent()
     assert agent.answer(question).skill_name == expected_skill
 
