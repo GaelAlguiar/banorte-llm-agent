@@ -134,7 +134,7 @@ La interfaz propia y la plataforma externa usarán las mismas ocho preguntas:
 Los nuevos documentos se cargarán mediante el cargador de conocimiento
 existente. En local, el índice determinista permitirá ejecutar pruebas sin
 dependencias externas. En Azure, el proceso de ingesta actualizará el índice
-`cv-profile-v1`; el endpoint Open Responses recuperará las historias
+configurado mediante `$AZURE_SEARCH_INDEX`; el endpoint Open Responses recuperará las historias
 pertinentes y el modelo generará la respuesta respetando las instrucciones y
 guardrails existentes.
 
