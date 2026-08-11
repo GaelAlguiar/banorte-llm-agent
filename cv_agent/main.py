@@ -12,7 +12,7 @@ from cv_agent.agent.service import CvAgentService
 from cv_agent.api.responses import router as responses_router
 from cv_agent.config import Settings
 from cv_agent.observability.logging import log_event
-from cv_agent.retrieval.service import HybridCvRetrieval
+from cv_agent.retrieval.factory import build_retrieval
 from cv_agent.security.limits import SlidingWindowLimiter
 from cv_agent.skills.registry import load_skills
 from cv_agent.web.app import create_flask_app
@@ -22,7 +22,7 @@ def _build_agent(settings: Settings) -> CvAgentService | None:
     if not settings.openai_api_key:
         return None
     return CvAgentService(
-        retrieval=HybridCvRetrieval.from_directory(Path("knowledge")),
+        retrieval=build_retrieval(settings, Path("knowledge")),
         skills=load_skills(),
         model=OpenAIResponsesModel(
             api_key=settings.openai_api_key,
@@ -72,6 +72,21 @@ def create_app(
             "status": "ok",
             "service": "gael-cv-agent",
         }
+
+    @app.get("/health/ready")
+    def readiness():
+        active_agent = app.state.agent
+        ready = bool(
+            active_agent
+            and active_agent.retrieval.ready()
+        )
+        content = {
+            "status": "ready" if ready else "unavailable",
+            "service": "gael-cv-agent",
+        }
+        if ready:
+            return content
+        return JSONResponse(status_code=503, content=content)
 
     flask_app = create_flask_app(lambda: app.state.agent)
     app.mount("/chat", WSGIMiddleware(flask_app))
