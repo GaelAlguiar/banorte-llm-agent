@@ -33,6 +33,37 @@ def test_skills_reference_only_sanitized_knowledge():
     )
 
 
+def test_enterprise_knowledge_is_allowlisted_for_relevant_skills():
+    skills_by_name = {skill.name: skill for skill in load_skills()}
+
+    expected_sources = {
+        "project_story": {
+            "knowledge/13_heytech_apim_chatbot.md",
+            "knowledge/14_heytech_terraform_multicloud.md",
+            "knowledge/15_heytech_ia_plataforma.md",
+            "knowledge/16_entrega_jira.md",
+        },
+        "architecture_explainer": {
+            "knowledge/13_heytech_apim_chatbot.md",
+            "knowledge/14_heytech_terraform_multicloud.md",
+            "knowledge/15_heytech_ia_plataforma.md",
+        },
+        "profile_summary": {
+            "knowledge/13_heytech_apim_chatbot.md",
+            "knowledge/14_heytech_terraform_multicloud.md",
+            "knowledge/15_heytech_ia_plataforma.md",
+            "knowledge/16_entrega_jira.md",
+        },
+    }
+
+    for skill_name, sources in expected_sources.items():
+        skill = skills_by_name[skill_name]
+        assert sources <= set(skill.allowed_sources)
+        assert len(skill.allowed_sources) == len(set(skill.allowed_sources))
+        assert skill.network_access is False
+        assert skill.shell_access is False
+
+
 def test_skill_with_url_is_rejected(tmp_path: Path):
     (tmp_path / "unsafe.yaml").write_text(
         """name: unsafe

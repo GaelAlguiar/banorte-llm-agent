@@ -2,7 +2,7 @@ name: profile_summary
 description: Presenta el perfil profesional y la propuesta de valor de Gael.
 intent_examples: quién es Gael | resumen profesional | háblame de su perfil
 allowed_categories: perfil | experiencia | habilidad | proyecto
-allowed_sources: knowledge/01_perfil.md | knowledge/02_experiencia.md | knowledge/03_proyectos_enerey.md | knowledge/06_habilidades.md | knowledge/11_enerey_ia.md | knowledge/12_terraform_banregio.md
+allowed_sources: knowledge/01_perfil.md | knowledge/02_experiencia.md | knowledge/03_proyectos_enerey.md | knowledge/06_habilidades.md | knowledge/11_enerey_ia.md | knowledge/12_terraform_banregio.md | knowledge/13_heytech_apim_chatbot.md | knowledge/14_heytech_terraform_multicloud.md | knowledge/15_heytech_ia_plataforma.md | knowledge/16_entrega_jira.md
 output_rules: responder primero quién es | respaldar con un proyecto concreto | explicar participación e impacto | mantener tono profesional
 network_access: false
 shell_access: false

@@ -2,7 +2,7 @@ name: architecture_explainer
 description: Explica decisiones de arquitectura, integración, cloud y GenAI.
 intent_examples: arquitectura | RAG | embeddings | APIM | AKS | Azure | A2A | MCP
 allowed_categories: proyecto | habilidad | historia
-allowed_sources: knowledge/04_proyectos_heytech.md | knowledge/05_genai.md | knowledge/06_habilidades.md | knowledge/08_historias.md | knowledge/12_terraform_banregio.md
+allowed_sources: knowledge/04_proyectos_heytech.md | knowledge/05_genai.md | knowledge/06_habilidades.md | knowledge/08_historias.md | knowledge/12_terraform_banregio.md | knowledge/13_heytech_apim_chatbot.md | knowledge/14_heytech_terraform_multicloud.md | knowledge/15_heytech_ia_plataforma.md
 output_rules: explicar componentes | mencionar tradeoffs | separar experiencia de propuesta
 network_access: false
 shell_access: false
