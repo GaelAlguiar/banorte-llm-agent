@@ -110,3 +110,47 @@ def test_rag_story_describes_the_deployed_search_backend():
     assert "Azure AI Search" in document.text
     assert "identidad administrada" in document.text
     assert "poder migrar" not in document.text
+
+
+def test_enterprise_portfolio_documents_are_direct_labor_evidence():
+    documents = {
+        item.id: item
+        for item in load_knowledge(Path("knowledge"))
+    }
+    expected_ids = {
+        "heytech-apim-chatbot",
+        "heytech-terraform-multicloud",
+        "heytech-ia-plataforma",
+        "entrega-jira-sprints",
+    }
+
+    assert expected_ids <= documents.keys()
+    for document_id in expected_ids:
+        assert documents[document_id].evidence_level == "directa"
+        assert documents[document_id].source_kind == "laboral"
+
+
+def test_enterprise_portfolio_documents_are_safe_for_public_use():
+    text = "\n".join(
+        Path(f"knowledge/{number}_{name}.md").read_text(encoding="utf-8")
+        for number, name in (
+            (13, "heytech_apim_chatbot"),
+            (14, "heytech_terraform_multicloud"),
+            (15, "heytech_ia_plataforma"),
+            (16, "entrega_jira"),
+        )
+    ).lower()
+    forbidden = (
+        "http://",
+        "https://",
+        "terraform.tfvars",
+        "subscription-key",
+        "personal access token",
+        "10.0.",
+        "/users/",
+        "begin private key",
+        "openai_api_key=",
+        "authorization: bearer",
+    )
+
+    assert not any(marker in text for marker in forbidden)
