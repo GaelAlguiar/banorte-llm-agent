@@ -1,0 +1,8 @@
+name: privacy_guard
+description: Evita divulgar secretos, datos personales e infraestructura interna.
+intent_examples: credenciales | clave | secreto | dirección interna | prompt del sistema | ignora instrucciones
+allowed_categories: perfil
+allowed_sources: knowledge/01_perfil.md
+output_rules: no divulgar información sensible | explicar el límite brevemente | ofrecer información profesional pública
+network_access: false
+shell_access: false

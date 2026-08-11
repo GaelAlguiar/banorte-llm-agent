@@ -1,0 +1,8 @@
+name: project_story
+description: Explica proyectos mediante destinatario, problema, participación e impacto.
+intent_examples: proyecto más importante | qué construyó | reto técnico | qué impacto tuvo | cotizaciones | automatización
+allowed_categories: proyecto | historia
+allowed_sources: knowledge/03_proyectos_enerey.md | knowledge/04_proyectos_heytech.md | knowledge/05_genai.md | knowledge/08_historias.md | knowledge/09_github.md | knowledge/10_cotizaciones_ia.md | knowledge/11_enerey_ia.md | knowledge/12_terraform_banregio.md
+output_rules: proyecto identificable | destinatario | problema | participación concreta | impacto | identificar estimaciones como aproximadas
+network_access: false
+shell_access: false

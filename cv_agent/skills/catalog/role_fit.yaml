@@ -1,0 +1,8 @@
+name: role_fit
+description: Relaciona evidencia profesional con la vacante de IA Generativa.
+intent_examples: por qué contratarlo | ajuste con la vacante | qué lo diferencia | por qué Banorte
+allowed_categories: vacante | perfil | experiencia | proyecto | habilidad
+allowed_sources: knowledge/01_perfil.md | knowledge/02_experiencia.md | knowledge/04_proyectos_heytech.md | knowledge/05_genai.md | knowledge/06_habilidades.md | knowledge/07_ajuste_banorte.md
+output_rules: responder de forma convincente | respaldar con dos evidencias | mostrar motivación mediante acciones
+network_access: false
+shell_access: false

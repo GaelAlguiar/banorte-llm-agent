@@ -1,0 +1,177 @@
+import json
+import time
+import uuid
+from collections.abc import Iterator
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse, StreamingResponse
+
+from cv_agent.api.models import CreateResponseRequest, extract_user_input
+from cv_agent.security.auth import valid_bearer
+from cv_agent.security.guardrails import (
+    SAFE_PRIVACY_RESPONSE,
+    requests_sensitive_information,
+)
+
+
+router = APIRouter()
+
+
+def _ident(prefix: str) -> str:
+    return f"{prefix}_{uuid.uuid4().hex}"
+
+
+def _message(message_id: str, text: str, status: str) -> dict[str, Any]:
+    return {
+        "id": message_id,
+        "type": "message",
+        "status": status,
+        "role": "assistant",
+        "content": [] if status != "completed" else [
+            {
+                "type": "output_text",
+                "annotations": [],
+                "text": text,
+            }
+        ],
+    }
+
+
+def _completed_response(
+    response_id: str,
+    message_id: str,
+    text: str,
+    created_at: int,
+) -> dict[str, Any]:
+    return {
+        "id": response_id,
+        "object": "response",
+        "model": "gael-cv-agent",
+        "created_at": created_at,
+        "status": "completed",
+        "completed_at": int(time.time()),
+        "output": [_message(message_id, text, "completed")],
+        "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+        },
+        "error": None,
+    }
+
+
+def _event(name: str, payload: dict[str, Any]) -> str:
+    return (
+        f"event: {name}\n"
+        f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+    )
+
+
+def _stream_events(
+    response_id: str,
+    message_id: str,
+    text: str,
+    created_at: int,
+) -> Iterator[str]:
+    base = {
+        "id": response_id,
+        "object": "response",
+        "model": "gael-cv-agent",
+        "created_at": created_at,
+    }
+    empty_part = {"type": "output_text", "annotations": [], "text": ""}
+    done_part = {"type": "output_text", "annotations": [], "text": text}
+    completed = _completed_response(
+        response_id,
+        message_id,
+        text,
+        created_at,
+    )
+    events = [
+        ("response.created", {"type": "response.created", "response": {**base, "status": "queued", "output": []}}),
+        ("response.in_progress", {"type": "response.in_progress", "response": {**base, "status": "in_progress", "output": []}}),
+        ("response.output_item.added", {"type": "response.output_item.added", "output_index": 0, "item": _message(message_id, "", "in_progress")}),
+        ("response.content_part.added", {"type": "response.content_part.added", "item_id": message_id, "output_index": 0, "content_index": 0, "part": empty_part}),
+        ("response.output_text.delta", {"type": "response.output_text.delta", "item_id": message_id, "output_index": 0, "content_index": 0, "delta": text}),
+        ("response.output_text.done", {"type": "response.output_text.done", "item_id": message_id, "output_index": 0, "content_index": 0, "text": text}),
+        ("response.content_part.done", {"type": "response.content_part.done", "item_id": message_id, "output_index": 0, "content_index": 0, "part": done_part}),
+        ("response.output_item.done", {"type": "response.output_item.done", "output_index": 0, "item": _message(message_id, text, "completed")}),
+        ("response.completed", {"type": "response.completed", "response": completed}),
+    ]
+    for sequence_number, (name, payload) in enumerate(events):
+        payload["sequence_number"] = sequence_number
+        yield _event(name, payload)
+    yield "data: [DONE]\n\n"
+
+
+@router.post("/v1/responses")
+def create_response(body: CreateResponseRequest, request: Request):
+    if not valid_bearer(
+        request.headers.get("Authorization"),
+        request.app.state.settings.agent_api_key,
+    ):
+        return JSONResponse(
+            status_code=401,
+            content={
+                "error": {
+                    "message": "API key inválida o ausente.",
+                    "type": "authentication_error",
+                    "code": "invalid_api_key",
+                    "param": None,
+                }
+            },
+        )
+    try:
+        user_input = extract_user_input(body.input)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    question = user_input.text
+    if len(question) > 8_000:
+        return JSONResponse(
+            status_code=413,
+            content={
+                "error": {
+                    "message": "El input excede 8000 caracteres.",
+                    "type": "invalid_request_error",
+                    "code": "input_too_large",
+                    "param": "input",
+                }
+            },
+        )
+    if requests_sensitive_information(question):
+        answer_text = SAFE_PRIVACY_RESPONSE
+    else:
+        agent = request.app.state.agent
+        if agent is None:
+            raise HTTPException(
+                status_code=503,
+                detail="El agente no está configurado.",
+            )
+        answer_text = agent.answer(
+            question,
+            attachments=user_input.attachments,
+            reasoning_effort=(
+                body.reasoning.effort if body.reasoning else None
+            ),
+        ).text
+    response_id = _ident("resp")
+    message_id = _ident("msg")
+    created_at = int(time.time())
+    if body.stream:
+        return StreamingResponse(
+            _stream_events(
+                response_id,
+                message_id,
+                answer_text,
+                created_at,
+            ),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-store"},
+        )
+    return _completed_response(
+        response_id,
+        message_id,
+        answer_text,
+        created_at,
+    )

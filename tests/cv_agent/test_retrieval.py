@@ -1,0 +1,92 @@
+from pathlib import Path
+
+from cv_agent.retrieval.service import HybridCvRetrieval
+
+
+def test_retrieval_prioritizes_genai_for_rag_question():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"),
+        relevance_threshold=0.20,
+    )
+
+    hits = retrieval.search(
+        "¿Cómo diseñó y evaluó Gael su sistema RAG?",
+        top_k=3,
+    )
+
+    assert hits
+    assert hits[0].document_id == "genai-banorte-agent"
+    assert hits[0].score >= 0.20
+
+
+def test_retrieval_returns_no_evidence_below_threshold():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"),
+        relevance_threshold=0.72,
+    )
+
+    assert retrieval.search(
+        "¿Cuál es la receta de una paella valenciana?",
+        top_k=3,
+    ) == []
+
+
+def test_retrieval_can_filter_by_category():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"),
+        relevance_threshold=0.10,
+    )
+
+    hits = retrieval.search(
+        "¿Qué lo diferencia para Banorte?",
+        top_k=3,
+        categories={"vacante"},
+    )
+
+    assert hits
+    assert {hit.category for hit in hits} == {"vacante"}
+
+
+def test_retrieval_prioritizes_quotations_impact_story():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"),
+        relevance_threshold=0.10,
+    )
+
+    hits = retrieval.search(
+        "¿Qué impacto tuvo la automatización de cotizaciones por WhatsApp?",
+        top_k=3,
+    )
+
+    assert hits
+    assert hits[0].document_id == "cotizaciones-ia-whatsapp"
+    assert hits[0].impact_type == "estimado"
+
+
+def test_retrieval_prioritizes_direct_terraform_employment_story():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Qué experiencia tiene Gael con Terraform?", top_k=5
+    )
+
+    assert hits[0].document_id == "terraform-banregio"
+    assert hits[0].source_kind == "laboral"
+    assert hits[0].evidence_level == "directa"
+
+
+def test_retrieval_prioritizes_enerey_for_professional_ai_experience():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Qué experiencia laboral tiene Gael con inteligencia artificial?",
+        top_k=5,
+    )
+
+    assert hits[0].document_id == "enerey-ia-clientes"
+    assert hits[0].source_kind == "laboral"
+    assert "genai" not in hits[0].document_id

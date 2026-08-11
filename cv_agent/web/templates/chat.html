@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Conversa con el asistente profesional de Gael Alguiar.">
+  <title>AIguiar AI</title>
+  <link rel="stylesheet" href="/chat/static/chat.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Conversaciones">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">A</span><div><strong>AIguiar AI</strong><small>Asistente profesional</small></div></div>
+      <button class="new-chat" id="new-chat" type="button"><span aria-hidden="true">＋</span> Nueva conversación</button>
+      <label class="search"><span class="sr-only">Buscar conversaciones</span><input id="chat-search" type="search" placeholder="Buscar conversaciones"></label>
+      <p class="section-label">Recientes</p>
+      <nav id="conversation-list" class="conversation-list" aria-label="Historial local"></nav>
+      <div class="profile"><span class="avatar">GA</span><div><strong>Gael Alguiar</strong><small>Ingeniería e inteligencia artificial</small></div></div>
+    </aside>
+    <button class="backdrop" id="backdrop" type="button" aria-label="Cerrar menú" hidden></button>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-button menu-button" id="menu-button" type="button" aria-label="Abrir menú"><span></span><span></span><span></span></button>
+        <div><strong>AIguiar AI</strong><small><i></i> Disponible</small></div>
+        <button class="icon-button" id="clear-chat" type="button" aria-label="Limpiar conversación" title="Limpiar conversación">↻</button>
+      </header>
+
+      <section class="chat-stage">
+        <div class="welcome" id="welcome">
+          <div class="hero-mark" aria-hidden="true">A</div>
+          <h1>Conoce a Gael</h1>
+          <p>Pregunta sobre su experiencia, proyectos, habilidades o forma de resolver retos tecnológicos.</p>
+          <div class="suggestions" aria-label="Preguntas sugeridas">
+            <button class="suggestion" type="button">¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para este puesto de IA Generativa?</button>
+            <button class="suggestion" type="button">¿Qué solución de inteligencia artificial implementó Gael en Enerey y qué impacto tuvo para el negocio y los clientes?</button>
+            <button class="suggestion" type="button">¿Cuál fue el rol de Gael en el proyecto de Banregio y qué experiencia obtuvo trabajando con arquitectura, cloud e infraestructura empresarial?</button>
+            <button class="suggestion" type="button">¿Cómo diseñó Gael un sistema RAG completo y cómo evaluó la calidad, seguridad y fidelidad de sus respuestas?</button>
+            <button class="suggestion" type="button">¿Qué ejemplo demuestra mejor la capacidad de Gael para aprender de forma autónoma y convertir una tecnología nueva en una solución funcional?</button>
+            <button class="suggestion" type="button">¿Cómo combina Gael Python, FastAPI, Flask, APIs y servicios cloud para llevar una solución de IA desde la idea hasta producción?</button>
+            <button class="suggestion" type="button">¿Cómo demuestra Gael su capacidad para diseñar agentes interoperables con herramientas, A2A y Open Responses?</button>
+            <button class="suggestion" type="button">¿Qué aportaría Gael durante sus primeros meses dentro de un equipo de Ingeniería de IA Generativa?</button>
+          </div>
+        </div>
+        <div class="messages" id="messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+      </section>
+
+      <footer class="composer-area">
+        <form class="composer" id="message-form">
+          <label class="sr-only" for="message-input">Escribe un mensaje</label>
+          <textarea id="message-input" rows="1" maxlength="8000" placeholder="Pregunta sobre la trayectoria de Gael…" required></textarea>
+          <button class="send-button" id="send-button" type="submit" aria-label="Enviar mensaje">↑</button>
+        </form>
+        <p>AIguiar AI responde con información profesional autorizada. Verifica la información importante.</p>
+      </footer>
+    </main>
+  </div>
+  <script src="/chat/static/chat.js" defer></script>
+</body>
+</html>
