@@ -63,7 +63,7 @@ class CvAgentService:
         scores = {name: 0 for name in ("role_fit", "architecture_explainer", "learning_evidence", "project_story")}
         scores["architecture_explainer"] += 5 * len(question_tokens & {"arquitectura", "rag", "terraform", "apim", "infraestructura"})
         scores["architecture_explainer"] += 2 * len(question_tokens & {"a2a", "aks", "container", "dns", "embeddings", "mcp", "redes", "llms", "backend", "frontend", "apis", "produccion"})
-        scores["learning_evidence"] += 5 * len(question_tokens & {"aprende", "aprendizaje", "autodidacta", "domina", "mejora", "persistente", "trasladaria"})
+        scores["learning_evidence"] += 5 * len(question_tokens & {"aprende", "aprenderia", "aprendizaje", "autodidacta", "domina", "mejora", "persistente", "trasladaria", "fine", "tuning"})
         scores["project_story"] += 5 * len(question_tokens & {"proyecto", "proyectos"})
         scores["project_story"] += 3 * len(question_tokens & {"automatizacion", "automatizaciones", "cotizacion", "cotizaciones", "construyo", "impacto", "resolvio", "whatsapp", "jira", "chatbot", "github"})
         if question_tokens & {"participacion", "participo"} and question_tokens & {"chatbot", "documentos", "servicios", "proyecto"}:

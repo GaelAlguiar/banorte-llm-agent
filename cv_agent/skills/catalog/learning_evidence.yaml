@@ -1,6 +1,6 @@
 name: learning_evidence
 description: Demuestra aprendizaje autónomo, perseverancia y capacidades transferibles.
-intent_examples: tecnología que no domina | cómo aprende | área de mejora | LangChain | C#
+intent_examples: cómo aprende | área de mejora | LangChain | fine-tuning | evaluación de modelos
 allowed_categories: habilidad | historia | perfil
 allowed_sources: knowledge/01_perfil.md | knowledge/06_habilidades.md | knowledge/08_historias.md
 output_rules: no descalificar | reconocer la tecnología principal | conectar fundamentos equivalentes | explicar cómo aprende

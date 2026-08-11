@@ -16,10 +16,10 @@ class RecordingModel:
     def generate(self, **kwargs) -> str:
         self.calls.append(kwargs)
         return (
-            "C# no ha sido su tecnología principal. Su experiencia "
-            "equivalente está en Java, Python y TypeScript; además, "
-            "su aprendizaje autodidacta y persistente le permite "
-            "adoptar herramientas nuevas con fundamentos sólidos."
+            "Gael abordaría el fine-tuning desde su experiencia en Python, "
+            "RAG y evaluación: primero definiría un conjunto de casos y una "
+            "línea base, después mediría calidad y revisaría errores antes "
+            "de adoptar el ajuste como solución."
         )
 
 
@@ -36,14 +36,16 @@ def build_agent() -> tuple[CvAgentService, RecordingModel]:
     return service, model
 
 
-def test_unknown_primary_technology_uses_adjacent_evidence():
+def test_fine_tuning_question_uses_related_learning_evidence():
     agent, model = build_agent()
 
-    result = agent.answer("¿Gael domina C#?")
+    result = agent.answer(
+        "¿Cómo aprendería Gael a evaluar y aplicar fine-tuning de modelos?"
+    )
 
-    assert "no sabe" not in result.text.lower()
-    assert "tecnología principal" in result.text.lower()
-    assert any(term in result.text for term in ("Java", "Python", "TypeScript"))
+    assert "Python" in result.text
+    assert "RAG" in result.text
+    assert "evaluación" in result.text
     assert result.skill_name == "learning_evidence"
     assert model.calls[0]["evidence"]
 
@@ -171,6 +173,33 @@ def test_enerey_chatbot_questions_use_a_concrete_project_story(question):
     assert result.skill_name == "project_story"
     assert model.calls[0]["evidence"][0]["document_id"] == "enerey-ia-clientes"
     assert model.calls[0]["evidence"][0]["source_kind"] == "laboral"
+
+
+def test_whatsapp_story_distinguishes_commands_and_operational_statuses():
+    agent, model = build_agent()
+
+    agent.answer(
+        "¿Cómo funcionaba el chatbot de WhatsApp para seguimiento de pedidos?"
+    )
+
+    excerpt = " ".join(
+        model.calls[0]["evidence"][0]["excerpt"].lower().split()
+    )
+    assert "clientes lo operaban mediante comandos" in excerpt
+    assert all(term in excerpt for term in ("cargado", "terminal", "ruta"))
+
+
+def test_ios_story_distinguishes_authorized_database_access_from_excel_search():
+    agent, model = build_agent()
+
+    agent.answer(
+        "¿Qué resolvía el chatbot interno de la aplicación iOS de Enerey?"
+    )
+
+    excerpt = model.calls[0]["evidence"][0]["excerpt"].lower()
+    assert "trabajadores" in excerpt
+    assert "información autorizada de bases de datos" in excerpt
+    assert "archivos de excel" in excerpt
 
 
 def test_best_ai_project_suggestion_returns_concrete_enerey_labor_evidence():

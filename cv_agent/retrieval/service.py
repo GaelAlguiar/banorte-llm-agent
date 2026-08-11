@@ -116,6 +116,13 @@ class HybridCvRetrieval:
         employment_query = bool(
             query_terms & {"empleo", "experiencia", "laboral", "profesional"}
         )
+        role_query = bool(
+            query_terms
+            & {
+                "candidato", "candidatos", "contratar", "diferencia",
+                "elegir", "vacante", "aportaria",
+            }
+        )
         vector_scores = {
             document.id: max(
                 0.0,
@@ -160,11 +167,15 @@ class HybridCvRetrieval:
             exact_title_terms = query_terms & title_terms
             if exact_title_terms & {
                 "terraform", "apim", "aks", "firebase", "entra",
-                "whatsapp", "rag", "a2a", "mcp",
+                "whatsapp", "rag", "a2a", "mcp", "azure", "aws", "gcp",
             }:
                 final += 0.40
             if employment_query and document.source_kind == "laboral":
                 final += 0.22
+            if role_query and document.category == "vacante":
+                final += 0.25
+            elif role_query and document.category == "perfil":
+                final += 0.18
             if final < self.relevance_threshold:
                 continue
             hits.append(
