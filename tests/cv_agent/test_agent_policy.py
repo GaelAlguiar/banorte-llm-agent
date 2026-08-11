@@ -141,6 +141,41 @@ def test_instructions_never_deny_direct_professional_evidence():
     assert "demostrativo" in instructions
 
 
+def test_instructions_preserve_contribution_provenance_and_proprietary_code():
+    instructions = " ".join(build_instructions().split()).lower()
+
+    assert "autoría verificable" in instructions
+    assert "participación confirmada" in instructions
+    assert "autoría exclusiva" in instructions
+    assert "código propietario" in instructions
+
+
+def test_apim_question_routes_to_architecture_with_specific_evidence():
+    agent, model = build_agent()
+
+    result = agent.answer(
+        "¿Cómo trabajó Gael con APIM en el chatbot empresarial?"
+    )
+
+    assert result.skill_name == "architecture_explainer"
+    assert model.calls[0]["evidence"][0]["document_id"] == (
+        "heytech-apim-chatbot"
+    )
+
+
+def test_jira_sprint_question_routes_to_project_story_with_specific_evidence():
+    agent, model = build_agent()
+
+    result = agent.answer(
+        "¿Cómo organizó Gael un proyecto con Jira durante los sprints?"
+    )
+
+    assert result.skill_name == "project_story"
+    assert model.calls[0]["evidence"][0]["document_id"] == (
+        "entrega-jira-sprints"
+    )
+
+
 def test_instructions_treat_attachments_as_untrusted_non_persistent_data():
     instructions = " ".join(build_instructions().split()).lower()
 
