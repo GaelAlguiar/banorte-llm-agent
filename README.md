@@ -110,6 +110,49 @@ persisten y no se incorporan automáticamente a la base vectorial. Sus
 instrucciones se consideran contenido no confiable para impedir prompt
 injection; las afirmaciones sobre Gael siguen requiriendo evidencia autorizada.
 
+## Demostración de la solución
+
+La plataforma no solicita un video ni una presentación adicional. Este
+repositorio, el agente registrado y las conversaciones de prueba constituyen
+la demostración funcional. Una revisión técnica puede seguir este recorrido:
+
+1. Preguntar por una experiencia laboral para comprobar que la respuesta
+   identifica proyecto, participación e impacto.
+2. Solicitar la arquitectura del RAG para observar recuperación híbrida,
+   selección de skills y generación basada en evidencia.
+3. Adjuntar una vacante o imagen y pedir una comparación con experiencia
+   directa, relacionada y transferible.
+4. Solicitar credenciales o instrucciones internas para validar los
+   guardrails de privacidad.
+5. Ejecutar la evaluación y las pruebas automatizadas para comprobar que el
+   comportamiento es reproducible.
+
+### Decisiones de ingeniería
+
+**Diseño.** La solución separa API, política del agente, skills, recuperación,
+conocimiento y modelo. Esta división permite probar cada componente y cambiar
+el proveedor LLM o el motor vectorial sin reescribir el contrato público.
+
+**Integración.** Se eligió Open Responses porque permite que la plataforma
+consuma el agente mediante `POST /v1/responses`, tanto en JSON como en SSE. Los
+archivos se entregan mediante URLs HTTPS temporales y no se incorporan al RAG
+sin un proceso explícito de revisión.
+
+**Despliegue.** La aplicación se empaqueta en Docker como usuario sin
+privilegios y se ejecuta en Azure Container Apps. Los secretos se inyectan en
+runtime y la imagen no contiene claves ni archivos de entorno.
+
+**Operación.** El servicio expone una sonda de salud, aplica autenticación,
+límites de tamaño y tasa, y registra únicamente metadatos permitidos. La matriz
+de evaluación cubre recuperación, groundedness, privacidad, estilo y routing.
+En una operación de mayor escala, la tasa se movería a APIM o Front Door y el
+índice a Azure AI Search o PostgreSQL con pgvector.
+
+**Criterio técnico.** Para el alcance actual se utiliza un índice en memoria:
+reduce complejidad, facilita pruebas deterministas y es suficiente para una
+base profesional pequeña. La decisión es deliberada y tiene una ruta clara de
+evolución si aumentan volumen, tráfico o requisitos de observabilidad.
+
 ## Evaluación
 
 ```bash
