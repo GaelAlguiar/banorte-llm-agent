@@ -202,6 +202,37 @@ def test_ios_story_distinguishes_authorized_database_access_from_excel_search():
     assert "archivos de excel" in excerpt
 
 
+def test_exact_ios_worker_database_paraphrase_routes_to_enerey_story():
+    agent, model = build_agent()
+    result = agent.answer(
+        "¿Cómo usaba la aplicación iOS de Enerey trabajadores y una base de "
+        "datos autorizada para responder sin depender de Excel?"
+    )
+    assert result.skill_name == "project_story"
+    assert result.evidence_ids[0] == "enerey-ia-clientes"
+    excerpt = model.calls[0]["evidence"][0]["excerpt"].lower()
+    assert all(term in excerpt for term in ("ios", "trabajadores", "bases de datos", "excel"))
+
+
+@pytest.mark.parametrize("question", (
+    "¿Cómo consultaban los trabajadores datos desde la app iOS de Enerey?",
+    "¿Cómo evitaba la aplicación de Enerey buscar información en Excel?",
+))
+def test_enerey_ios_operational_paraphrases_route_as_project_stories(question):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == "project_story"
+
+
+@pytest.mark.parametrize(("question", "expected_skill"), (
+    ("¿Qué experiencia tiene Gael desarrollando aplicaciones iOS?", "profile_summary"),
+    ("¿Cómo diseñaría una arquitectura para proteger una base de datos?", "architecture_explainer"),
+    ("¿Qué diferencia a Gael de otros candidatos?", "role_fit"),
+))
+def test_ios_routing_cues_do_not_create_unrelated_collisions(question, expected_skill):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == expected_skill
+
+
 def test_best_ai_project_suggestion_returns_concrete_enerey_labor_evidence():
     agent, model = build_agent()
 
@@ -259,6 +290,41 @@ def test_instructions_preserve_contribution_provenance_and_proprietary_code():
     assert "identificadores internos" in instructions
     assert "urls privadas" in instructions
     assert "topología sensible" in instructions
+
+
+def test_instructions_allow_exclusive_authorship_when_authorized_evidence_confirms_it():
+    instructions = " ".join(build_instructions().split()).lower()
+    assert "autoría exclusiva" in instructions
+    assert "evidencia autorizada" in instructions
+    assert "enerey" in instructions
+    assert "equipos o repositorios ajenos" in instructions
+
+
+def test_enerey_evidence_confirms_exclusive_end_to_end_responsibility():
+    agent, model = build_agent()
+    agent.answer("¿Qué construyó Gael en Enerey y cuál fue su responsabilidad?")
+    evidence_text = " ".join(
+        " ".join(item["excerpt"].split())
+        for item in model.calls[0]["evidence"]
+    ).lower()
+    assert "único desarrollador" in evidence_text
+    for term in (
+        "aplicación ios", "chatbot interno", "whatsapp", "seguimiento personalizado",
+        "cotizaciones", "integraciones", "backend", "frontend", "despliegues",
+    ):
+        assert term in evidence_text
+
+
+@pytest.mark.parametrize("question", (SUGGESTED_QUESTIONS[0], SUGGESTED_QUESTIONS[7]))
+def test_role_fit_evidence_positions_young_profile_without_inventing_seniority(question):
+    agent, model = build_agent()
+    result = agent.answer(question)
+    assert result.skill_name == "role_fit"
+    evidence_text = " ".join(item["excerpt"] for item in model.calls[0]["evidence"]).lower()
+    for term in ("profesional joven", "ideas frescas", "autodidacta", "persistente"):
+        assert term in evidence_text
+    assert "responsabilidades superiores a lo esperado de un perfil junior" in evidence_text
+    assert "cargo senior" not in evidence_text
 
 
 @pytest.mark.parametrize(

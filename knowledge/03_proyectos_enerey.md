@@ -6,9 +6,13 @@ evidence_level: directa
 source_kind: laboral
 source: CV, repositorios y tareas profesionales revisadas
 ---
+## Responsabilidad técnica
+
+Gael fue el único desarrollador de las soluciones de Enerey y asumió su ciclo completo: levantamiento de necesidades, arquitectura, backend, frontend, integraciones, pruebas, despliegues y soporte. Su alcance abarcó las herramientas móviles, administrativas, conversacionales y comerciales descritas en la evidencia del ecosistema Enerey.
+
 ## Aplicación administrativa y financiera
 
-Participó en una aplicación móvil para procesos administrativos y financieros publicada para iOS. Integró información operativa, consultas a fuentes empresariales, generación de PDF, rankings y automatizaciones. El valor del proyecto fue acercar procesos internos a una experiencia móvil más sencilla.
+Desarrolló una aplicación móvil para procesos administrativos y financieros publicada para iOS. Integró información operativa, consultas a fuentes empresariales, generación de PDF, rankings y automatizaciones. El valor del proyecto fue acercar procesos internos a una experiencia móvil más sencilla.
 
 ## APIs e integración con SQL Server y SAI
 
@@ -24,8 +28,12 @@ Trabajó en una solución de caja chica con acceso corporativo mediante Microsof
 
 ## SADE
 
-Participó en una aplicación Django para reportes, desviaciones, pronósticos, alertas, ventas y tableros. La solución integra fuentes operativas, servicios de compras y pedidos, generación de reportes y visualización de información.
+Desarrolló una aplicación Django para reportes, desviaciones, pronósticos, alertas, ventas y tableros. La solución integra fuentes operativas, servicios de compras y pedidos, generación de reportes y visualización de información.
 
 ## Sitios Global y Lugra
 
-Construyó y mejoró experiencias web corporativas y catálogos de producto. Estos proyectos complementan su perfil full stack y su capacidad para presentar información técnica de forma clara para usuarios.
+Como desarrollador freelance creó y mejoró los sitios y experiencias web de Global y Lugra, incluidos sus catálogos de producto. Estos proyectos complementan su perfil full stack y su capacidad para presentar información técnica de forma clara para usuarios.
+
+En conjunto, su responsabilidad exclusiva en Enerey comprendió backend,
+frontend, integraciones y despliegues de la aplicación iOS, el chatbot interno,
+WhatsApp para seguimiento de pedidos y la automatización de cotizaciones.

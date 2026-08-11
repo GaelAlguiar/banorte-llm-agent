@@ -16,7 +16,8 @@ horas.
 
 ## Participación y solución
 
-Gael combinó varias funciones de inteligencia artificial y automatización para
+Como único desarrollador, Gael diseñó, implementó, integró y desplegó el flujo.
+Combinó varias funciones de inteligencia artificial y automatización para
 seleccionar la información pertinente, apoyar la personalización de mensajes y
 coordinar el envío de cotizaciones por WhatsApp. Su aportación consistió en
 convertir actividades manuales separadas en un flujo integrado y más fácil de

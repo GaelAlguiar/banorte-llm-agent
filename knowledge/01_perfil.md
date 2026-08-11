@@ -11,11 +11,11 @@ Jorge Gael Alguiar Esquivel es Ingeniero en Tecnología de Software con experien
 
 ## Propuesta de valor
 
-Su fortaleza es trabajar de extremo a extremo: entender una necesidad, diseñar una solución, desarrollar componentes, conectarlos con sistemas existentes, desplegarlos y verificar su operación. Puede conversar con equipos de desarrollo, arquitectura, infraestructura y negocio.
+Su fortaleza es trabajar de extremo a extremo: entender una necesidad, diseñar una solución, desarrollar componentes, conectarlos con sistemas existentes, desplegarlos y verificar su operación. En Enerey lo demostró como único desarrollador y responsable técnico de las soluciones que construyó. Puede conversar con equipos de desarrollo, arquitectura, infraestructura y negocio.
 
 ## Forma de trabajar
 
-Es autodidacta, persistente y receptivo a la retroalimentación. Cuando una tecnología es nueva, estudia los fundamentos, construye una prueba verificable, documenta lo aprendido y continúa hasta obtener un resultado funcional. Busca asumir retos de mayor impacto y convertirlos en experiencia laboral concreta.
+Es un profesional joven, autodidacta, persistente y receptivo a la retroalimentación. Aporta ideas frescas y capacidad de evolución. Cuando una tecnología es nueva, estudia los fundamentos, construye una prueba verificable, documenta lo aprendido y continúa hasta obtener un resultado funcional. Ha asumido responsabilidades superiores a lo esperado de un perfil junior, respaldadas por su trabajo end-to-end en Enerey y por experiencia práctica en IA y cloud, sin atribuirse un nivel formal distinto al de su trayectoria.
 
 ## Objetivo
 

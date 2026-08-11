@@ -149,8 +149,27 @@ def test_enerey_ai_evidence_distinguishes_customer_and_internal_chatbots():
     assert "aplicación ios" in text
     assert "archivos de excel" in text
     assert "acceso autorizado" in text
-    assert "autoría exclusiva" not in text
+    assert "único desarrollador" in text
+    assert "responsable técnico de extremo a extremo" in text
     assert "sin dar acceso irrestricto" in text
+
+
+def test_enerey_portfolio_and_freelance_work_have_correct_authorship():
+    documents = {
+        item.id: " ".join(item.text.lower().split())
+        for item in load_knowledge(Path("knowledge"))
+    }
+
+    enerey = documents["proyectos-enerey"]
+    assert "único desarrollador" in enerey
+    assert all(term in enerey for term in (
+        "backend", "frontend", "integraciones", "despliegues",
+        "aplicación ios", "chatbot interno", "whatsapp",
+        "seguimiento de pedidos", "cotizaciones",
+    ))
+    assert "freelance" in enerey
+    assert "global" in enerey
+    assert "lugra" in enerey
 
 
 def test_enterprise_portfolio_documents_have_expected_metadata(tmp_path: Path):

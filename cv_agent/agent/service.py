@@ -66,6 +66,19 @@ class CvAgentService:
         scores["learning_evidence"] += 5 * len(question_tokens & {"aprende", "aprenderia", "aprendizaje", "autodidacta", "domina", "mejora", "persistente", "trasladaria", "fine", "tuning"})
         scores["project_story"] += 5 * len(question_tokens & {"proyecto", "proyectos"})
         scores["project_story"] += 3 * len(question_tokens & {"automatizacion", "automatizaciones", "cotizacion", "cotizaciones", "construyo", "impacto", "resolvio", "whatsapp", "jira", "chatbot", "github"})
+        enerey_context = "enerey" in question_tokens
+        ios_application_context = bool(
+            question_tokens & {"ios", "app", "aplicacion"}
+        )
+        operational_lookup_context = bool(
+            question_tokens
+            & {
+                "trabajador", "trabajadores", "datos", "excel",
+                "consultaban", "informacion", "base", "bases",
+            }
+        )
+        if enerey_context and ios_application_context and operational_lookup_context:
+            scores["project_story"] += 6
         if question_tokens & {"participacion", "participo"} and question_tokens & {"chatbot", "documentos", "servicios", "proyecto"}:
             scores["project_story"] += 5
         if question_tokens & {"contratar", "elegir", "vacante", "banorte", "aportaria", "diferencia"}:

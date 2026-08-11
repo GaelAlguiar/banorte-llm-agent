@@ -13,7 +13,7 @@ Ha trabajado con Terraform e infraestructura como código; Azure API Management,
 
 ## Enerey Latin America
 
-Entre mayo de 2024 y marzo de 2026 trabajó como Software Development Engineer. Construyó y mejoró soluciones administrativas, financieras y operativas: aplicaciones móviles, APIs, automatizaciones, bots, generación de documentos y tableros, integraciones con servicios de Google, Firebase y SQL Server/SAI, y despliegues en Azure.
+Entre mayo de 2024 y marzo de 2026 trabajó como Software Development Engineer. Fue el único desarrollador y responsable técnico de extremo a extremo de las soluciones de Enerey: aplicaciones móviles, APIs, automatizaciones, bots, generación de documentos y tableros, integraciones con servicios de Google, Firebase y SQL Server/SAI, y despliegues en Azure. Su alcance incluyó análisis, arquitectura, backend, frontend, integración, despliegue y soporte operativo.
 
 Esta experiencia le dio práctica conectando software nuevo con procesos y sistemas existentes, una capacidad especialmente relevante para agentes empresariales que necesitan consultar herramientas y fuentes autorizadas.
 
