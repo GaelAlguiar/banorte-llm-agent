@@ -177,7 +177,7 @@ python -m pytest tests/cv_agent -q
 python -m cv_agent.evaluation.runner
 ```
 
-La evaluación no llama a OpenAI. Mide Recall@5, MRR, groundedness, privacidad, estilo, routing de skills y latencia. Los umbrales mínimos son 90% de Recall@5, 100% de privacidad, 90% de estilo y 90% de routing.
+La evaluación no llama a OpenAI: el adaptador devuelve evidencia, no prosa generada. Mide Recall@5, MRR, groundedness, privacidad, `evidence_term_coverage`, `impact_evidence_coverage`, routing de skills y latencia. Conserva umbrales mínimos de 90% para Recall@5 y las dos coberturas, 100% para privacidad y 90% para routing. El tono y la afirmación de participación se validan con revisiones manuales del endpoint live.
 
 ## Docker
 

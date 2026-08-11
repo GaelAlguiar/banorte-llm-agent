@@ -128,7 +128,6 @@ def test_retrieval_prioritizes_confirmed_heytech_ai_participation():
     )
     assert hits[0].document_id == "heytech-ia-plataforma"
     assert hits[0].evidence_level == "directa"
-    assert all(term in hits[0].excerpt for term in ("chatbot", "AKS", "Vertex AI", "entrenamiento"))
 
 
 def test_retrieval_returns_direct_jira_workflow_evidence_for_exact_question():

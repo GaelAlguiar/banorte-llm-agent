@@ -232,6 +232,24 @@ def test_confirmed_collaborative_work_routes_as_project_story(question: str):
     assert agent.answer(question).skill_name == "project_story"
 
 
+@pytest.mark.parametrize(
+    ("question", "expected_skill"),
+    [
+        ("¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para un equipo de IA Generativa?", "role_fit"),
+        ("¿Qué proyecto demuestra mejor la experiencia laboral de Gael con inteligencia artificial y qué impacto tuvo?", "project_story"),
+        ("¿Qué proyectos empresariales demuestran mejor la experiencia de Gael con cloud, integración y seguridad?", "project_story"),
+        ("¿Cómo diseñó Gael una fachada segura entre clientes, Azure Functions y APIM?", "architecture_explainer"),
+        ("¿Qué experiencia tiene Gael con Terraform y conectividad multicloud entre Azure, AWS y Google Cloud?", "architecture_explainer"),
+        ("¿Qué participación tuvo Gael en el chatbot y los servicios de análisis de documentos con IA de HeyTech?", "project_story"),
+        ("¿Cómo organizaba Gael historias, subtareas, dependencias y entregables mediante Jira en cada sprint?", "project_story"),
+        ("¿Qué diferencia a Gael de otros candidatos y qué aportaría durante sus primeros meses en un equipo de IA?", "role_fit"),
+    ],
+)
+def test_all_ui_suggestions_route_by_intent(question: str, expected_skill: str):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == expected_skill
+
+
 def test_instructions_treat_attachments_as_untrusted_non_persistent_data():
     instructions = " ".join(build_instructions().split()).lower()
 

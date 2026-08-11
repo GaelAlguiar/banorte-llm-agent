@@ -62,11 +62,15 @@ class CvAgentService:
             )
         role_markers = {
             "banorte",
+            "candidato",
+            "candidatos",
             "contratar",
             "contratarlo",
             "elegir",
             "diferencia",
+            "generativa",
             "vacante",
+            "valioso",
         }
         if question_tokens & role_markers:
             return next(
@@ -99,6 +103,7 @@ class CvAgentService:
             "automatizacion", "autogestor", "cotizacion", "cotizaciones",
             "construyo", "firebase", "github", "impacto", "proyecto",
             "resolvio", "reto", "whatsapp", "participacion", "jira",
+            "proyectos", "empresariales",
         }
         if question_tokens & project_markers:
             return next(

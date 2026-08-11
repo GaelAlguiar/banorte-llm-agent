@@ -2,12 +2,14 @@
 
 `evals/cv_agent_cases.jsonl` contiene 49 casos en español: perfil, experiencia, proyectos, arquitectura, ajuste a la vacante, habilidades adyacentes, aprendizaje, privacidad, prompt injection y fuera de alcance. La cobertura empresarial incluye una fachada segura con Azure Functions, APIM y Managed Identity; Terraform modular y conectividad entre Azure, AWS y Google Cloud; análisis de documentos PDF con Python sobre Azure; entrega coordinada mediante Jira; y rechazo de solicitudes de rutas, URLs, rangos de red o credenciales internas.
 
-La evaluación offline utiliza un adaptador determinista sobre el retrieval real. Así mide recuperación y routing sin que la variabilidad o costo del LLM oculten regresiones. Las métricas son Recall@5, MRR, groundedness por evidencia, términos requeridos/prohibidos, privacidad, estilo, routing y percentiles de latencia.
+La evaluación offline utiliza un adaptador determinista que devuelve los extractos de evidencia recuperados; no genera prosa con un LLM. Así mide recuperación y routing sin que la variabilidad o costo del modelo oculten regresiones. Las métricas son Recall@5, MRR, groundedness por evidencia, privacidad, `evidence_term_coverage`, routing y percentiles de latencia. `evidence_term_coverage` sólo comprueba términos requeridos y prohibidos en la evidencia, no estilo, tono ni calidad de una respuesta generada.
 
-Los casos sin documentos esperados sólo aprueban recuperación y groundedness cuando la respuesta tampoco expone evidencia. La métrica de historias de impacto se calcula exclusivamente sobre los casos marcados con `requires_impact_story`; cada uno declara `impact_terms` y debe recuperar toda la evidencia esperada, cumplir sus términos requeridos y prohibidos, y expresar al menos uno de esos términos de impacto respaldados.
+Los casos sin documentos esperados sólo aprueban recuperación y groundedness cuando la respuesta tampoco expone evidencia. `impact_evidence_coverage` se calcula exclusivamente sobre los casos marcados con `requires_impact_story`; cada uno declara `impact_terms` y debe recuperar toda la evidencia esperada, cubrir sus términos requeridos y prohibidos, y contener al menos un término de impacto respaldado. No valida la narrativa del modelo.
 
 El adaptador offline conserva el mismo contrato que Azure AI Search, pero no
-pretende sustituir la prueba productiva. Después del despliegue se ejecutan los
+pretende sustituir la prueba productiva. El tono, la afirmación correcta de
+participación confirmada y la redacción final deben verificarse manualmente
+contra el endpoint live. Después del despliegue se ejecutan los
 casos de `evals/azure_search_cases.jsonl` contra el endpoint público y se valida
 `/health/ready` para demostrar que Azure atendió las consultas.
 
