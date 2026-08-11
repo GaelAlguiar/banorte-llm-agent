@@ -218,3 +218,9 @@ def test_enterprise_privacy_pattern_rejects_representative_example(
     pattern = ENTERPRISE_KNOWLEDGE_FORBIDDEN_PATTERNS[label]
 
     assert re.search(pattern, example, flags=re.IGNORECASE), label
+
+
+def test_heytech_ai_document_contains_confirmed_full_evidence():
+    documents = load_knowledge(Path("knowledge"))
+    document = next(item for item in documents if item.id == "heytech-ia-plataforma")
+    assert all(term in document.text for term in ("chatbot", "AKS", "Vertex AI", "entrenamiento"))

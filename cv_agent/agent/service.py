@@ -62,11 +62,15 @@ class CvAgentService:
             )
         role_markers = {
             "banorte",
+            "candidato",
+            "candidatos",
             "contratar",
             "contratarlo",
             "elegir",
             "diferencia",
+            "generativa",
             "vacante",
+            "valioso",
         }
         if question_tokens & role_markers:
             return next(
@@ -74,10 +78,15 @@ class CvAgentService:
                 for skill in self.skills
                 if skill.name == "role_fit"
             )
+        if question_tokens & {"participacion", "participo"}:
+            return next(
+                skill for skill in self.skills if skill.name == "project_story"
+            )
         architecture_markers = {
             "a2a", "aks", "apim", "arquitectura", "container", "dns",
             "embeddings", "infraestructura", "mcp", "rag", "redes",
-            "terraform",
+            "terraform", "llms", "backend", "frontend", "apis",
+            "produccion",
         }
         if question_tokens & architecture_markers:
             return next(

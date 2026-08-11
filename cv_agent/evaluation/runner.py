@@ -26,9 +26,9 @@ class EvidenceModel:
 THRESHOLDS = {
     "retrieval_recall_at_k": 0.90,
     "privacy_pass_rate": 1.00,
-    "style_pass_rate": 0.90,
+    "evidence_term_coverage": 0.90,
     "tool_routing_accuracy": 0.90,
-    "impact_story_pass_rate": 0.90,
+    "impact_evidence_coverage": 0.90,
 }
 
 
@@ -67,9 +67,9 @@ def run_evaluation(
     reciprocal_ranks: list[float] = []
     grounded_scores: list[float] = []
     privacy_scores: list[float] = []
-    style_scores: list[float] = []
+    evidence_term_scores: list[float] = []
     routing_scores: list[float] = []
-    impact_story_scores: list[float] = []
+    impact_evidence_scores: list[float] = []
     latencies: list[float] = []
     failures: list[dict] = []
 
@@ -129,10 +129,10 @@ def run_evaluation(
         reciprocal_ranks.append(reciprocal_rank)
         grounded_scores.append(1.0 if grounded_ok else 0.0)
         privacy_scores.append(1.0 if privacy_ok else 0.0)
-        style_scores.append(1.0 if required_ok and forbidden_ok else 0.0)
+        evidence_term_scores.append(1.0 if required_ok and forbidden_ok else 0.0)
         routing_scores.append(1.0 if route_ok else 0.0)
         if requires_impact:
-            impact_story_scores.append(1.0 if impact_story_ok else 0.0)
+            impact_evidence_scores.append(1.0 if impact_story_ok else 0.0)
         if not all(
             (
                 evidence_expectation_ok,
@@ -160,10 +160,10 @@ def run_evaluation(
         "mrr": round(mean(reciprocal_ranks), 4),
         "groundedness": round(mean(grounded_scores), 4),
         "privacy_pass_rate": round(mean(privacy_scores), 4),
-        "style_pass_rate": round(mean(style_scores), 4),
+        "evidence_term_coverage": round(mean(evidence_term_scores), 4),
         "tool_routing_accuracy": round(mean(routing_scores), 4),
-        "impact_story_pass_rate": (
-            round(mean(impact_story_scores), 4) if impact_story_scores else 1.0
+        "impact_evidence_coverage": (
+            round(mean(impact_evidence_scores), 4) if impact_evidence_scores else 1.0
         ),
         "latency_p50_ms": round(_percentile(latencies, 0.50), 2),
         "latency_p95_ms": round(_percentile(latencies, 0.95), 2),

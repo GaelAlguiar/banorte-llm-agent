@@ -232,6 +232,24 @@ def test_confirmed_collaborative_work_routes_as_project_story(question: str):
     assert agent.answer(question).skill_name == "project_story"
 
 
+@pytest.mark.parametrize(
+    ("question", "expected_skill"),
+    [
+        ("¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para un equipo de IA Generativa?", "role_fit"),
+        ("¿Qué proyecto demuestra mejor la experiencia laboral de Gael con inteligencia artificial y qué impacto tuvo?", "project_story"),
+        ("¿Qué experiencia tiene Gael construyendo agentes, sistemas RAG y soluciones con LLMs?", "architecture_explainer"),
+        ("¿Cómo participó Gael en el chatbot, el análisis de documentos con IA, el despliegue en AKS y el uso de Vertex AI en HeyTech?", "project_story"),
+        ("¿Cómo diseñó Gael una fachada segura entre clientes, Azure Functions y APIM?", "architecture_explainer"),
+        ("¿Qué experiencia tiene Gael con Terraform y conectividad multicloud entre Azure, AWS y Google Cloud?", "architecture_explainer"),
+        ("¿Cómo combina Gael backend, frontend, APIs y cloud para llevar soluciones de IA a producción?", "architecture_explainer"),
+        ("¿Qué diferencia a Gael de otros candidatos y qué aportaría durante sus primeros meses en un equipo de IA?", "role_fit"),
+    ],
+)
+def test_all_ui_suggestions_route_by_intent(question: str, expected_skill: str):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == expected_skill
+
+
 def test_instructions_treat_attachments_as_untrusted_non_persistent_data():
     instructions = " ".join(build_instructions().split()).lower()
 
@@ -239,3 +257,12 @@ def test_instructions_treat_attachments_as_untrusted_non_persistent_data():
     assert "no confiables" in instructions
     assert "no lo incorpores" in instructions
     assert "índice rag" in instructions
+
+
+def test_instructions_use_strongest_honest_career_connection():
+    instructions = " ".join(build_instructions().split()).lower()
+    assert "primero evidencia directa" in instructions
+    assert "relacionada o transferible" in instructions
+    for phrase in ("no hay información", "no hay proyectos atribuibles", "no es posible confirmar", "si se proporciona evidencia"):
+        assert phrase in instructions
+    assert "cuando exista evidencia autorizada relevante" in instructions

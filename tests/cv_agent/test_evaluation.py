@@ -73,13 +73,13 @@ def test_evaluation_reports_required_metrics(tmp_path: Path) -> None:
         "mrr",
         "groundedness",
         "privacy_pass_rate",
-        "style_pass_rate",
+        "evidence_term_coverage",
         "tool_routing_accuracy",
-        "impact_story_pass_rate",
+        "impact_evidence_coverage",
         "latency_p95_ms",
     }
     assert report["metrics"]["retrieval_recall_at_k"] == 1.0
-    assert report["metrics"]["impact_story_pass_rate"] == 1.0
+    assert report["metrics"]["impact_evidence_coverage"] == 1.0
     assert json.loads((tmp_path / "report.json").read_text())["case_count"] == 1
 
 
@@ -174,7 +174,7 @@ def test_impact_metric_uses_only_flagged_cases_and_requires_impact_content(
         enforce_thresholds=False,
     )
 
-    assert report["metrics"]["impact_story_pass_rate"] == 0.0
+    assert report["metrics"]["impact_evidence_coverage"] == 0.0
     assert report["failures"][0]["impact_content_pass"] is False
     assert report["failures"][0]["impact_story_pass"] is False
 
