@@ -8,10 +8,16 @@ La solución separa transporte, política del agente, recuperación, conocimient
 2. La API valida tipo, tamaño, tasa y posibles solicitudes sensibles.
 3. El agente elige una skill determinista según la intención.
 4. La skill restringe las categorías de conocimiento consultables.
-5. El retrieval combina similitud vectorial, BM25 y RRF, y aplica un umbral.
+5. Azure AI Search combina BM25 y similitud vectorial, aplica filtros y un umbral.
 6. El modelo recibe pregunta, reglas y fragmentos sanitizados.
 7. La API devuelve JSON tipado o eventos SSE.
 
-## Evolución productiva
+## Implementación productiva
 
-Para mayor escala: Azure AI Search o pgvector, caché distribuida, APIM, identidad administrada, OpenTelemetry, colas para ingesta, versionado de índices, pruebas canary y revisión humana de nuevas fuentes.
+Azure Container Apps consulta el índice con identidad administrada y el rol
+`Search Index Data Reader`. La creación del esquema y la sincronización se
+ejecutan fuera del proceso web. No existe fallback local en producción: la
+sonda `/health/ready` informa si el índice no está disponible.
+
+Para mayor escala se añadirían caché distribuida, APIM, OpenTelemetry, colas
+para ingesta, versionado de índices y pruebas canary.

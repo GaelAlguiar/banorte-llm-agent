@@ -98,3 +98,15 @@ def test_older_knowledge_defaults_to_profile_source_kind():
 
     profile = next(item for item in documents if item.id == "perfil-gael")
     assert profile.source_kind == "perfil"
+
+
+def test_rag_story_describes_the_deployed_search_backend():
+    document = next(
+        item
+        for item in load_knowledge(Path("knowledge"))
+        if item.id == "genai-banorte-agent"
+    )
+
+    assert "Azure AI Search" in document.text
+    assert "identidad administrada" in document.text
+    assert "poder migrar" not in document.text

@@ -19,8 +19,13 @@ desde el agente registrado y el repositorio público.
 
 ## 3. Evidencia técnica
 
-Mostrar el endpoint Open Responses, un stream SSE, la matriz de 40 casos, el Dockerfile no root y la revisión pública del repositorio.
+Mostrar el endpoint Open Responses, un stream SSE, la matriz de casos, la sonda
+`/health/ready`, Azure AI Search con búsqueda híbrida, el Dockerfile no root y
+la revisión pública del repositorio.
 
 ## 4. Cierre
 
-Explicar el trade-off del índice en memoria y la evolución a Azure AI Search/APIM/Key Vault. Cerrar con la capacidad de Gael para aprender con rapidez, perseverar y convertir problemas ambiguos en entregables verificables.
+Explicar por qué producción usa Azure AI Search mediante identidad administrada
+y por qué CI conserva un adaptador determinista. Cerrar con la capacidad de
+Gael para aprender con rapidez, perseverar y convertir problemas ambiguos en
+entregables verificables.
