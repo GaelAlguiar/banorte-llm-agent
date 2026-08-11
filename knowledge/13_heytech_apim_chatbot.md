@@ -11,8 +11,8 @@ source: experiencia laboral confirmada y artefactos técnicos revisados
 
 Gael desarrolló una Azure Function en Java que operaba como fachada antes de
 API Management. La función validaba la identidad mediante JWT, utilizaba
-Managed Identity para consultar de forma protegida la credencial de suscripción
-necesaria y resolvía el destino correspondiente antes de enrutar la solicitud.
+Managed Identity para resolver de forma protegida la configuración de
+suscripción necesaria y seleccionaba el destino antes de enrutar la solicitud.
 También limitaba los encabezados que podían reenviarse, con el propósito de no
 propagar información sensible o innecesaria entre capas.
 

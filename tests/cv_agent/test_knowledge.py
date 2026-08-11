@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -112,22 +113,42 @@ def test_rag_story_describes_the_deployed_search_backend():
     assert "poder migrar" not in document.text
 
 
-def test_enterprise_portfolio_documents_are_direct_labor_evidence():
-    documents = {
-        item.id: item
-        for item in load_knowledge(Path("knowledge"))
-    }
-    expected_ids = {
-        "heytech-apim-chatbot",
-        "heytech-terraform-multicloud",
-        "heytech-ia-plataforma",
-        "entrega-jira-sprints",
+def test_enterprise_portfolio_documents_have_expected_metadata(tmp_path: Path):
+    filenames = (
+        "13_heytech_apim_chatbot.md",
+        "14_heytech_terraform_multicloud.md",
+        "15_heytech_ia_plataforma.md",
+        "16_entrega_jira.md",
+    )
+    for filename in filenames:
+        source = Path("knowledge") / filename
+        (tmp_path / filename).write_text(
+            source.read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+
+    documents = {item.id: item for item in load_knowledge(tmp_path)}
+    expected = {
+        "heytech-apim-chatbot": ("proyecto", "directa", "inferido", "laboral"),
+        "heytech-terraform-multicloud": (
+            "proyecto",
+            "directa",
+            "inferido",
+            "laboral",
+        ),
+        "heytech-ia-plataforma": ("proyecto", "directa", "inferido", "laboral"),
+        "entrega-jira-sprints": ("historia", "directa", "inferido", "laboral"),
     }
 
-    assert expected_ids <= documents.keys()
-    for document_id in expected_ids:
-        assert documents[document_id].evidence_level == "directa"
-        assert documents[document_id].source_kind == "laboral"
+    assert documents.keys() == expected.keys()
+    for document_id, metadata in expected.items():
+        document = documents[document_id]
+        assert (
+            document.category,
+            document.evidence_level,
+            document.impact_type,
+            document.source_kind,
+        ) == metadata
 
 
 def test_enterprise_portfolio_documents_are_safe_for_public_use():
@@ -140,17 +161,20 @@ def test_enterprise_portfolio_documents_are_safe_for_public_use():
             (16, "entrega_jira"),
         )
     ).lower()
-    forbidden = (
-        "http://",
-        "https://",
-        "terraform.tfvars",
-        "subscription-key",
-        "personal access token",
-        "10.0.",
-        "/users/",
-        "begin private key",
-        "openai_api_key=",
-        "authorization: bearer",
+    forbidden_patterns = (
+        r"https?://",
+        r"\b10(?:\.\d{1,3}){3}\b",
+        r"\b172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}\b",
+        r"\b192\.168(?:\.\d{1,3}){2}\b",
+        r"\b\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}\b",
+        r"(?m)(?:^|[\s\"'=])(?:~|/)(?:[a-z0-9._-]+/)*[a-z0-9._-]+",
+        r"\b[a-z]:\\(?:[^\s\\]+\\)*[^\s\\]+",
+        r"\b(?:github\.com|gitlab\.com|bitbucket\.org)\b",
+        r"(?:\bgit@|\.git\b|terraform\.tfvars)",
+        r"\b(?:password|contraseña|token|credential|credencial|api[ _-]?key|private[ _-]?key|bearer)\b",
     )
 
-    assert not any(marker in text for marker in forbidden)
+    assert not any(
+        re.search(pattern, text, flags=re.IGNORECASE)
+        for pattern in forbidden_patterns
+    )
