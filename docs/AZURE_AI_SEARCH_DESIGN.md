@@ -7,7 +7,7 @@ Reemplazar el índice en memoria utilizado por la aplicación desplegada con un
 del perfil mediante búsqueda textual y vectorial, conservar el contrato Open
 Responses y evitar que una falla de Azure quede oculta por un fallback local.
 
-El despliegue se realizará en la suscripción `Enerey-Prod`, dentro del grupo de
+El despliegue se realizará en `$EXPECTED_SUBSCRIPTION`, dentro del grupo de
 recursos `rg-prueba-b-gael-ai`. Se intentará utilizar el nivel Free. Si ese
 nivel no se encuentra disponible, el proceso debe detenerse antes de crear un
 servicio con costo.
@@ -131,7 +131,7 @@ demuestren.
 
 ## Criterios de aceptación
 
-- El servicio Azure AI Search existe en `Enerey-Prod` con nivel Free.
+- El servicio Azure AI Search existe en `$EXPECTED_SUBSCRIPTION` con nivel Free.
 - El índice contiene todos los documentos autorizados y ningún documento
   eliminado del repositorio.
 - La revisión activa de Container Apps consulta Azure AI Search mediante
