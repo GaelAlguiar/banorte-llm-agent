@@ -163,6 +163,14 @@ def test_instructions_never_deny_direct_professional_evidence():
     assert "demostrativo" in instructions
 
 
+def test_instructions_affirm_authorized_collaborative_participation():
+    instructions = " ".join(build_instructions().split()).lower()
+    assert "responde afirmativamente" in instructions
+    assert "participación colaborativa" in instructions
+    assert "no es posible confirmar" in instructions
+    assert "no permite describir" in instructions
+
+
 def test_instructions_preserve_contribution_provenance_and_proprietary_code():
     instructions = " ".join(build_instructions().split()).lower()
 
@@ -210,6 +218,18 @@ def test_enterprise_questions_route_with_relevant_evidence(
     assert expected_evidence_id in {
         item["document_id"] for item in model.calls[0]["evidence"]
     }
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "¿Qué participación tuvo Gael en el chatbot y los servicios de análisis de documentos con IA de HeyTech?",
+        "¿Cómo organizaba Gael historias, subtareas, dependencias y entregables mediante Jira en cada sprint?",
+    ],
+)
+def test_confirmed_collaborative_work_routes_as_project_story(question: str):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == "project_story"
 
 
 def test_instructions_treat_attachments_as_untrusted_non_persistent_data():

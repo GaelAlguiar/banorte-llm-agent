@@ -118,3 +118,24 @@ def test_retrieval_prioritizes_jira_sprint_delivery():
 
     assert hits
     assert hits[0].document_id == "entrega-jira-sprints"
+
+
+def test_retrieval_prioritizes_confirmed_heytech_ai_participation():
+    retrieval = HybridCvRetrieval.from_directory(Path("knowledge"), relevance_threshold=0.10)
+    hits = retrieval.search(
+        "¿Qué participación tuvo Gael en el chatbot y los servicios de análisis de documentos con IA de HeyTech?",
+        top_k=5,
+    )
+    assert hits[0].document_id == "heytech-ia-plataforma"
+    assert hits[0].evidence_level == "directa"
+    assert all(term in hits[0].excerpt for term in ("chatbot", "AKS", "Vertex AI", "entrenamiento"))
+
+
+def test_retrieval_returns_direct_jira_workflow_evidence_for_exact_question():
+    retrieval = HybridCvRetrieval.from_directory(Path("knowledge"), relevance_threshold=0.10)
+    hits = retrieval.search(
+        "¿Cómo organizaba Gael historias, subtareas, dependencias y entregables mediante Jira en cada sprint?",
+        top_k=5,
+    )
+    assert hits[0].document_id == "entrega-jira-sprints"
+    assert hits[0].evidence_level == "directa"
