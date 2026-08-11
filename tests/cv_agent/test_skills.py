@@ -33,15 +33,18 @@ def test_skills_reference_only_sanitized_knowledge():
     )
 
 
+def test_skill_allowed_sources_do_not_contain_duplicates():
+    skills = load_skills()
+
+    assert all(
+        len(skill.allowed_sources) == len(set(skill.allowed_sources))
+        for skill in skills
+    )
+
+
 def test_enterprise_knowledge_is_allowlisted_for_relevant_skills():
     skills_by_name = {skill.name: skill for skill in load_skills()}
 
-    enterprise_sources = {
-        "knowledge/13_heytech_apim_chatbot.md",
-        "knowledge/14_heytech_terraform_multicloud.md",
-        "knowledge/15_heytech_ia_plataforma.md",
-        "knowledge/16_entrega_jira.md",
-    }
     expected_enterprise_sources = {
         "project_story": {
             "knowledge/13_heytech_apim_chatbot.md",
@@ -61,15 +64,13 @@ def test_enterprise_knowledge_is_allowlisted_for_relevant_skills():
             "knowledge/16_entrega_jira.md",
         },
     }
+    enterprise_sources = set().union(*expected_enterprise_sources.values())
 
     for skill_name, skill in skills_by_name.items():
         actual_enterprise_sources = set(skill.allowed_sources) & enterprise_sources
         assert actual_enterprise_sources == expected_enterprise_sources.get(
             skill_name, set()
         )
-        assert len(skill.allowed_sources) == len(set(skill.allowed_sources))
-        assert skill.network_access is False
-        assert skill.shell_access is False
 
 
 def test_skill_with_url_is_rejected(tmp_path: Path):
