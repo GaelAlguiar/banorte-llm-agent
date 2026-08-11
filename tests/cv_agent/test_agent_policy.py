@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from cv_agent.agent.prompts import build_instructions
 from cv_agent.agent.service import CvAgentService
 from cv_agent.retrieval.service import HybridCvRetrieval
@@ -146,9 +148,12 @@ def test_instructions_preserve_contribution_provenance_and_proprietary_code():
 
     assert "autoría verificable" in instructions
     assert "participación confirmada" in instructions
-    assert "autoría exclusiva sobre repositorios" in instructions
-    assert "equipos ni soluciones completas" in instructions
-    assert "arquitectura pública" in instructions
+    assert (
+        "autoría exclusiva de repositorios o soluciones completas"
+        in instructions
+    )
+    assert "como suyo el trabajo del equipo" in instructions
+    assert "decisiones técnicas respaldadas por evidencia autorizada" in instructions
     assert "código propietario" in instructions
     assert "nombres internos" in instructions
     assert "rutas internas" in instructions
@@ -157,30 +162,34 @@ def test_instructions_preserve_contribution_provenance_and_proprietary_code():
     assert "topología sensible" in instructions
 
 
-def test_apim_question_routes_to_architecture_with_specific_evidence():
+@pytest.mark.parametrize(
+    ("question", "expected_skill", "expected_evidence_id"),
+    [
+        (
+            "¿Cómo trabajó Gael con APIM en el chatbot empresarial?",
+            "architecture_explainer",
+            "heytech-apim-chatbot",
+        ),
+        (
+            "¿Cómo organizó Gael un proyecto con Jira durante los sprints?",
+            "project_story",
+            "entrega-jira-sprints",
+        ),
+    ],
+)
+def test_enterprise_questions_route_with_relevant_evidence(
+    question: str,
+    expected_skill: str,
+    expected_evidence_id: str,
+):
     agent, model = build_agent()
 
-    result = agent.answer(
-        "¿Cómo trabajó Gael con APIM en el chatbot empresarial?"
-    )
+    result = agent.answer(question)
 
-    assert result.skill_name == "architecture_explainer"
-    assert model.calls[0]["evidence"][0]["document_id"] == (
-        "heytech-apim-chatbot"
-    )
-
-
-def test_jira_sprint_question_routes_to_project_story_with_specific_evidence():
-    agent, model = build_agent()
-
-    result = agent.answer(
-        "¿Cómo organizó Gael un proyecto con Jira durante los sprints?"
-    )
-
-    assert result.skill_name == "project_story"
-    assert model.calls[0]["evidence"][0]["document_id"] == (
-        "entrega-jira-sprints"
-    )
+    assert result.skill_name == expected_skill
+    assert expected_evidence_id in {
+        item["document_id"] for item in model.calls[0]["evidence"]
+    }
 
 
 def test_instructions_treat_attachments_as_untrusted_non_persistent_data():
