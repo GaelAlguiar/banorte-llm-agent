@@ -1,0 +1,81 @@
+from cv_agent.knowledge.models import KnowledgeDocument
+from cv_agent.retrieval.ingest import (
+    build_search_document,
+    sync_documents,
+)
+
+
+class FakeEmbeddings:
+    def embed(self, text):
+        return [0.1, 0.2, 0.3]
+
+
+def document(identifier="profile"):
+    return KnowledgeDocument(
+        id=identifier,
+        title="Perfil",
+        category="perfil",
+        evidence_level="directa",
+        impact_type="confirmado",
+        source_kind="perfil",
+        source="CV",
+        text="Contenido",
+    )
+
+
+def test_build_search_document_contains_metadata_hash_and_vector():
+    result = build_search_document(document(), FakeEmbeddings())
+
+    assert result["id"] == "profile"
+    assert result["title"] == "Perfil"
+    assert result["content"] == "Contenido"
+    assert result["content_vector"] == [0.1, 0.2, 0.3]
+    assert len(result["content_hash"]) == 64
+
+
+class FakeSearchClient:
+    def __init__(self):
+        self.uploaded = []
+        self.deleted = []
+
+    def search(self, **kwargs):
+        return [{"id": "old-id"}, {"id": "profile"}]
+
+    def upload_documents(self, documents):
+        self.uploaded.extend(documents)
+        return [type("Result", (), {"succeeded": True})()]
+
+    def delete_documents(self, documents):
+        self.deleted.extend(documents)
+        return [type("Result", (), {"succeeded": True})()]
+
+
+def test_sync_uploads_current_documents_and_deletes_stale_ids():
+    client = FakeSearchClient()
+
+    summary = sync_documents(
+        client=client,
+        documents=[document()],
+        embeddings=FakeEmbeddings(),
+    )
+
+    assert [item["id"] for item in client.uploaded] == ["profile"]
+    assert client.deleted == [{"id": "old-id"}]
+    assert summary == {"uploaded": 1, "deleted": 1}
+
+
+def test_sync_fails_when_azure_rejects_an_upload():
+    class RejectingClient(FakeSearchClient):
+        def upload_documents(self, documents):
+            return [type("Result", (), {"succeeded": False})()]
+
+    try:
+        sync_documents(
+            client=RejectingClient(),
+            documents=[document()],
+            embeddings=FakeEmbeddings(),
+        )
+    except RuntimeError as error:
+        assert "carga" in str(error).lower()
+    else:
+        raise AssertionError("La ingesta debió fallar")
