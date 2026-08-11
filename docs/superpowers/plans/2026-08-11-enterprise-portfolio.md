@@ -316,15 +316,15 @@ Expected: CI succeeds and the PR becomes MERGED.
 az account show --query '{subscription:name,tenant:tenantId,user:user.name}' -o table
 ```
 
-Expected: approved `Enerey-Prod` context. Stop on any mismatch.
+Expected: approved `$EXPECTED_SUBSCRIPTION` context. Stop on any mismatch.
 
 - [ ] **Step 2: Reindex sanitized knowledge**
 
 Load the Search admin key without printing it, then run:
 
 ```bash
-export AZURE_SEARCH_ENDPOINT="https://srch-prueba-b-gael-ai.search.windows.net"
-export AZURE_SEARCH_INDEX="cv-profile-v1"
+: "${AZURE_SEARCH_ENDPOINT:?Set the approved Azure Search endpoint}"
+: "${AZURE_SEARCH_INDEX:?Set the approved Azure Search index}"
 python -m cv_agent.retrieval.ingest --knowledge knowledge
 unset AZURE_SEARCH_ADMIN_KEY
 ```
@@ -336,7 +336,7 @@ Expected: complete authorized document count and no credential output.
 ```bash
 git switch main
 git pull --ff-only origin main
-export EXPECTED_SUBSCRIPTION="Enerey-Prod"
+: "${EXPECTED_SUBSCRIPTION:?Set the approved Azure subscription}"
 export CONFIRM_AZURE_CONTEXT=YES
 bash infra/azure/deploy.sh
 ```
@@ -346,7 +346,8 @@ Expected: immutable image, ready Container Apps revision, and public endpoint.
 - [ ] **Step 4: Validate production**
 
 ```bash
-curl --fail --silent https://ca-prueba-b-gael-ai.agreeablefield-a028190c.eastus.azurecontainerapps.io/health/ready
+: "${PUBLIC_AGENT_BASE_URL:?Set the approved public agent base URL}"
+curl --fail --silent "$PUBLIC_AGENT_BASE_URL/health/ready"
 ```
 
 Send authenticated Open Responses requests for APIM, Terraform, document AI, and Jira. Expected: HTTP 200, specific answers, and no internal details.
