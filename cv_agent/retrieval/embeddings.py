@@ -14,7 +14,7 @@ class EmbeddingProvider(Protocol):
 
 
 class LocalEmbeddingProvider:
-    """Deterministic feature hashing for offline tests and retrieval fallback."""
+    """Deterministic feature hashing for local tests and evaluation."""
 
     def __init__(self, dimensions: int = 1024):
         self.dimensions = dimensions

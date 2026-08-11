@@ -5,7 +5,7 @@ Agente conversacional en español construido para el Reto IA Banorte. Permite ex
 ## Qué demuestra
 
 - Python y FastAPI con contrato `POST /v1/responses` y streaming SSE.
-- RAG sobre una base profesional sanitizada, con recuperación vectorial local, BM25, Reciprocal Rank Fusion y umbral de relevancia.
+- RAG sobre una base profesional sanitizada, con búsqueda híbrida de Azure AI Search, embeddings de OpenAI, filtros y umbral de relevancia.
 - Skills declarativas y auditables para perfil, proyectos, arquitectura, ajuste a la vacante, aprendizaje y privacidad.
 - Guardrails contra extracción de secretos e instrucciones internas.
 - Análisis multimodal de imágenes y archivos temporales sin agregarlos al RAG.
@@ -20,10 +20,10 @@ Plataforma Banorte
   -> HTTPS + Bearer token
   -> FastAPI /v1/responses
       -> guardrails y selección de skill
-      -> retrieval híbrido
-          -> feature hashing vectorial
-          -> BM25
-          -> RRF + reranking + threshold
+      -> Azure AI Search
+          -> búsqueda textual BM25
+          -> búsqueda vectorial con embeddings
+          -> fusión híbrida + filtros + threshold
       -> OpenAI Responses API
       -> respuesta Open Responses JSON o SSE
 ```
@@ -55,6 +55,9 @@ Salud:
 ```bash
 curl http://127.0.0.1:8000/health
 ```
+
+En el despliegue, `/health/ready` comprueba además el acceso efectivo al
+índice de Azure AI Search.
 
 Consulta no streaming:
 
@@ -145,13 +148,27 @@ runtime y la imagen no contiene claves ni archivos de entorno.
 **Operación.** El servicio expone una sonda de salud, aplica autenticación,
 límites de tamaño y tasa, y registra únicamente metadatos permitidos. La matriz
 de evaluación cubre recuperación, groundedness, privacidad, estilo y routing.
-En una operación de mayor escala, la tasa se movería a APIM o Front Door y el
-índice a Azure AI Search o PostgreSQL con pgvector.
+La aplicación desplegada consulta Azure AI Search con identidad administrada;
+la ingesta usa permisos administrativos solamente durante una operación
+separada y controlada.
 
-**Criterio técnico.** Para el alcance actual se utiliza un índice en memoria:
-reduce complejidad, facilita pruebas deterministas y es suficiente para una
-base profesional pequeña. La decisión es deliberada y tiene una ruta clara de
-evolución si aumentan volumen, tráfico o requisitos de observabilidad.
+**Criterio técnico.** Producción utiliza Azure AI Search para demostrar una
+arquitectura cloud operable y escalable. El recuperador determinista local se
+conserva exclusivamente para pruebas rápidas, reproducibles y sin costo; no
+existe fallback silencioso cuando Azure está configurado como backend.
+
+### Ingesta autorizada
+
+La base se sincroniza de manera explícita. El proceso calcula hashes y
+embeddings, actualiza documentos vigentes y elimina registros que ya no estén
+en `knowledge/`:
+
+```bash
+python -m cv_agent.retrieval.ingest --knowledge knowledge
+```
+
+La ingesta requiere temporalmente `AZURE_SEARCH_ADMIN_KEY`. Esa credencial no
+se guarda en la imagen ni se entrega al proceso web.
 
 ## Evaluación
 
@@ -179,10 +196,15 @@ docker run --rm -p 8000:8000 \
 - `/v1/responses` usa comparación constante del token.
 - Los logs contienen metadatos allowlistados, no prompts, documentos ni headers.
 - Los skills públicos son YAML declarativo: no ejecutan shell, red ni código remoto.
-- La limitación en memoria es suficiente para el reto; con múltiples réplicas se sustituiría por APIM, Front Door o un almacén distribuido.
+- La identidad de Container Apps recibe únicamente `Search Index Data Reader`.
+- Con múltiples réplicas, el límite de tasa se movería a APIM, Front Door o un almacén distribuido.
 
 Consulta [Arquitectura](docs/ARCHITECTURE.md), [Seguridad](docs/SECURITY.md), [Evaluación](docs/EVALUATION.md), [contrato de plataforma](docs/BANORTE_PLATFORM_CONTRACT.md) y [guion de demostración](docs/DEMO.md).
 
 ## Decisiones y límites
 
-La versión del reto usa un índice en memoria por su pequeño volumen, arranque simple y evaluación determinista. En producción se migraría a Azure AI Search o PostgreSQL con pgvector, se añadiría telemetría distribuida y evaluación con conversaciones reales anonimizadas. El agente no aprende automáticamente de cada conversación: mejorar conocimiento, prompts o modelos requiere un ciclo controlado de datos, evaluación, revisión y despliegue.
+La versión desplegada usa Azure AI Search Free con búsqueda híbrida e identidad
+administrada. La evaluación offline conserva un motor determinista para que CI
+no dependa de red, credenciales ni consumo externo. El agente no aprende
+automáticamente de cada conversación: mejorar conocimiento, prompts o modelos
+requiere un ciclo controlado de datos, evaluación, revisión e ingesta.

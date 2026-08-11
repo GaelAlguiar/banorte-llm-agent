@@ -4,6 +4,11 @@
 
 La evaluación offline utiliza un adaptador determinista sobre el retrieval real. Así mide recuperación y routing sin que la variabilidad o costo del LLM oculten regresiones. Las métricas son Recall@5, MRR, groundedness por evidencia, términos requeridos/prohibidos, privacidad, estilo, routing y percentiles de latencia.
 
+El adaptador offline conserva el mismo contrato que Azure AI Search, pero no
+pretende sustituir la prueba productiva. Después del despliegue se ejecutan los
+casos de `evals/azure_search_cases.jsonl` contra el endpoint público y se valida
+`/health/ready` para demostrar que Azure atendió las consultas.
+
 ```bash
 python -m cv_agent.evaluation.runner
 ```
