@@ -128,13 +128,21 @@ class CvAgentService:
         if not question.strip():
             raise ValueError("La pregunta no puede estar vacía")
         skill = self._select_skill(question)
-        evidence = self.tools.search_profile(
-            question,
-            categories=list(skill.allowed_categories),
-            top_k=8,
-        )
-        if not evidence:
-            evidence = self.tools.search_profile(question, top_k=3)
+        evidence = []
+        if skill.name != "privacy_guard":
+            evidence = self.tools.search_profile(
+                question,
+                categories=list(skill.allowed_categories),
+                top_k=8,
+            )
+            if not evidence:
+                evidence = self.tools.search_profile(question, top_k=3)
+            if (
+                skill.name == "profile_summary"
+                and evidence
+                and evidence[0]["score"] < 0.45
+            ):
+                evidence = []
         text = self.model.generate(
             question=question,
             evidence=evidence,
