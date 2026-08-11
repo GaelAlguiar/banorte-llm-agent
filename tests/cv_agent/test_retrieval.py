@@ -166,3 +166,33 @@ def test_retrieval_returns_direct_jira_workflow_evidence_for_exact_question():
     )
     assert hits[0].document_id == "entrega-jira-sprints"
     assert hits[0].evidence_level == "directa"
+
+
+def test_multicloud_case_preserves_primary_enterprise_evidence_rank():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "Explica la conectividad que implementó entre Azure, AWS y Google Cloud.",
+        top_k=8,
+        categories={"proyecto", "habilidad", "historia"},
+    )
+
+    assert hits[0].document_id == "heytech-terraform-multicloud"
+
+
+def test_role_fit_case_preserves_vacancy_and_profile_ranks():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Qué lo diferencia frente a otro candidato?",
+        top_k=8,
+        categories={"vacante", "perfil", "experiencia", "proyecto", "habilidad"},
+    )
+    positions = {hit.document_id: index for index, hit in enumerate(hits, 1)}
+
+    assert positions["ajuste-vacante-banorte"] <= 4
+    assert positions["perfil-gael"] <= 5
