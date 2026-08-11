@@ -77,7 +77,7 @@ Azure Container Apps y mostrar la revisión activa, la imagen y la identidad.
 
 **Speech:**
 
-> Aquí está la infraestructura desplegada en la suscripción Enerey-Prod. Azure
+> Aquí está la infraestructura desplegada en la suscripción configurada para la demostración. Azure
 > AI Search está activo en nivel Free y el índice contiene doce documentos
 > autorizados. La API corre en Azure Container Apps como un contenedor sin
 > privilegios. Para conectarse al buscador no almacena una clave administrativa:

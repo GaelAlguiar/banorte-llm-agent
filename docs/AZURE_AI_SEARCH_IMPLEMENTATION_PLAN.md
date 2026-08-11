@@ -559,19 +559,19 @@ Expected: sin errores, secretos ni cambios inesperados.
 ### Task 9: Crear recursos e ingerir conocimiento
 
 **Files:**
-- Azure subscription: `Enerey-Prod`
+- Azure subscription: `$EXPECTED_SUBSCRIPTION`
 
 - [ ] **Step 1: Confirmar contexto exacto**
 
 Run: `az account show --query '{name:name,user:user.name,id:id}' -o table`
 
-Expected: `Enerey-Prod`, `appenerey@gmail.com`, suscripción
-`5825f561-1940-4b7e-8219-b85800fcc7e6`.
+Expected: `$EXPECTED_SUBSCRIPTION`, `<deployment-account>`, suscripción
+`<subscription-id>`.
 
 - [ ] **Step 2: Ejecutar despliegue con confirmación explícita**
 
 ```bash
-EXPECTED_SUBSCRIPTION="Enerey-Prod" \
+EXPECTED_SUBSCRIPTION="$EXPECTED_SUBSCRIPTION" \
 CONFIRM_AZURE_CONTEXT=YES \
 OPENAI_API_KEY="$OPENAI_API_KEY" \
 AGENT_API_KEY="$AGENT_API_KEY" \
