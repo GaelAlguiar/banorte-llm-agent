@@ -114,7 +114,10 @@ def build_search_document(
         "content_hash": hashlib.sha256(
             vector_text.encode("utf-8")
         ).hexdigest(),
-        "content_vector": list(embeddings.embed(vector_text)),
+        "content_vector": [
+            float(value)
+            for value in embeddings.embed(vector_text)
+        ],
     }
 
 

@@ -1,3 +1,7 @@
+import json
+
+import numpy as np
+
 from cv_agent.knowledge.models import KnowledgeDocument
 from cv_agent.retrieval.ingest import (
     build_search_document,
@@ -31,6 +35,18 @@ def test_build_search_document_contains_metadata_hash_and_vector():
     assert result["content"] == "Contenido"
     assert result["content_vector"] == [0.1, 0.2, 0.3]
     assert len(result["content_hash"]) == 64
+
+
+def test_build_search_document_is_json_serializable_with_numpy_vector():
+    class NumpyEmbeddings:
+        def embed(self, text):
+            return np.asarray([0.1, 0.2, 0.3], dtype=np.float32)
+
+    result = build_search_document(document(), NumpyEmbeddings())
+
+    encoded = json.dumps(result)
+    assert "content_vector" in encoded
+    assert all(type(value) is float for value in result["content_vector"])
 
 
 class FakeSearchClient:
