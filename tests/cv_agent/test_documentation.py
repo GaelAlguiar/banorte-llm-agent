@@ -20,6 +20,17 @@ def test_readme_leads_with_the_own_web_demo_and_open_responses_endpoint():
     assert "Endpoint Open Responses" in intro
 
 
+def test_readme_leads_with_the_public_technical_explanation_video():
+    text = Path("README.md").read_text(encoding="utf-8")
+    intro = text.split("## Qué demuestra", 1)[0]
+
+    assert "Video de explicación técnica" in intro
+    assert (
+        "https://drive.google.com/drive/folders/"
+        "1fdmyEcbajGlFgh1L0QhhXuE-cl3ISTnL?usp=sharing"
+    ) in intro
+
+
 def test_readme_describes_active_azure_search_architecture():
     text = Path("README.md").read_text(encoding="utf-8")
 
