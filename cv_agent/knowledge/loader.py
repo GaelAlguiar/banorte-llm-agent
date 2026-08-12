@@ -158,6 +158,15 @@ def _bounded_parts(text: str, limit: int, overlap: int) -> list[str]:
         words = paragraph.split()
         current = ""
         for word in words:
+            if len(word) > limit:
+                if current:
+                    units.append(current)
+                    current = ""
+                units.extend(
+                    word[index:index + limit]
+                    for index in range(0, len(word), limit)
+                )
+                continue
             candidate = f"{current} {word}".strip()
             if current and len(candidate) > limit:
                 units.append(current)

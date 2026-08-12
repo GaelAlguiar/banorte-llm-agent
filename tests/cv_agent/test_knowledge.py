@@ -230,6 +230,25 @@ source: CV
     assert "Párrafo 7" in chunks[-1].text
 
 
+def test_single_oversized_token_never_exceeds_chunk_bound(tmp_path: Path):
+    content = """---
+id: token-largo
+title: Token largo
+category: proyecto
+evidence_level: directa
+source: CV
+---
+""" + ("x" * 900)
+    (tmp_path / "token.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(
+        tmp_path, split_threshold=1, max_chunk_chars=300, overlap_chars=30
+    )
+
+    assert len(chunks) == 3
+    assert all(len(chunk.text) <= 300 for chunk in chunks)
+
+
 def test_rag_story_describes_the_deployed_search_backend():
     document = next(
         item
