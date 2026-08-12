@@ -27,8 +27,37 @@ contra el endpoint live. Después del despliegue se ejecutan los
 casos de `evals/azure_search_cases.jsonl` contra el endpoint público y se valida
 `/health/ready` para demostrar que Azure atendió las consultas.
 
+## Contratos de respuesta offline
+
+`evals/response_contract_cases.jsonl` es una segunda capa, independiente de
+`EvidenceModel`. Contiene respuestas representativas curadas y deterministas;
+no contiene prosa generada por OpenAI ni intenta simular la distribución de un
+modelo. Comprueba propiedades observables de respuestas sobre experiencia y
+proyectos directos, ajuste humilde al rol Junior, tecnología adyacente o
+desconocida, conducta con STAR sólo cuando está confirmado, seguridad y
+privacidad, redirección fuera de alcance y comparaciones multimodales de
+vacante, CV, proyecto y arquitectura.
+
+Cada fixture declara su procedencia autorizada, términos necesarios y
+prohibidos, etiquetas de experiencia directa, relacionada o transferible
+cuando aplican, y elementos de problema, acción y resultado cuando la evidencia
+los respalda. El evaluador también rechaza boilerplate negativo ante evidencia
+autorizada, afirmaciones senior, detalles inventados o sensibles, respuestas
+indirectas y estructuras innecesariamente extensas. Exige cero fallos core y
+un piso de 90% por categoría.
+
 ```bash
 python -m cv_agent.evaluation.runner
+python -m cv_agent.evaluation.response_contracts
 ```
 
-El reporte local se escribe en `outputs/cv_agent_evaluation.json` y se ignora en Git. CI vuelve a ejecutar la matriz desde cero. Esta evaluación no sustituye pruebas humanas ni evaluación del modelo; para producción se agregarían jueces calibrados, conjuntos reales anonimizados, análisis de alucinación y monitoreo de drift.
+Los reportes locales se escriben en `outputs/cv_agent_evaluation.json` y
+`outputs/response_contract_evaluation.json`; ambos se ignoran en Git. Un
+resultado perfecto en contratos significa solamente que los fixtures curados
+cumplen la política codificada. Antes de liberar cambios de respuesta sigue
+siendo obligatorio un smoke productivo de una sola consulta contra el endpoint
+live, con OpenAI real, para revisar respuesta directa, atribución, tono Junior,
+ausencia de invenciones y trazabilidad. Esta evaluación no sustituye pruebas
+humanas ni evaluación del modelo; para producción se agregarían jueces
+calibrados, conjuntos reales anonimizados, análisis de alucinación y monitoreo
+de drift.

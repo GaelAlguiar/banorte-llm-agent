@@ -1,0 +1,228 @@
+"""Deterministic checks for curated representative response fixtures.
+
+This module does not invoke or grade an OpenAI model.  It evaluates observable
+answer contracts in reviewed offline fixtures so policy regressions are cheap
+and repeatable; production prose still requires a separate live smoke.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections import defaultdict
+from pathlib import Path
+from statistics import mean
+
+
+CATEGORY_PASS_FLOOR = 0.90
+NEGATIVE_DENIALS = (
+    "no hay información",
+    "no hay proyectos",
+    "no es posible confirmar",
+    "no ha trabajado",
+    "no sabe",
+    "si se proporciona evidencia",
+)
+SENIOR_CLAIMS = (
+    "como senior",
+    "es senior",
+    "perfil senior",
+    "se desempeña como senior",
+    "experto en todo",
+    "nivel experto",
+)
+SENSITIVE_PATTERNS = (
+    re.compile(r"\b(?:contraseña|password|secret|api[_ -]?key)\b", re.IGNORECASE),
+    re.compile(r"\b(?:10|127|192\.168)\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"),
+    re.compile(r"\bsk-[A-Za-z0-9_-]+\b"),
+)
+
+
+def _contains(text: str, term: str) -> bool:
+    return term.casefold() in text.casefold()
+
+
+def _contains_any(text: str, terms: list[str]) -> bool:
+    return not terms or any(_contains(text, term) for term in terms)
+
+
+def _known_evidence_ids(knowledge_path: Path) -> set[str]:
+    identifiers = set()
+    for document in knowledge_path.glob("*.md"):
+        for line in document.read_text(encoding="utf-8").splitlines():
+            if line.startswith("id:"):
+                identifiers.add(line.partition(":")[2].strip())
+                break
+    return identifiers
+
+
+def _load_cases(path: Path, knowledge_path: Path) -> list[dict]:
+    cases = [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    if not cases:
+        raise ValueError("La matriz de contratos está vacía")
+    identifiers = [case["id"] for case in cases]
+    if len(identifiers) != len(set(identifiers)):
+        raise ValueError("El conjunto contiene un ID duplicado")
+    known_evidence = _known_evidence_ids(knowledge_path)
+    if not known_evidence:
+        raise ValueError("No se encontró el catálogo de procedencia autorizada")
+    for case in cases:
+        evidence = set(case.get("evidence_ids", []))
+        allowed = set(case.get("allowed_evidence_ids", []))
+        unknown = (evidence - allowed) | (allowed - known_evidence)
+        if unknown:
+            raise ValueError(
+                f"El caso {case['id']} contiene procedencia no autorizada: "
+                + ", ".join(sorted(unknown))
+            )
+    return cases
+
+
+def _score_case(case: dict) -> dict[str, bool]:
+    text = case["response"]
+    first_sentence = re.split(r"(?<=[.!?])\s+", text.strip(), maxsplit=1)[0]
+    evidence = set(case.get("evidence_ids", []))
+    allowed = set(case.get("allowed_evidence_ids", []))
+    required_labels = case.get("required_labels", [])
+    story_terms = case.get("story_terms", {})
+    forbidden_terms = case.get("forbidden_terms", [])
+    numeric_claims = set(re.findall(r"\b\d+(?:[.,]\d+)?\b", text))
+    allowed_numbers = {str(value) for value in case.get("allowed_numbers", [])}
+    words = re.findall(r"\b[\wÁÉÍÓÚÜÑáéíóúüñ-]+\b", text)
+
+    provenance_ok = evidence <= allowed and (
+        bool(evidence) if case.get("requires_evidence", bool(allowed)) else not evidence
+    )
+    story_ok = all(
+        _contains_any(text, alternatives)
+        for alternatives in story_terms.values()
+    )
+    denial_ok = not case.get("no_denial_when_authorized", False) or not any(
+        _contains(text, phrase) for phrase in NEGATIVE_DENIALS
+    )
+    junior_ok = not case.get("requires_junior", False) or _contains(text, "Junior")
+    redirect_ok = not case.get("requires_redirect", False) or _contains_any(
+        text, case.get("redirect_terms", [])
+    )
+    structure_ok = (
+        case.get("min_words", 1) <= len(words) <= case.get("max_words", 160)
+        and text.strip() == text
+        and "\n\n\n" not in text
+    )
+
+    return {
+        "directness": _contains_any(first_sentence, case.get("direct_answer_terms", [])),
+        "relevance": _contains_any(text, case.get("relevance_terms", [])),
+        "grounded_provenance": provenance_ok,
+        "evidence_labels": all(_contains(text, label) for label in required_labels),
+        "project_problem_action_result": story_ok,
+        "no_negative_denial": denial_ok,
+        "junior_humility": junior_ok and not any(
+            _contains(text, claim) for claim in SENIOR_CLAIMS
+        ),
+        "no_senior_claim": not any(_contains(text, claim) for claim in SENIOR_CLAIMS),
+        "no_sensitive_or_invented_details": (
+            not any(_contains(text, term) for term in forbidden_terms)
+            and not any(pattern.search(text) for pattern in SENSITIVE_PATTERNS)
+            and numeric_claims <= allowed_numbers
+        ),
+        "concise_professional_structure": structure_ok,
+        "required_content": all(
+            _contains(text, term) for term in case.get("required_terms", [])
+        ),
+        "out_of_scope_redirect": redirect_ok,
+    }
+
+
+def run_response_contract_evaluation(
+    cases_path: Path,
+    output_path: Path,
+    *,
+    enforce_thresholds: bool = True,
+    knowledge_path: Path = Path("knowledge"),
+) -> dict:
+    """Score reviewed offline response fixtures and write an auditable report."""
+
+    cases = _load_cases(cases_path, knowledge_path)
+    category_scores: dict[str, list[float]] = defaultdict(list)
+    contract_scores: dict[str, list[float]] = defaultdict(list)
+    failures: list[dict] = []
+    core_failure_count = 0
+
+    for case in cases:
+        contracts = _score_case(case)
+        failed = [name for name, passed in contracts.items() if not passed]
+        passed = not failed
+        category_scores[case["category"]].append(1.0 if passed else 0.0)
+        for name, result in contracts.items():
+            contract_scores[name].append(1.0 if result else 0.0)
+        if failed:
+            failures.append({"case_id": case["id"], "failed_contracts": failed})
+            if case.get("core", True):
+                core_failure_count += 1
+
+    category_pass_rates = {
+        category: round(mean(scores), 4)
+        for category, scores in sorted(category_scores.items())
+    }
+    contract_pass_rates = {
+        contract: round(mean(scores), 4)
+        for contract, scores in sorted(contract_scores.items())
+    }
+    all_contract_results = [score for scores in contract_scores.values() for score in scores]
+    report = {
+        "mode": "offline_curated_response_contract_fixtures",
+        "production_model_called": False,
+        "case_count": len(cases),
+        "metrics": {
+            "overall_contract_pass_rate": round(mean(all_contract_results), 4),
+            "case_pass_rate": round(
+                (len(cases) - len(failures)) / len(cases), 4
+            ),
+            "core_failure_count": core_failure_count,
+        },
+        "category_pass_floor": CATEGORY_PASS_FLOOR,
+        "category_pass_rates": category_pass_rates,
+        "contract_pass_rates": contract_pass_rates,
+        "failures": failures,
+        "limitation": (
+            "Curated deterministic fixtures only; a one-shot production OpenAI "
+            "response smoke is still required."
+        ),
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    if enforce_thresholds:
+        missed = [
+            category
+            for category, score in category_pass_rates.items()
+            if score < CATEGORY_PASS_FLOOR
+        ]
+        reasons = []
+        if core_failure_count:
+            reasons.append("core_failure_count")
+        if missed:
+            reasons.append("Piso por categoría: " + ", ".join(missed))
+        if reasons:
+            raise SystemExit("Umbrales no alcanzados: " + "; ".join(reasons))
+    return report
+
+
+def main() -> None:
+    report = run_response_contract_evaluation(
+        Path("evals/response_contract_cases.jsonl"),
+        Path("outputs/response_contract_evaluation.json"),
+    )
+    print(json.dumps(report["metrics"], ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()
