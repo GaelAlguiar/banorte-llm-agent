@@ -167,7 +167,8 @@ class HybridCvRetrieval:
             exact_title_terms = query_terms & title_terms
             if exact_title_terms & {
                 "terraform", "apim", "aks", "firebase", "entra",
-                "whatsapp", "rag", "a2a", "mcp", "azure", "aws", "gcp",
+                "whatsapp", "ios", "rag", "a2a", "mcp",
+                "azure", "aws", "gcp",
             }:
                 final += 0.40
             if employment_query and document.source_kind == "laboral":
