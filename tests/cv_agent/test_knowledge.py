@@ -122,6 +122,13 @@ def test_older_knowledge_defaults_to_profile_source_kind():
     assert profile.source_kind == "perfil"
 
 
+def test_loaded_knowledge_exposes_its_canonical_skill_source_path():
+    documents = load_knowledge(Path("knowledge"))
+    freelance = next(item for item in documents if item.id == "freelance-global-lugra")
+
+    assert freelance.source_path == "knowledge/17_freelance_global_lugra.md"
+
+
 def test_rag_story_describes_the_deployed_search_backend():
     document = next(
         item
@@ -154,7 +161,7 @@ def test_enerey_ai_evidence_distinguishes_customer_and_internal_chatbots():
     assert "sin dar acceso irrestricto" in text
 
 
-def test_enerey_portfolio_and_freelance_work_have_correct_authorship():
+def test_enerey_portfolio_and_freelance_work_have_separate_provenance():
     documents = {
         item.id: " ".join(item.text.lower().split())
         for item in load_knowledge(Path("knowledge"))
@@ -167,9 +174,28 @@ def test_enerey_portfolio_and_freelance_work_have_correct_authorship():
         "aplicación ios", "chatbot interno", "whatsapp",
         "seguimiento de pedidos", "cotizaciones",
     ))
-    assert "freelance" in enerey
-    assert "global" in enerey
-    assert "lugra" in enerey
+    assert "freelance" not in enerey
+    assert "global" not in enerey
+    assert "lugra" not in enerey
+
+    freelance = documents["freelance-global-lugra"]
+    assert all(term in freelance for term in (
+        "freelance", "global", "lugra", "sitios", "catálogos",
+    ))
+
+
+def test_freelance_document_has_direct_project_metadata():
+    document = next(
+        item for item in load_knowledge(Path("knowledge"))
+        if item.id == "freelance-global-lugra"
+    )
+
+    assert (
+        document.category,
+        document.evidence_level,
+        document.impact_type,
+        document.source_kind,
+    ) == ("proyecto", "directa", "confirmado", "laboral")
 
 
 def test_enterprise_portfolio_documents_have_expected_metadata(tmp_path: Path):

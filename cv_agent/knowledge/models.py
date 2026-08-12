@@ -17,3 +17,4 @@ class KnowledgeDocument:
     source_kind: SourceKind
     source: str
     text: str
+    source_path: str = ""

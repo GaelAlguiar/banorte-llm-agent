@@ -50,6 +50,7 @@ def _parse_document(path: Path) -> KnowledgeDocument:
         source_kind=source_kind,  # type: ignore[arg-type]
         source=metadata["source"],
         text=text.strip(),
+        source_path=f"knowledge/{path.name}",
     )
 
 

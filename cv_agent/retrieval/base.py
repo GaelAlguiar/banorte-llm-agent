@@ -12,6 +12,7 @@ class RetrievalService(Protocol):
         query: str,
         top_k: int = 5,
         categories: set[str] | None = None,
+        allowed_document_ids: set[str] | None = None,
     ) -> list[RetrievalHit]:
         ...
 

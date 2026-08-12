@@ -9,10 +9,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from cv_agent.api.models import CreateResponseRequest, extract_user_input
 from cv_agent.security.auth import valid_bearer
-from cv_agent.security.guardrails import (
-    SAFE_PRIVACY_RESPONSE,
-    requests_sensitive_information,
-)
 
 
 router = APIRouter()
@@ -139,22 +135,19 @@ def create_response(body: CreateResponseRequest, request: Request):
                 }
             },
         )
-    if requests_sensitive_information(question):
-        answer_text = SAFE_PRIVACY_RESPONSE
-    else:
-        agent = request.app.state.agent
-        if agent is None:
-            raise HTTPException(
-                status_code=503,
-                detail="El agente no está configurado.",
-            )
-        answer_text = agent.answer(
-            question,
-            attachments=user_input.attachments,
-            reasoning_effort=(
-                body.reasoning.effort if body.reasoning else None
-            ),
-        ).text
+    agent = request.app.state.agent
+    if agent is None:
+        raise HTTPException(
+            status_code=503,
+            detail="El agente no está configurado.",
+        )
+    answer_text = agent.answer(
+        question,
+        attachments=user_input.attachments,
+        reasoning_effort=(
+            body.reasoning.effort if body.reasoning else None
+        ),
+    ).text
     response_id = _ident("resp")
     message_id = _ident("msg")
     created_at = int(time.time())

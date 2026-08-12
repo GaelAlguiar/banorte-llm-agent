@@ -14,8 +14,10 @@ from cv_agent.config import Settings
 from cv_agent.observability.logging import log_event
 from cv_agent.retrieval.factory import build_retrieval
 from cv_agent.security.limits import SlidingWindowLimiter
+from cv_agent.security.privacy_intent import OpenAIPrivacyIntentClassifier
 from cv_agent.skills.registry import load_skills
 from cv_agent.web.app import create_flask_app
+from cv_agent.web.suggestions import SUGGESTED_QUESTIONS
 
 
 def _build_agent(settings: Settings) -> CvAgentService | None:
@@ -28,6 +30,11 @@ def _build_agent(settings: Settings) -> CvAgentService | None:
             api_key=settings.openai_api_key,
             model=settings.model,
         ),
+        privacy_classifier=OpenAIPrivacyIntentClassifier(
+            api_key=settings.openai_api_key,
+            model=settings.privacy_classifier_model or settings.model,
+        ),
+        trusted_benign_questions=SUGGESTED_QUESTIONS,
     )
 
 

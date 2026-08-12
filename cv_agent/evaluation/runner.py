@@ -193,8 +193,11 @@ def run_evaluation(
 def main() -> None:
     from cv_agent.agent.service import CvAgentService
     from cv_agent.retrieval.service import HybridCvRetrieval
+    from cv_agent.security.privacy_intent import DeterministicPrivacyIntentClassifier
     from cv_agent.skills.registry import load_skills
 
+    cases_path = Path("evals/cv_agent_cases.jsonl")
+    cases = _load_cases(cases_path)
     agent = CvAgentService(
         retrieval=HybridCvRetrieval.from_directory(
             Path("knowledge"),
@@ -202,9 +205,10 @@ def main() -> None:
         ),
         skills=load_skills(),
         model=EvidenceModel(),
+        privacy_classifier=DeterministicPrivacyIntentClassifier(),
     )
     report = run_evaluation(
-        Path("evals/cv_agent_cases.jsonl"),
+        cases_path,
         agent,
         Path("outputs/cv_agent_evaluation.json"),
     )
