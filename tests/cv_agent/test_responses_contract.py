@@ -513,6 +513,12 @@ def test_streaming_response_matches_reference_event_sequence():
     assert completed["evidence"][0]["chunk_id"] == (
         "perfil-gael--resumen"
     )
+    assert completed["usage"] == {
+        "input_tokens": 1_000,
+        "output_tokens": 234,
+        "total_tokens": 1_234,
+    }
+    assert completed["budget"] == {"available_percent": 67.2}
 
 
 @pytest.mark.parametrize("stream", [False, True])

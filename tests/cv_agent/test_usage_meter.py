@@ -4,6 +4,8 @@ from decimal import Decimal
 from cv_agent.usage.meter import UsageMeter, format_usage_footer
 from cv_agent.usage.models import ModelRates, TokenUsage
 from cv_agent.usage.store import InMemoryUsageBudgetStore
+from cv_agent.usage.store import AzureTableUsageBudgetStore
+from azure.core.exceptions import ResourceExistsError
 
 
 def test_meter_calculates_cost_and_formats_public_result():
@@ -63,3 +65,43 @@ def test_meter_returns_tokens_without_percentage_when_store_fails():
     assert result.total_tokens == 2
     assert result.available_percent is None
     assert format_usage_footer(result) is None
+
+
+def test_azure_store_uses_etag_transaction_and_reuses_ledger_event():
+    class Entity(dict):
+        metadata = {"etag": "etag-1"}
+
+    class Table:
+        def __init__(self):
+            self.transaction = None
+            self.ledger = None
+
+        def create_entity(self, entity):
+            raise ResourceExistsError("exists")
+
+        def get_entity(self, partition_key, row_key):
+            if row_key == "aggregate":
+                return Entity(spent="3.28")
+            if self.ledger:
+                return self.ledger
+            from azure.core.exceptions import ResourceNotFoundError
+            raise ResourceNotFoundError("missing")
+
+        def submit_transaction(self, operations):
+            self.transaction = operations
+            self.ledger = operations[1][1]
+
+    table = Table()
+    store = AzureTableUsageBudgetStore(
+        table_client=table,
+        total_budget=Decimal("10"),
+        initial_spent=Decimal("3.28"),
+    )
+
+    first = store.apply_once("event-1", Decimal("0.25"))
+    second = store.apply_once("event-1", Decimal("0.25"))
+
+    assert first == second == Decimal("6.47")
+    assert table.transaction[0][0] == "update"
+    assert table.transaction[0][2]["etag"] == "etag-1"
+    assert table.transaction[1][0] == "create"
