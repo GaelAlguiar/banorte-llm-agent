@@ -94,9 +94,15 @@ class DeterministicProfessionalIntentClassifier:
             "error", "conflicto", "debilidad",
         } or re.search(r"\btrabaj(?:ar|ando|aria)\s+con\s+gael\b", normalized):
             return "behavioral"
-        if (
-            re.search(r"\b(?:experiencia|trabajar|adoptar|adoptaria)\b.*\bcon\b", normalized)
-            or tokens & {"snowflake", "kubeflow", "grafana", "airflow"}
-        ):
+        capability_frames = (
+            r"\b(?:experiencia|conocimientos?|dominio)\b.{0,40}\b(?:con|de|en|usando)\b\s+\S+",
+            r"\b(?:ha\s+usado|ha\s+trabajado|trabajado\s+con)\b\s+\S+",
+            r"\bfundamentos\s+para\s+trabajar\s+con\b\s+\S+",
+            r"\bpodria\s+(?:trabajar|desenvolverse)\b.{0,30}\b(?:con|en|usando)\b\s+\S+",
+            r"\ble\s+piden\s+usar\b\s+\S+",
+            r"\bque\s+tan\s+bueno\b.{0,20}\ben\b\s+\S+",
+            r"\b(?:adoptar|adoptaria)\b(?:\s+una?\s+(?:plataforma|framework|herramienta))?\s+\S+",
+        )
+        if any(re.search(pattern, normalized) for pattern in capability_frames):
             return "capability"
         return "profile"

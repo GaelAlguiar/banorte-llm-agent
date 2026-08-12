@@ -188,6 +188,13 @@ class CvAgentService:
         best_name, best_score = max(scores.items(), key=lambda item: item[1])
         if best_score:
             return next(skill for skill in self.skills if skill.name == best_name)
+        if "experiencia" in question_tokens and question_tokens & {
+            "enerey", "heytech", "banregio",
+        }:
+            return next(
+                skill for skill in self.skills
+                if skill.name == "profile_summary"
+            )
         if (
             {"experiencia", "laboral"} <= question_tokens
             and question_tokens & {"ia", "inteligencia", "artificial"}

@@ -18,9 +18,9 @@ def test_openai_professional_classifier_uses_question_only_strict_schema():
 
     classifier.client.responses.create = create
 
-    assert classifier.classify("¿Podría trabajar con Snowflake?") == "capability"
+    assert classifier.classify("¿Podría trabajar con Kafka?") == "capability"
     assert captured["model"] == "intent-model"
-    assert captured["input"] == "¿Podría trabajar con Snowflake?"
+    assert captured["input"] == "¿Podría trabajar con Kafka?"
     assert captured["reasoning"] == {"effort": "none"}
     assert captured["store"] is False
     assert captured["max_output_tokens"] == 128
@@ -57,8 +57,11 @@ def test_openai_professional_classifier_fails_safe_out_of_scope(response_or_erro
         ("¿Cuál es el color favorito de Gael?", "out_of_scope"),
         ("¿Gael tiene mascotas?", "out_of_scope"),
         ("¿Qué libro prefiere Gael?", "out_of_scope"),
-        ("¿Podría trabajar con Snowflake?", "capability"),
-        ("¿Cómo adoptaría Kubeflow?", "capability"),
+        ("¿Podría trabajar con Kafka?", "capability"),
+        ("¿Qué conocimientos tiene de Pulumi?", "capability"),
+        ("¿Ha usado Ray?", "capability"),
+        ("¿Qué tan bueno sería en MLflow?", "capability"),
+        ("Si le piden usar Argo CD, ¿cómo lo abordaría?", "capability"),
         ("¿Cómo sería trabajar con Gael?", "behavioral"),
         ("¿Cómo colabora con un equipo?", "behavioral"),
         ("Dame un resumen del perfil de Gael", "profile"),
@@ -69,3 +72,15 @@ def test_deterministic_professional_classifier_generalizes_by_intent(
 ):
     classifier = DeterministicProfessionalIntentClassifier()
     assert classifier.classify(question) == expected
+
+
+def test_holdout_technologies_are_absent_from_implementation():
+    from pathlib import Path
+    import re
+
+    implementation = "\n".join(
+        path.read_text(encoding="utf-8").casefold()
+        for path in Path("cv_agent").rglob("*.py")
+    )
+    for name in ("kafka", "pulumi", "ray", "mlflow", "argo cd"):
+        assert re.search(rf"\b{re.escape(name)}\b", implementation) is None

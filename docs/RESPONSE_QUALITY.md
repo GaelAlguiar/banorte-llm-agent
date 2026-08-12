@@ -26,6 +26,14 @@ atribuir experiencia equivocada. La privacidad se clasifica antes y de forma
 independiente. `role_fit` puede usar evidencia laboral directa de Enerey y
 cotizaciones. Las ocho sugerencias permanecen byte por byte sin cambios.
 
+Cada consulta ambigua que llegue al fallback añade una llamada al modelo y,
+por tanto, costo y latencia antes de la generación final. El modelo se puede
+configurar con `OPENAI_PROFESSIONAL_CLASSIFIER_MODEL`; si no se define, reutiliza
+`OPENAI_MODEL`. No se fija un modelo alternativo por defecto: esa decisión debe
+basarse en mediciones de precisión, costo y latencia. La evaluación offline
+mide clasificación, routing y recuperación; no califica como perfecta la prosa
+generada, que se revisa por separado contra el endpoint productivo.
+
 ## Objetivo
 
 AIguiar AI debe responder como un representante profesional de Gael, no como
