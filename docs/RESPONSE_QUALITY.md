@@ -119,11 +119,11 @@ recuperación y compatibilidad Open Responses existentes.
 Las interfaces del agente mostrarán ocho preguntas diseñadas para revelar valor
 profesional, no solamente conocimientos aislados:
 
-1. ¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para este puesto de IA Generativa?
-2. ¿Qué solución de inteligencia artificial implementó Gael en Enerey y qué impacto tuvo para el negocio y los clientes?
-3. ¿Cuál fue el rol de Gael en el proyecto de Banregio y qué experiencia obtuvo trabajando con arquitectura, cloud e infraestructura empresarial?
-4. ¿Cómo diseñó Gael un sistema RAG completo y cómo evaluó la calidad, seguridad y fidelidad de sus respuestas?
-5. ¿Qué ejemplo demuestra mejor la capacidad de Gael para aprender de forma autónoma y convertir una tecnología nueva en una solución funcional?
-6. ¿Cómo combina Gael Python, FastAPI, Flask, APIs y servicios cloud para llevar una solución de IA desde la idea hasta producción?
-7. ¿Cómo demuestra Gael su capacidad para diseñar agentes interoperables con herramientas, A2A y Open Responses?
-8. ¿Qué aportaría Gael durante sus primeros meses dentro de un equipo de Ingeniería de IA Generativa?
+1. ¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para un equipo de IA Generativa?
+2. ¿Qué proyecto demuestra mejor la experiencia laboral de Gael con inteligencia artificial y qué impacto tuvo?
+3. ¿Cómo construyó Gael este agente de CV y qué decisiones técnicas tomó para llevar su arquitectura RAG a producción?
+4. ¿Cómo participó Gael en el chatbot, el análisis de documentos con IA, el despliegue en AKS y el uso de Vertex AI en HeyTech?
+5. ¿Cómo diseñó Gael una fachada segura entre clientes, Azure Functions y APIM?
+6. ¿Qué experiencia tiene Gael con Terraform y conectividad multicloud entre Azure, AWS y Google Cloud?
+7. ¿Cómo combina Gael backend, frontend, APIs y cloud para llevar soluciones de IA a producción?
+8. ¿Qué diferencia a Gael de otros candidatos y qué aportaría durante sus primeros meses en un equipo de IA?
