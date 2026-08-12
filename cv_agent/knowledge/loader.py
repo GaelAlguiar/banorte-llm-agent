@@ -182,23 +182,27 @@ def _bounded_parts(text: str, limit: int, overlap: int) -> list[str]:
         if current_units and len(candidate) > limit:
             completed = "\n\n".join(current_units)
             result.append(completed)
-            overlap_units: list[str] = []
-            overlap_length = 0
-            for previous in reversed(current_units):
-                added = len(previous) + (2 if overlap_units else 0)
-                if overlap_length + added > overlap:
-                    break
-                overlap_units.insert(0, previous)
-                overlap_length += added
-            current_units = [*overlap_units, unit]
-            while len("\n\n".join(current_units)) > limit and overlap_units:
-                overlap_units.pop(0)
-                current_units = [*overlap_units, unit]
+            overlap_text = _word_suffix(completed, overlap)
+            current_units = [item for item in (overlap_text, unit) if item]
+            if len("\n\n".join(current_units)) > limit:
+                available = max(0, limit - len(unit) - 2)
+                overlap_text = _word_suffix(completed, available)
+                current_units = [item for item in (overlap_text, unit) if item]
         else:
             current_units.append(unit)
     if current_units:
         result.append("\n\n".join(current_units))
     return result
+
+
+def _word_suffix(text: str, limit: int) -> str:
+    if limit <= 0:
+        return ""
+    suffix = text[-limit:]
+    if len(text) <= limit:
+        return suffix
+    boundary = suffix.find(" ")
+    return suffix[boundary + 1:] if boundary >= 0 else suffix
 
 
 def load_knowledge_chunks(

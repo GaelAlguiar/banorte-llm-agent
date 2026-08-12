@@ -309,6 +309,7 @@ def test_public_evidence_url_requires_an_authorized_domain():
         "https://evil.com/path",
         "https://user:pass@enereylatam.com/path",
         "https://enereylatam.com:8443/path",
+        "https://enereylatam.com:bad/path",
         "https://enereylatam.com.evil.com/path",
         "https://ｅｎｅｒｅｙlatam.com/path",
     ):

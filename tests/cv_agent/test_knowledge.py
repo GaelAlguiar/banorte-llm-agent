@@ -249,6 +249,31 @@ source: CV
     assert all(len(chunk.text) <= 300 for chunk in chunks)
 
 
+def test_subchunks_share_a_bounded_word_boundary_overlap(tmp_path: Path):
+    marker = "frontera compartida verificable"
+    first = ("contexto anterior " * 28) + marker
+    second = "contexto posterior " * 28
+    content = """---
+id: solapado
+title: Documento solapado
+category: proyecto
+evidence_level: directa
+source: CV
+---
+## Operación
+
+""" + first + "\n\n" + second
+    (tmp_path / "overlap.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(
+        tmp_path, split_threshold=1, max_chunk_chars=700, overlap_chars=120
+    )
+
+    assert marker in chunks[0].text
+    assert marker in chunks[1].text
+    assert all(len(chunk.text) <= 700 for chunk in chunks)
+
+
 def test_rag_story_describes_the_deployed_search_backend():
     document = next(
         item

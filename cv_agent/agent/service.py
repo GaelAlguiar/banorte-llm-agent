@@ -90,7 +90,11 @@ def _public_source_url(source: str) -> str | None:
                 continue
         except ValueError:
             pass
-        if parsed.username or parsed.password or parsed.port not in (None, 443):
+        try:
+            port = parsed.port
+        except ValueError:
+            continue
+        if parsed.username or parsed.password or port not in (None, 443):
             continue
         # Query strings often carry signatures or other private capabilities.
         return parsed._replace(query="", fragment="").geturl()
