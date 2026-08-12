@@ -47,11 +47,39 @@ class CvAgentService:
         privacy_markers = {
             "credencial",
             "credenciales",
-            "clave",
+            "contrasena",
+            "contrasenas",
+            "password",
+            "passwords",
+            "token",
+            "tokens",
             "secreto",
+            "secretos",
             "prompt",
             "ignora",
         }
+        secret_key_request = bool(
+            question_tokens & {"clave", "claves"}
+            and question_tokens
+            & {
+                "dame", "dime", "muestra", "mostrar", "muestrame", "revela",
+                "revelar", "secreta", "secretas", "api", "openai", "agente",
+            }
+        )
+        private_resource_request = bool(
+            question_tokens & {"privada", "privadas", "privado", "privados"}
+            and question_tokens
+            & {
+                "url", "urls", "ruta", "rutas", "direccion", "direcciones",
+                "infraestructura", "entorno", "informacion", "datos",
+            }
+        )
+        internal_infrastructure_request = bool(
+            question_tokens & {"interna", "internas", "interno", "internos"}
+            and question_tokens & {"infraestructura", "entorno"}
+            and question_tokens
+            & {"informacion", "datos", "detalle", "detalles", "direccion", "direcciones"}
+        )
         sensitive_internal_request = bool(
             question_tokens & {"interna", "internas", "interno", "internos"}
             and question_tokens
@@ -62,7 +90,13 @@ class CvAgentService:
                 "direcciones",
             }
         )
-        if question_tokens & privacy_markers or sensitive_internal_request:
+        if (
+            question_tokens & privacy_markers
+            or secret_key_request
+            or private_resource_request
+            or internal_infrastructure_request
+            or sensitive_internal_request
+        ):
             return next(
                 skill
                 for skill in self.skills
@@ -104,6 +138,18 @@ class CvAgentService:
             and operational_problem_context
         ):
             scores["project_story"] += 5
+        enerey_experience_context = bool(
+            enerey_context
+            and (
+                question_tokens & {"conversacional", "conversacion"}
+                or (
+                    ios_application_context
+                    and question_tokens & {"empleado", "empleados", "trabajador", "trabajadores"}
+                )
+            )
+        )
+        if enerey_experience_context:
+            scores["project_story"] += 5
         freelance_site_context = bool(
             question_tokens & {"freelance", "independiente", "modalidad"}
             and question_tokens
@@ -117,7 +163,8 @@ class CvAgentService:
                 "modalidad", "sitio", "sitios", "pagina", "paginas",
             }
         )
-        if freelance_site_context or named_site_context:
+        global_lugra_context = {"global", "lugra"} <= question_tokens
+        if freelance_site_context or named_site_context or global_lugra_context:
             scores["project_story"] += 5
         if question_tokens & {"participacion", "participo"} and question_tokens & {"chatbot", "documentos", "servicios", "proyecto"}:
             scores["project_story"] += 5

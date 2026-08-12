@@ -73,6 +73,16 @@ def test_enterprise_knowledge_is_allowlisted_for_relevant_skills():
         )
 
 
+def test_freelance_source_is_limited_to_project_story_skill():
+    skills_by_name = {skill.name: skill for skill in load_skills()}
+    source = "knowledge/17_freelance_global_lugra.md"
+
+    assert source in skills_by_name["project_story"].allowed_sources
+    for skill_name, skill in skills_by_name.items():
+        if skill_name != "project_story":
+            assert source not in skill.allowed_sources
+
+
 def test_skill_with_url_is_rejected(tmp_path: Path):
     (tmp_path / "unsafe.yaml").write_text(
         """name: unsafe
