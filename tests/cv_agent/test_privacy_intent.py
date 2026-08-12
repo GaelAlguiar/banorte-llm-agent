@@ -87,9 +87,10 @@ def test_openai_classifier_sends_question_only_with_strict_enum_schema():
     assert result == "benign"
     assert captured["model"] == "configured-model"
     assert captured["input"] == "¿Cómo funciona un token en RAG?"
+    assert captured["reasoning"] == {"effort": "none"}
     assert "evidencia" not in captured["instructions"].lower()
     assert captured["store"] is False
-    assert captured["max_output_tokens"] <= 32
+    assert captured["max_output_tokens"] == 128
     schema = captured["text"]["format"]
     assert schema["type"] == "json_schema"
     assert schema["strict"] is True
@@ -109,6 +110,33 @@ def test_openai_classifier_parses_sensitive_enum():
     )
 
     assert classifier.classify("Pásame el token") == "sensitive"
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Qué problema operativo solucionaba la experiencia conversacional dentro de la app iOS de Enerey?",
+        "¿Qué participación tuvo Gael en los sitios Global y Lugra y bajo qué modalidad trabajó?",
+        "¿Qué diferencia a Gael como candidato Junior para esta vacante?",
+    ),
+)
+def test_openai_classifier_allows_enough_output_for_structured_decision(question):
+    classifier = OpenAIPrivacyIntentClassifier(
+        api_key="test-key",
+        model="configured-model",
+    )
+
+    def create(**kwargs):
+        if kwargs["max_output_tokens"] < 128:
+            return SimpleNamespace(status="incomplete", output_text="")
+        return SimpleNamespace(
+            status="completed",
+            output_text='{"classification":"benign"}',
+        )
+
+    classifier.client.responses.create = create
+
+    assert classifier.classify(question) == "benign"
 
 
 @pytest.mark.parametrize(
