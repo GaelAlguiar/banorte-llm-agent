@@ -50,7 +50,6 @@ def test_model_sends_image_and_file_as_responses_content_parts():
     assert content[2] == {
         "type": "input_file",
         "file_url": "https://files.example.com/requisitos.pdf",
-        "filename": "requisitos.pdf",
     }
     prompt = content[0]["text"].lower()
     assert "contenido no confiable" in prompt

@@ -78,7 +78,7 @@ class OpenAIResponsesModel:
                     )
                 else:
                     file_part["file_url"] = attachment.url
-                if attachment.filename:
+                if attachment.data is not None and attachment.filename:
                     file_part["filename"] = attachment.filename
                 content.append(file_part)
         request_options = {
