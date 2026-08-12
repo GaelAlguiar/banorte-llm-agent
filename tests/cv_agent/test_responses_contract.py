@@ -18,9 +18,12 @@ class StubAgent:
         question: str,
         attachments=(),
         reasoning_effort=None,
+        max_output_tokens=None,
     ) -> AgentAnswer:
         assert question
-        self.calls.append((question, tuple(attachments), reasoning_effort))
+        self.calls.append((
+            question, tuple(attachments), reasoning_effort, max_output_tokens,
+        ))
         return AgentAnswer(
             text="Gael es un AI Engineer con experiencia en GenAI y cloud.",
             skill_name="profile_summary",
@@ -118,7 +121,7 @@ def test_image_url_is_forwarded_as_an_attachment():
     )
 
     assert response.status_code == 200
-    question, attachments, _ = agent.calls[0]
+    question, attachments, _, _ = agent.calls[0]
     assert question == "Analiza esta vacante"
     assert attachments[0].kind == "image"
     assert attachments[0].url.startswith("https://files.example.com/")
@@ -146,7 +149,7 @@ def test_file_url_is_forwarded_with_filename():
     )
 
     assert response.status_code == 200
-    question, attachments, _ = agent.calls[0]
+    question, attachments, _, _ = agent.calls[0]
     assert question == "Analiza el archivo o imagen y relaciónalo con el perfil profesional de Gael."
     assert attachments[0].kind == "file"
     assert attachments[0].filename == "descripcion.pdf"
@@ -477,9 +480,46 @@ def test_streaming_response_matches_reference_event_sequence():
     )
 
 
+@pytest.mark.parametrize("stream", [False, True])
+def test_max_output_tokens_is_forwarded_with_json_sse_parity(stream):
+    agent = StubAgent()
+    response = TestClient(create_app(agent=agent)).post(
+        "/v1/responses",
+        json={
+            "input": "¿Quién es Gael?",
+            "stream": stream,
+            "max_output_tokens": 777,
+        },
+    )
+
+    assert response.status_code == 200
+    assert agent.calls[0][3] == 777
+
+
+def test_previous_response_id_is_rejected_instead_of_ignored():
+    agent = StubAgent()
+    response = TestClient(create_app(agent=agent)).post(
+        "/v1/responses",
+        json={
+            "input": "Continúa",
+            "previous_response_id": "resp_platform_supplied",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == {
+        "message": "previous_response_id no está soportado por este agente sin estado.",
+        "type": "invalid_request_error",
+        "code": "unsupported_previous_response_id",
+        "param": "previous_response_id",
+    }
+    assert agent.calls == []
+
+
 def test_response_evidence_never_exposes_local_or_private_sources():
     class PrivateEvidenceAgent(StubAgent):
-        def answer(self, question, attachments=(), reasoning_effort=None):
+        def answer(self, question, attachments=(), reasoning_effort=None,
+                   max_output_tokens=None):
             return AgentAnswer(
                 text="Respuesta segura.",
                 skill_name="profile_summary",

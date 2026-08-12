@@ -86,6 +86,26 @@ def test_model_sends_only_allowed_reasoning_configuration():
     assert "temperature" not in captured
 
 
+def test_model_forwards_only_the_bounded_output_token_limit():
+    model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
+    captured = {}
+
+    def create(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(output_text="Respuesta")
+
+    model.client.responses.create = create
+    model.generate(
+        question="Explica la arquitectura",
+        evidence=[],
+        skill=load_skills()[0],
+        instructions="Instrucciones",
+        max_output_tokens=900,
+    )
+
+    assert captured["max_output_tokens"] == 900
+
+
 def test_real_png_fixture_drives_offline_multimodal_contract():
     fixture = Path("tests/fixtures/vacancy.png").read_bytes()
     with Image.open(io.BytesIO(fixture)) as image:

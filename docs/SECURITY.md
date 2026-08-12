@@ -24,7 +24,12 @@ Controles implementados:
   preguntas no inequívocas, incluidas las de tokens o prompts; recibe únicamente la pregunta,
   nunca evidencia del CV, y ante error, timeout o salida inválida falla cerrado
   sin consultar el índice;
-- logs allowlistados sin prompts, chunks, tokens de autorización ni secretos;
+- eventos operativos allowlistados emitidos por la ruta real del servicio: skill,
+  `retrieval_hit_count`, `source_kind_mix` (sólo perfil, laboral o demostrativo),
+  buckets de confianza, `attachment_count` y tipos de adjunto, `safety_decision`,
+  `latency_ms`, estado y `error_type` acotado;
+- logs sin prompts ni respuestas, URLs, IDs, rutas, nombres de archivo, chunks,
+  tokens de autorización, datos de usuario ni secretos;
 - imagen Linux ejecutada como usuario sin privilegios;
 - skills YAML sin red, shell, URLs ni código ejecutable.
 

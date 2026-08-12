@@ -18,6 +18,7 @@ class StubAgent:
         question: str,
         attachments=(),
         reasoning_effort=None,
+        max_output_tokens=None,
     ) -> AgentAnswer:
         self.calls += 1
         return AgentAnswer(

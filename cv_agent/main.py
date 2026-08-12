@@ -75,8 +75,6 @@ def create_app(
         response.headers["Cache-Control"] = "no-store"
         log_event(
             "http_request",
-            request_id=request_id,
-            route=request.url.path,
             method=request.method,
             status=response.status_code,
             latency_ms=latency_ms,

@@ -21,6 +21,19 @@ La documentación visible del reto no define un esquema técnico completo. Para 
 
 El agente de Gael soporta JSON y SSE. Su contrato acepta campos adicionales para mantener compatibilidad futura. La autenticación se configura fuera de la lógica del agente y utiliza bearer token cuando `AGENT_API_KEY` está definida.
 
+`max_output_tokens` se aplica de igual forma en JSON y SSE. Los valores positivos
+solicitados por la plataforma se acotan entre 256 y 1,200 tokens antes de llegar
+al proveedor. Si se omite, el servicio usa un presupuesto por intención: 256
+para privacidad, 600 para perfil, 700 para respuestas conductuales, aprendizaje
+y capacidades, y 900 para arquitectura, proyectos, ajuste al rol y adjuntos.
+Estos límites mantienen respuestas profesionales suficientemente detalladas sin
+permitir salidas accidentalmente extensas.
+
+El servicio es deliberadamente sin estado y llama al proveedor con `store: false`.
+Por ello, `previous_response_id` no está soportado: un valor no nulo recibe un
+error 400 `unsupported_previous_response_id`; `null` y la omisión conservan el
+comportamiento normal. El campo nunca se ignora silenciosamente.
+
 Los adjuntos conservan las partes nativas de Open Responses. Antes de enviarlas
 al proveedor, el agente valida HTTPS, host público sintáctico, puerto, tipo,
 extensión, MIME opcional, nombre y cantidad. No acepta ejecutables, archivos

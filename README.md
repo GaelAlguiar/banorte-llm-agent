@@ -88,6 +88,12 @@ curl http://127.0.0.1:8000/v1/responses \
 
 Para SSE cambia `stream` a `true` y agrega `-N` a `curl`.
 
+`max_output_tokens` es opcional y se aplica con paridad en JSON y SSE. El agente
+acota cualquier valor positivo al rango 256–1,200 y, si se omite, elige un
+presupuesto profesional según la intención. Como el servicio no conserva estado
+(`store: false`), rechaza de forma explícita cualquier `previous_response_id`
+no nulo en lugar de ignorarlo.
+
 ### Esfuerzo de razonamiento
 
 La plataforma puede solicitar un nivel de razonamiento controlado. El agente

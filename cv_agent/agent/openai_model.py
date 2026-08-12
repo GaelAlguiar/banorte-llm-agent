@@ -20,6 +20,7 @@ class OpenAIResponsesModel:
         instructions: str,
         attachments: tuple[UserAttachment, ...] = (),
         reasoning_effort: str | None = None,
+        max_output_tokens: int | None = None,
     ) -> str:
         evidence_payload = [
             {
@@ -77,6 +78,8 @@ class OpenAIResponsesModel:
         }
         if reasoning_effort:
             request_options["reasoning"] = {"effort": reasoning_effort}
+        if max_output_tokens is not None:
+            request_options["max_output_tokens"] = max_output_tokens
         response = self.client.responses.create(
             **request_options,
         )
