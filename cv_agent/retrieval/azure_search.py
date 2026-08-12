@@ -116,7 +116,7 @@ class AzureSearchRetrieval:
                     impact_type=item["impact_type"],
                     source_kind=item["source_kind"],
                     source=item["source"],
-                    excerpt=item["content"][:1200],
+                    excerpt=item["content"],
                     vector_score=score,
                     lexical_score=0.0,
                     rrf_score=score,

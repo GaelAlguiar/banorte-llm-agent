@@ -35,15 +35,16 @@ Plataforma Banorte
 El modelo redacta; los hechos provienen de `knowledge/`. Las etiquetas `directa`, `relacionada` y `transferible` evitan presentar experiencia adyacente como experiencia comprobada.
 
 Los 17 archivos de `knowledge/` son las fuentes autorizadas, no el conteo de
-registros del índice. En la ingesta actual generan 51 chunks: los archivos
+registros del índice. La cantidad actual se deriva con
+`len(load_knowledge_chunks(Path("knowledge")))`: los archivos
 pequeños permanecen completos y los extensos se separan por secciones Markdown.
 Cada chunk conserva `document_id`, `chunk_id`, título, sección y metadatos del
 padre. El número de chunks puede cambiar cuando se edita el contenido sin que
 cambie el concepto de 17 documentos fuente.
 
-Las respuestas incluyen `metadata.evidence` como JSON serializado en un valor
-string —compatible con Open Responses— tanto en JSON como en el evento final
-de SSE. Sólo contiene identificadores estables, etiquetas profesionales,
+Las respuestas incluyen `metadata.evidence_ids` como string compacto (máximo
+512 caracteres) y una extensión superior `evidence` tanto en JSON como en el
+evento final de SSE. Sólo contiene identificadores estables, etiquetas profesionales,
 un rango de confianza y URLs HTTPS públicas autorizadas; nunca rutas locales,
 URLs privadas ni scores internos precisos.
 

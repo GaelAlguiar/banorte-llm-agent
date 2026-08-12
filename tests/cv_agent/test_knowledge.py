@@ -3,7 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from cv_agent.knowledge.loader import load_knowledge, load_knowledge_chunks
+from cv_agent.knowledge.loader import (
+    DEFAULT_MAX_CHUNK_CHARS,
+    load_knowledge,
+    load_knowledge_chunks,
+)
 
 
 ENTERPRISE_KNOWLEDGE_FORBIDDEN_PATTERNS = {
@@ -194,6 +198,36 @@ def test_repository_keeps_17_sources_while_producing_more_index_chunks():
     assert {chunk.document_id for chunk in chunks} == {
         document.id for document in documents
     }
+    assert all(len(chunk.text) <= DEFAULT_MAX_CHUNK_CHARS for chunk in chunks)
+
+
+def test_long_heading_section_splits_at_paragraph_boundaries_with_stable_parts(tmp_path: Path):
+    paragraphs = [
+        f"Párrafo {index} " + ("contenido semántico " * 12)
+        for index in range(8)
+    ]
+    content = """---
+id: largo
+title: Documento largo
+category: proyecto
+evidence_level: directa
+source: CV
+---
+## Operación
+
+""" + "\n\n".join(paragraphs)
+    (tmp_path / "largo.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(
+        tmp_path, split_threshold=1, max_chunk_chars=520, overlap_chars=80
+    )
+
+    assert len(chunks) > 1
+    assert all(len(chunk.text) <= 520 for chunk in chunks)
+    assert chunks[0].chunk_id == "largo--operacion--part-01"
+    assert chunks[1].chunk_id == "largo--operacion--part-02"
+    assert all(chunk.section == "Operación" for chunk in chunks)
+    assert "Párrafo 7" in chunks[-1].text
 
 
 def test_rag_story_describes_the_deployed_search_backend():

@@ -2,7 +2,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from cv_agent.agent.service import AgentAnswer, AnswerEvidence
+from cv_agent.agent.service import AgentAnswer, AnswerEvidence, _public_source_url
 from cv_agent.main import create_app
 
 
@@ -56,7 +56,7 @@ def test_create_response_returns_typed_output():
     assert body["output"][0]["type"] == "message"
     assert body["output"][0]["content"][0]["type"] == "output_text"
     assert "AI Engineer" in body["output"][0]["content"][0]["text"]
-    evidence = json.loads(body["metadata"]["evidence"])
+    evidence = body["evidence"]
     assert evidence[0] == {
         "document_id": "perfil-gael",
         "chunk_id": "perfil-gael--resumen",
@@ -246,7 +246,7 @@ def test_streaming_response_matches_reference_event_sequence():
     assert all(json.loads(line) for line in data_lines)
     assert response.text.rstrip().endswith("data: [DONE]")
     completed = json.loads(data_lines[-1])["response"]
-    assert json.loads(completed["metadata"]["evidence"])[0]["chunk_id"] == (
+    assert completed["evidence"][0]["chunk_id"] == (
         "perfil-gael--resumen"
     )
 
@@ -280,3 +280,36 @@ def test_response_evidence_never_exposes_local_or_private_sources():
     assert "source_path" not in serialized
     assert "vector_score" not in serialized
     assert "score" not in serialized
+
+
+def test_response_metadata_values_are_compact_strings_with_detailed_top_level_evidence():
+    body = TestClient(create_app(agent=StubAgent())).post(
+        "/v1/responses", json={"input": "¿Quién es Gael?"}
+    ).json()
+
+    assert body["evidence"][0]["document_id"] == "perfil-gael"
+    assert all(isinstance(value, str) for value in body["metadata"].values())
+    assert all(len(value) <= 512 for value in body["metadata"].values())
+    assert body["metadata"]["evidence_ids"] == "perfil-gael--resumen"
+
+
+def test_public_evidence_url_requires_an_authorized_domain():
+    assert _public_source_url("https://enereylatam.com/proyecto") == (
+        "https://enereylatam.com/proyecto"
+    )
+    assert _public_source_url("https://subdomain.lugramx.com/catalogo") == (
+        "https://subdomain.lugramx.com/catalogo"
+    )
+    assert _public_source_url("https://github.com/GaelAlguiar/repo") == (
+        "https://github.com/GaelAlguiar/repo"
+    )
+    for unsafe in (
+        "https://intranet/path",
+        "https://example.com/path",
+        "https://evil.com/path",
+        "https://user:pass@enereylatam.com/path",
+        "https://enereylatam.com:8443/path",
+        "https://enereylatam.com.evil.com/path",
+        "https://ｅｎｅｒｅｙlatam.com/path",
+    ):
+        assert _public_source_url(unsafe) is None

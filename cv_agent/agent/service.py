@@ -54,6 +54,28 @@ class AgentAnswer:
     evidence: tuple[AnswerEvidence, ...] = ()
 
 
+_PUBLIC_EVIDENCE_DOMAINS = {
+    "enereylatam.com": True,
+    "apps.apple.com": False,
+    "globalfls.com": True,
+    "lugramx.com": True,
+    "github.com": False,
+}
+
+
+def _authorized_public_hostname(hostname: str) -> bool:
+    try:
+        hostname.encode("ascii")
+    except UnicodeEncodeError:
+        return False
+    for domain, allow_subdomains in _PUBLIC_EVIDENCE_DOMAINS.items():
+        if hostname == domain:
+            return True
+        if allow_subdomains and hostname.endswith(f".{domain}"):
+            return True
+    return False
+
+
 def _public_source_url(source: str) -> str | None:
     for candidate in source.replace(",", " ").replace(";", " ").split():
         value = candidate.strip("()[]<>.\"")
@@ -61,14 +83,14 @@ def _public_source_url(source: str) -> str | None:
         if parsed.scheme != "https" or not parsed.hostname:
             continue
         hostname = parsed.hostname.lower()
-        if hostname == "localhost" or hostname.endswith((".local", ".internal")):
+        if not _authorized_public_hostname(hostname):
             continue
         try:
             if ipaddress.ip_address(hostname).is_private:
                 continue
         except ValueError:
             pass
-        if parsed.username or parsed.password:
+        if parsed.username or parsed.password or parsed.port not in (None, 443):
             continue
         # Query strings often carry signatures or other private capabilities.
         return parsed._replace(query="", fragment="").geturl()

@@ -42,6 +42,10 @@ def _completed_response(
     created_at: int,
     evidence: tuple = (),
 ) -> dict[str, Any]:
+    public_evidence = [asdict(item) for item in evidence]
+    compact_ids = ",".join(
+        item["chunk_id"] for item in public_evidence[:3]
+    )[:512]
     return {
         "id": response_id,
         "object": "response",
@@ -56,15 +60,10 @@ def _completed_response(
             "total_tokens": 0,
         },
         "error": None,
-        # Open Responses metadata values are strings. Encoding the safe array
-        # preserves that contract while keeping section-level traceability.
-        "metadata": ({
-            "evidence": json.dumps(
-                [asdict(item) for item in evidence],
-                ensure_ascii=False,
-                separators=(",", ":"),
-            ),
-        } if evidence else {}),
+        # Open Responses metadata values are short strings. Detailed safe
+        # evidence is an additive top-level extension for first-party clients.
+        "metadata": ({"evidence_ids": compact_ids} if compact_ids else {}),
+        "evidence": public_evidence,
     }
 
 

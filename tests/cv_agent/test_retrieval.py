@@ -280,3 +280,34 @@ def test_heytech_impact_query_retrieves_later_impact_section():
     assert hits[0].document_id == "heytech-apim-chatbot"
     assert hits[0].section == "Impacto inferido"
     assert "Cualitativamente" in hits[0].excerpt
+
+
+def test_retrieval_returns_tail_subchunk_without_silent_truncation(tmp_path: Path):
+    filler = "\n\n".join(
+        f"Contexto operativo {index} " + ("detalle " * 35)
+        for index in range(8)
+    )
+    content = f"""---
+id: tail-project
+title: Proyecto con operación extensa
+category: proyecto
+evidence_level: directa
+source: CV
+---
+## Operación
+
+{filler}
+
+Hallazgo final: telemetriax confirma la operación posterior.
+"""
+    (tmp_path / "tail.md").write_text(content, encoding="utf-8")
+    retrieval = HybridCvRetrieval.from_directory(
+        tmp_path, relevance_threshold=0.05
+    )
+
+    hits = retrieval.search("telemetriax", top_k=3)
+
+    assert hits[0].document_id == "tail-project"
+    assert "telemetriax" in hits[0].excerpt
+    assert hits[0].chunk_id.endswith("part-03") or "part-" in hits[0].chunk_id
+    assert len(hits[0].excerpt) <= 1200

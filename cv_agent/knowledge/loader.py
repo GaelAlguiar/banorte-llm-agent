@@ -71,6 +71,8 @@ def load_knowledge(directory: Path) -> list[KnowledgeDocument]:
 
 
 DEFAULT_SPLIT_THRESHOLD = 1_200
+DEFAULT_MAX_CHUNK_CHARS = 1_200
+DEFAULT_OVERLAP_CHARS = 120
 _HEADING = re.compile(r"(?m)^(#{1,6})[ \t]+(.+?)[ \t]*$")
 
 
@@ -103,9 +105,11 @@ def _chunks_for_document(
     document: KnowledgeDocument,
     *,
     split_threshold: int,
+    max_chunk_chars: int,
+    overlap_chars: int,
 ) -> list[KnowledgeDocument]:
     parts = _section_parts(document.text)
-    if len(document.text) < split_threshold or len(parts) == 1:
+    if len(document.text) < split_threshold and len(document.text) <= max_chunk_chars:
         return [KnowledgeDocument(
             **{
                 **document.__dict__,
@@ -122,23 +126,78 @@ def _chunks_for_document(
         occurrence = seen_slugs.get(base_slug, 0) + 1
         seen_slugs[base_slug] = occurrence
         suffix = base_slug if occurrence == 1 else f"{base_slug}-{occurrence}"
-        chunks.append(KnowledgeDocument(
-            **{
-                **document.__dict__,
-                "title": f"{document.title} — {section_name}",
-                "text": text,
-                "document_id": document.id,
-                "chunk_id": f"{document.id}--{suffix}",
-                "section": section_name,
-            }
-        ))
+        subchunks = _bounded_parts(text, max_chunk_chars, overlap_chars)
+        for part_index, subchunk in enumerate(subchunks, start=1):
+            part_suffix = (
+                f"--part-{part_index:02d}" if len(subchunks) > 1 else ""
+            )
+            chunks.append(KnowledgeDocument(
+                **{
+                    **document.__dict__,
+                    "title": f"{document.title} — {section_name}",
+                    "text": subchunk,
+                    "document_id": document.id,
+                    "chunk_id": f"{document.id}--{suffix}{part_suffix}",
+                    "section": section_name,
+                }
+            ))
     return chunks
+
+
+def _bounded_parts(text: str, limit: int, overlap: int) -> list[str]:
+    if limit < 200 or overlap < 0 or overlap >= limit:
+        raise ValueError("Configuración de chunks inválida")
+    if len(text) <= limit:
+        return [text]
+    paragraphs = [item.strip() for item in re.split(r"\n\s*\n", text) if item.strip()]
+    units: list[str] = []
+    for paragraph in paragraphs:
+        if len(paragraph) <= limit:
+            units.append(paragraph)
+            continue
+        words = paragraph.split()
+        current = ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            if current and len(candidate) > limit:
+                units.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            units.append(current)
+    result: list[str] = []
+    current_units: list[str] = []
+    for unit in units:
+        candidate = "\n\n".join([*current_units, unit])
+        if current_units and len(candidate) > limit:
+            completed = "\n\n".join(current_units)
+            result.append(completed)
+            overlap_units: list[str] = []
+            overlap_length = 0
+            for previous in reversed(current_units):
+                added = len(previous) + (2 if overlap_units else 0)
+                if overlap_length + added > overlap:
+                    break
+                overlap_units.insert(0, previous)
+                overlap_length += added
+            current_units = [*overlap_units, unit]
+            while len("\n\n".join(current_units)) > limit and overlap_units:
+                overlap_units.pop(0)
+                current_units = [*overlap_units, unit]
+        else:
+            current_units.append(unit)
+    if current_units:
+        result.append("\n\n".join(current_units))
+    return result
 
 
 def load_knowledge_chunks(
     directory: Path,
     *,
     split_threshold: int = DEFAULT_SPLIT_THRESHOLD,
+    max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    overlap_chars: int = DEFAULT_OVERLAP_CHARS,
 ) -> list[KnowledgeDocument]:
     """Load authorized source documents as stable, heading-aware chunks.
 
@@ -151,5 +210,7 @@ def load_knowledge_chunks(
         for chunk in _chunks_for_document(
             document,
             split_threshold=split_threshold,
+            max_chunk_chars=max_chunk_chars,
+            overlap_chars=overlap_chars,
         )
     ]

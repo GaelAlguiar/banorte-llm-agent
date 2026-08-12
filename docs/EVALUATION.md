@@ -12,6 +12,9 @@ observabilidad del agente RAG e impacto de HeyTech. Los allowlists continúan
 comparándose contra el `document_id` padre, mientras `chunk_id` permite auditar
 la sección exacta. Las pruebas de contrato verifican que la trazabilidad no
 exponga rutas locales, URLs privadas ni scores precisos.
+También se comprueba que cada chunk respete el límite, que una sección extensa
+conserve sus términos finales mediante partes estables y que todos los valores
+de `metadata` sean strings de no más de 512 caracteres.
 
 El adaptador offline conserva el mismo contrato que Azure AI Search, pero no
 pretende sustituir la prueba productiva. El tono, la afirmación correcta de

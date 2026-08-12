@@ -38,11 +38,16 @@ ejecutan fuera del proceso web. No existe fallback local en producción: la
 sonda `/health/ready` informa si el índice no está disponible.
 
 `document_id` identifica una de las 17 fuentes; `chunk_id` es la clave estable
-del fragmento indexado. La sincronización carga el conjunto de chunks vigente y
+del fragmento indexado. Una sección que supera el límite se divide por párrafos
+con solapamiento semántico acotado; el ID añade `part-NN`. Ningún adaptador
+trunca silenciosamente el extracto después de recuperar. La sincronización
+carga el conjunto de chunks vigente y
 elimina IDs obsoletos, incluida la forma histórica de un registro por fuente.
 La evidencia entregada al modelo conserva el extracto local de cada sección.
 La respuesta externa omite `source_path`, URLs no públicas y scores numéricos;
-publica únicamente etiquetas de procedencia y confianza por rango.
+las URLs requieren un dominio de evidencia explícitamente autorizado, sin DNS
+en runtime. `metadata.evidence_ids` permanece como string de hasta 512
+caracteres y la extensión superior `evidence` contiene el detalle seguro.
 
 Para mayor escala se añadirían caché distribuida, APIM, OpenTelemetry, colas
 para ingesta, versionado de índices y pruebas canary.

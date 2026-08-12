@@ -201,9 +201,12 @@ class HybridCvRetrieval:
             if (
                 document.parent_id == "proyectos-enerey"
                 and document.section == "Firebase Functions y automatización"
-                and "enerey" in query_terms
             ):
-                final += 0.32
+                final += (
+                    0.32
+                    if query_terms & {"firebase", "maps", "sheets", "serverless"}
+                    else 0.18 if "enerey" in query_terms else 0.0
+                )
             if (
                 document.parent_id == "habilidades-tecnicas"
                 and document.section == "Fortalezas principales"
@@ -245,6 +248,18 @@ class HybridCvRetrieval:
                 and document.parent_id == "enerey-ia-clientes"
             ):
                 final += 0.10
+            if (
+                document.parent_id == "enerey-ia-clientes"
+                and query_terms & {"chatbot", "conversacional", "conversacion"}
+                and query_terms & {"whatsapp", "ios", "interno", "pedidos", "app"}
+            ):
+                final += 0.32
+            if (
+                document.parent_id == "enerey-ia-clientes"
+                and "enerey" in query_terms
+                and query_terms & {"construyo", "responsabilidad", "hizo"}
+            ):
+                final += 0.20
             if role_query and document.category == "vacante":
                 final += 0.25
             elif role_query and document.category == "perfil":
@@ -262,7 +277,7 @@ class HybridCvRetrieval:
                     impact_type=document.impact_type,
                     source_kind=document.source_kind,
                     source=document.source,
-                    excerpt=document.text[:1200],
+                    excerpt=document.text,
                     vector_score=vector_scores[identifier],
                     lexical_score=lexical,
                     rrf_score=rrf,
