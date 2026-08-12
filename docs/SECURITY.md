@@ -32,6 +32,8 @@ Controles implementados:
   tokens de autorización, datos de usuario ni secretos;
 - errores del agente o proveedor convertidos a un 502 genérico sin propagar
   excepciones ni detalles del proveedor a ASGI/Uvicorn, al cuerpo o a los logs;
+  el cuerpo usa `agent_execution_error` y la dimensión acotada usa
+  `error_type: agent_error`, pues el límite cubre toda la ejecución del agente;
 - solicitudes sensibles generadas con razonamiento `low`, aunque el cliente
   solicite `high`, para reservar un presupuesto visible a la negativa segura;
 - imagen Linux ejecutada como usuario sin privilegios;

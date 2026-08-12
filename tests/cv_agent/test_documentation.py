@@ -47,3 +47,6 @@ def test_security_documentation_promises_only_emitted_safe_dimensions():
     assert "prompts ni respuestas" in text
     assert "detalles del proveedor" in text
     assert "razonamiento `low`" in text
+    assert "agent_error" in text
+    assert "agent_execution_error" in text
+    assert "model_provider_error" not in text

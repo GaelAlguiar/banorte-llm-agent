@@ -183,7 +183,7 @@ def create_response(body: CreateResponseRequest, request: Request):
         log_event(
             "agent_response",
             status="error",
-            error_type="model_error",
+            error_type="agent_error",
             latency_ms=round((time.perf_counter() - started) * 1000, 2),
             attachment_count=min(len(user_input.attachments), 4),
             attachment_kinds=sorted({item.kind for item in user_input.attachments}),
@@ -191,9 +191,9 @@ def create_response(body: CreateResponseRequest, request: Request):
         return JSONResponse(
             status_code=502,
             content={"error": {
-                "message": "El proveedor del modelo no pudo completar la respuesta.",
+                "message": "El agente no pudo completar la respuesta.",
                 "type": "server_error",
-                "code": "model_provider_error",
+                "code": "agent_execution_error",
                 "param": None,
             }},
         )

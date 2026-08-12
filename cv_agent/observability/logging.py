@@ -17,7 +17,7 @@ _ENUMS = {
     "status": frozenset({"success", "error"}),
     "skill_name": _SKILLS,
     "safety_decision": frozenset({"allowed", "blocked"}),
-    "error_type": frozenset({"model_error"}),
+    "error_type": frozenset({"agent_error"}),
 }
 _LIST_ENUMS = {
     "source_kind_mix": frozenset({"perfil", "laboral", "demostrativo"}),

@@ -72,16 +72,16 @@ def test_real_api_path_emits_allowlisted_error_without_exception_content(caplog)
     assert response.status_code == 502
     assert response.json() == {
         "error": {
-            "message": "El proveedor del modelo no pudo completar la respuesta.",
+            "message": "El agente no pudo completar la respuesta.",
             "type": "server_error",
-            "code": "model_provider_error",
+            "code": "agent_execution_error",
             "param": None,
         }
     }
     event = next(item for item in _events(caplog)
                  if item["event"] == "agent_response")
     assert event["status"] == "error"
-    assert event["error_type"] == "model_error"
+    assert event["error_type"] == "agent_error"
     serialized = "\n".join(record.message for record in caplog.records)
     assert "secret-value" not in serialized
     assert "private prompt" not in serialized
