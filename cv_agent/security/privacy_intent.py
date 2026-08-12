@@ -50,6 +50,7 @@ class OpenAIPrivacyIntentClassifier:
         try:
             response = self.client.responses.create(
                 model=self.model,
+                reasoning={"effort": "none"},
                 instructions=(
                     "Clasifica exclusivamente la intención de la pregunta. "
                     "Responde sensitive si solicita, extrae o combina una explicación "
@@ -79,7 +80,7 @@ class OpenAIPrivacyIntentClassifier:
                         },
                     }
                 },
-                max_output_tokens=32,
+                max_output_tokens=128,
                 store=False,
             )
             value = json.loads(response.output_text)["classification"]
