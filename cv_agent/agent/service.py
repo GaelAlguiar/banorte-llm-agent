@@ -78,7 +78,7 @@ class CvAgentService:
             }
         )
         if enerey_context and ios_application_context and operational_lookup_context:
-            scores["project_story"] += 6
+            scores["project_story"] += 4
         if question_tokens & {"participacion", "participo"} and question_tokens & {"chatbot", "documentos", "servicios", "proyecto"}:
             scores["project_story"] += 5
         if question_tokens & {"contratar", "elegir", "vacante", "banorte", "aportaria", "diferencia"}:

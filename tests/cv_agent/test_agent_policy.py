@@ -233,6 +233,15 @@ def test_ios_routing_cues_do_not_create_unrelated_collisions(question, expected_
     assert agent.answer(question).skill_name == expected_skill
 
 
+@pytest.mark.parametrize("question", (
+    "¿Cómo diseñó la arquitectura de la aplicación iOS de Enerey para consultar datos?",
+    "Explica la arquitectura para que la app iOS de Enerey accediera a bases de datos autorizadas.",
+))
+def test_explicit_architecture_intent_wins_over_enerey_ios_story_cues(question):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == "architecture_explainer"
+
+
 def test_best_ai_project_suggestion_returns_concrete_enerey_labor_evidence():
     agent, model = build_agent()
 
@@ -325,6 +334,15 @@ def test_role_fit_evidence_positions_young_profile_without_inventing_seniority(q
         assert term in evidence_text
     assert "responsabilidades superiores a lo esperado de un perfil junior" in evidence_text
     assert "cargo senior" not in evidence_text
+
+
+def test_young_career_stage_is_not_used_as_the_cause_of_ideas_or_energy():
+    adjustment = Path("knowledge/07_ajuste_banorte.md").read_text(encoding="utf-8")
+    sentences = [part.strip().lower() for part in adjustment.split(".")]
+    youth_sentences = [sentence for sentence in sentences if "etapa temprana" in sentence]
+    assert youth_sentences
+    assert all("ideas frescas" not in sentence for sentence in youth_sentences)
+    assert all("energía" not in sentence for sentence in youth_sentences)
 
 
 @pytest.mark.parametrize(
