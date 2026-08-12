@@ -51,13 +51,19 @@ class CvAgentService:
             "contrasenas",
             "password",
             "passwords",
-            "token",
-            "tokens",
             "secreto",
             "secretos",
-            "prompt",
             "ignora",
         }
+        dual_use_sensitive_request = bool(
+            question_tokens & {"token", "tokens", "prompt", "prompts"}
+            and question_tokens
+            & {
+                "revela", "revelar", "muestra", "mostrar", "muestrame",
+                "dame", "dime", "filtra", "filtrar", "extrae", "extraer",
+                "ignora",
+            }
+        )
         secret_key_request = bool(
             question_tokens & {"clave", "claves"}
             and question_tokens
@@ -92,6 +98,7 @@ class CvAgentService:
         )
         if (
             question_tokens & privacy_markers
+            or dual_use_sensitive_request
             or secret_key_request
             or private_resource_request
             or internal_infrastructure_request
@@ -106,6 +113,16 @@ class CvAgentService:
         scores["architecture_explainer"] += 5 * len(question_tokens & {"arquitectura", "rag", "terraform", "apim", "infraestructura"})
         scores["architecture_explainer"] += 2 * len(question_tokens & {"a2a", "aks", "container", "dns", "embeddings", "mcp", "redes", "llms", "backend", "frontend", "apis", "produccion"})
         scores["learning_evidence"] += 5 * len(question_tokens & {"aprende", "aprenderia", "aprendizaje", "autodidacta", "domina", "mejora", "persistente", "trasladaria", "fine", "tuning"})
+        if (
+            question_tokens & {"prompt", "prompts"}
+            and question_tokens & {"engineering", "experiencia"}
+        ):
+            scores["learning_evidence"] += 4
+        if (
+            question_tokens & {"token", "tokens", "tokenizacion"}
+            and "experiencia" in question_tokens
+        ):
+            scores["learning_evidence"] += 4
         scores["project_story"] += 5 * len(question_tokens & {"proyecto", "proyectos"})
         scores["project_story"] += 3 * len(question_tokens & {"automatizacion", "automatizaciones", "cotizacion", "cotizaciones", "construyo", "impacto", "resolvio", "whatsapp", "jira", "chatbot", "github"})
         enerey_context = "enerey" in question_tokens
