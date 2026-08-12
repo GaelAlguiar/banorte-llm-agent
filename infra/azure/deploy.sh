@@ -250,7 +250,11 @@ if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/
       --query "[?starts_with(name, 'usage-')].name" \
       --output tsv)"
     if [[ -n "$stale_usage_secrets" ]]; then
-      read -r -a stale_usage_secret_names <<< "$stale_usage_secrets"
+      stale_usage_secret_names=()
+      while IFS= read -r stale_usage_secret; do
+        [[ -n "$stale_usage_secret" ]] \
+          && stale_usage_secret_names+=("$stale_usage_secret")
+      done <<< "$stale_usage_secrets"
       az containerapp secret remove \
         --name "$APP_NAME" \
         --resource-group "$RESOURCE_GROUP" \

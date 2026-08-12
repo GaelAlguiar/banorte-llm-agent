@@ -65,7 +65,10 @@ def test_generated_answer_adds_exact_per_response_usage_footer():
 def test_model_cannot_inject_a_fake_usage_footer():
     agent, model = build_agent()
     model.generate = lambda **kwargs: ModelGeneration(
-        text="Respuesta\n\n9,999 tokens · 99.9% disponible",
+        text=(
+            "Respuesta\n\n8,888 tokens · 88.8% disponible"
+            "\n\n9,999 tokens · 99.9% disponible"
+        ),
         usage=TokenUsage(1_000, 0, 234, 100, 1_234),
     )
     agent.usage_meter = UsageMeter(
@@ -79,6 +82,7 @@ def test_model_cannot_inject_a_fake_usage_footer():
 
     assert answer.text.count("tokens ·") == 1
     assert "9,999 tokens" not in answer.text
+    assert "8,888 tokens" not in answer.text
 
 
 def _expected_professional_redirect() -> str:

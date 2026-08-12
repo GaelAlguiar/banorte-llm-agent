@@ -52,7 +52,13 @@ class UsageMeter:
                 Decimal("0.1"), rounding=ROUND_HALF_UP,
             )
             available = float(min(Decimal("100"), max(Decimal("0"), percent)))
-        except (UsageStoreError, AzureError):
+        except (
+            UsageStoreError,
+            AzureError,
+            KeyError,
+            ValueError,
+            ArithmeticError,
+        ):
             available = None
             log_event(
                 "usage_meter",
@@ -69,7 +75,7 @@ class UsageMeter:
     def ready(self) -> bool:
         try:
             return self.store.ready()
-        except (UsageStoreError, AzureError):
+        except (UsageStoreError, AzureError, KeyError, ValueError, ArithmeticError):
             return False
 
 

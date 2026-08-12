@@ -476,7 +476,9 @@ class CvAgentService:
             ),
             max_output_tokens=effective_max_output_tokens,
         )
-        text = _USAGE_FOOTER_SUFFIX.sub("", generation.text.strip()).rstrip()
+        text = generation.text.strip()
+        while _USAGE_FOOTER_SUFFIX.search(text):
+            text = _USAGE_FOOTER_SUFFIX.sub("", text).rstrip()
         public_usage = None
         if generation.usage is not None and self.usage_meter is not None:
             public_usage = self.usage_meter.record(

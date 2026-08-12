@@ -84,6 +84,22 @@ def test_meter_does_not_lose_answer_when_storage_network_fails():
     assert result.available_percent is None
 
 
+def test_meter_does_not_lose_answer_when_storage_data_is_corrupt():
+    class CorruptStore:
+        total_budget = Decimal("10")
+
+        def apply_once(self, event_id, cost):
+            return Decimal("not-a-number")
+
+    result = UsageMeter(
+        store=CorruptStore(),
+        rates=ModelRates(Decimal("5"), Decimal("0.5"), Decimal("30")),
+    ).record(event_id="id", usage=TokenUsage(1, 0, 0, 0, 1))
+
+    assert result.total_tokens == 1
+    assert result.available_percent is None
+
+
 def test_meter_prices_cache_writes_and_long_context_multiplier():
     class CapturingStore:
         total_budget = Decimal("10")
@@ -174,3 +190,29 @@ def test_azure_store_does_not_access_network_during_app_startup():
     )
 
     assert table.calls == 0
+
+
+def test_azure_store_readiness_requires_write_access():
+    class Entity(dict):
+        metadata = {"etag": "etag-1"}
+
+    class Table:
+        def __init__(self):
+            self.updated = None
+
+        def get_entity(self, partition_key, row_key):
+            return Entity(spent="3.28")
+
+        def update_entity(self, **kwargs):
+            self.updated = kwargs
+
+    table = Table()
+    store = AzureTableUsageBudgetStore(
+        table_client=table,
+        total_budget=Decimal("10"),
+        initial_spent=Decimal("3.28"),
+    )
+
+    assert store.ready() is True
+    assert table.updated["entity"]["spent"] == "3.28"
+    assert table.updated["etag"] == "etag-1"

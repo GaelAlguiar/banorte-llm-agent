@@ -165,6 +165,8 @@ def test_deploy_script_removes_disabled_usage_configuration_and_waits_ready():
     assert "USAGE_TOTAL_BUDGET" in text.split("--remove-env-vars", 2)[-1]
     assert "starts_with(name, 'usage-')" in text
     assert "stale_usage_secret_names" in text
+    assert 'while IFS= read -r stale_usage_secret' in text
+    assert 'stale_usage_secret_names+=("$stale_usage_secret")' in text
     assert '"https://$fqdn/health/ready"' in text
     assert 'if [[ "$ready" != "1" ]]' in text
     assert "--ingress internal" in text

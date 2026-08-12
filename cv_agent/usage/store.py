@@ -67,6 +67,16 @@ class AzureTableUsageBudgetStore:
         try:
             aggregate = self._ensure_aggregate()
             Decimal(aggregate["spent"])
+            self.table_client.update_entity(
+                entity={
+                    "PartitionKey": "usage",
+                    "RowKey": "aggregate",
+                    "spent": aggregate["spent"],
+                },
+                mode="replace",
+                etag=aggregate.metadata["etag"],
+                match_condition=MatchConditions.IfNotModified,
+            )
             return True
         except (HttpResponseError, KeyError, ValueError, ArithmeticError) as error:
             raise UsageStoreError("usage aggregate readiness failed") from error
