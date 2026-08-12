@@ -214,6 +214,64 @@ def test_exact_ios_worker_database_paraphrase_routes_to_enerey_story():
     assert all(term in excerpt for term in ("ios", "trabajadores", "bases de datos", "excel"))
 
 
+def test_indirect_ios_operational_problem_routes_to_enerey_story():
+    agent, model = build_agent()
+
+    result = agent.answer(
+        "¿Qué problema operativo solucionaba la experiencia conversacional "
+        "dentro de la app iOS de Enerey?"
+    )
+
+    assert result.skill_name == "project_story"
+    assert result.evidence_ids[0] == "enerey-ia-clientes"
+    excerpt = " ".join(model.calls[0]["evidence"][0]["excerpt"].lower().split())
+    for term in ("trabajadores", "bases de datos", "excel", "único desarrollador"):
+        assert term in excerpt
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Qué necesidad interna resolvía la experiencia conversacional de la app de Enerey?",
+        "¿Para qué servía la consulta conversacional dentro de la aplicación iOS de Enerey?",
+    ),
+)
+def test_indirect_enerey_conversational_paraphrases_are_project_stories(question):
+    agent, _ = build_agent()
+
+    assert agent.answer(question).skill_name == "project_story"
+
+
+def test_global_and_lugra_freelance_participation_routes_to_project_story():
+    agent, model = build_agent()
+
+    result = agent.answer(
+        "¿Qué participación tuvo Gael en los sitios Global y Lugra y bajo qué "
+        "modalidad trabajó?"
+    )
+
+    assert result.skill_name == "project_story"
+    assert result.evidence_ids[0] == "proyectos-enerey"
+    evidence_text = " ".join(
+        item["excerpt"] for item in model.calls[0]["evidence"]
+    ).lower()
+    for term in ("freelance", "global", "lugra", "creó"):
+        assert term in evidence_text
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Qué sitios web desarrolló Gael como freelance?",
+        "Cuéntame el trabajo independiente de Gael en las páginas Global y Lugra.",
+    ),
+)
+def test_freelance_site_paraphrases_are_project_stories(question):
+    agent, _ = build_agent()
+
+    assert agent.answer(question).skill_name == "project_story"
+
+
 @pytest.mark.parametrize("question", (
     "¿Cómo consultaban los trabajadores datos desde la app iOS de Enerey?",
     "¿Cómo evitaba la aplicación de Enerey buscar información en Excel?",
@@ -236,6 +294,8 @@ def test_ios_routing_cues_do_not_create_unrelated_collisions(question, expected_
 @pytest.mark.parametrize("question", (
     "¿Cómo diseñó la arquitectura de la aplicación iOS de Enerey para consultar datos?",
     "Explica la arquitectura para que la app iOS de Enerey accediera a bases de datos autorizadas.",
+    "¿Cómo diseñó la arquitectura de la experiencia conversacional dentro de la app iOS de Enerey?",
+    "¿Qué arquitectura usó Gael para los sitios Global y Lugra?",
 ))
 def test_explicit_architecture_intent_wins_over_enerey_ios_story_cues(question):
     agent, _ = build_agent()
@@ -324,16 +384,52 @@ def test_enerey_evidence_confirms_exclusive_end_to_end_responsibility():
         assert term in evidence_text
 
 
-@pytest.mark.parametrize("question", (SUGGESTED_QUESTIONS[0], SUGGESTED_QUESTIONS[7]))
-def test_role_fit_evidence_positions_young_profile_without_inventing_seniority(question):
+@pytest.mark.parametrize(
+    "question",
+    (
+        SUGGESTED_QUESTIONS[0],
+        SUGGESTED_QUESTIONS[7],
+        "¿Qué aportaría Gael en una posición Junior de inteligencia artificial?",
+        "¿Por qué Gael es un candidato adecuado para esta vacante Junior?",
+    ),
+)
+def test_role_fit_evidence_positions_gael_as_a_junior_candidate(question):
     agent, model = build_agent()
     result = agent.answer(question)
     assert result.skill_name == "role_fit"
-    evidence_text = " ".join(item["excerpt"] for item in model.calls[0]["evidence"]).lower()
-    for term in ("profesional joven", "ideas frescas", "autodidacta", "persistente"):
+    evidence_text = " ".join(
+        " ".join(item["excerpt"].split())
+        for item in model.calls[0]["evidence"]
+    ).lower()
+    for term in (
+        "candidato junior",
+        "experiencia práctica sólida",
+        "ideas frescas",
+        "autodidacta",
+        "aprendizaje rápido",
+        "perseverancia",
+        "crecer dentro del equipo",
+        "responsabilidades no siempre habituales en un perfil junior",
+    ):
         assert term in evidence_text
-    assert "responsabilidades superiores a lo esperado de un perfil junior" in evidence_text
-    assert "cargo senior" not in evidence_text
+    for forbidden in (
+        "responsabilidades superiores a lo esperado de un perfil junior",
+        "más que junior",
+        "equipo senior",
+    ):
+        assert forbidden not in evidence_text
+    assert "no se presenta como senior" in evidence_text
+
+
+def test_instructions_keep_role_fit_at_junior_level():
+    instructions = " ".join(build_instructions().split()).lower()
+
+    assert "posición junior" in instructions
+    assert "experiencia práctica sólida" in instructions
+    assert "crecer dentro del equipo" in instructions
+    assert "responsabilidades no siempre habituales en un perfil junior" in instructions
+    assert "nunca lo presentes como senior" in instructions
+    assert "equipo senior" not in instructions
 
 
 def test_young_career_stage_is_not_used_as_the_cause_of_ideas_or_energy():

@@ -49,12 +49,20 @@ class CvAgentService:
             "credenciales",
             "clave",
             "secreto",
-            "internas",
-            "interna",
             "prompt",
             "ignora",
         }
-        if question_tokens & privacy_markers:
+        sensitive_internal_request = bool(
+            question_tokens & {"interna", "internas", "interno", "internos"}
+            and question_tokens
+            & {
+                "revela", "revelar", "muestra", "mostrar", "ruta", "rutas",
+                "url", "urls", "ip", "ips", "credencial", "credenciales",
+                "clave", "claves", "secreto", "secretos", "direccion",
+                "direcciones",
+            }
+        )
+        if question_tokens & privacy_markers or sensitive_internal_request:
             return next(
                 skill
                 for skill in self.skills
@@ -79,6 +87,38 @@ class CvAgentService:
         )
         if enerey_context and ios_application_context and operational_lookup_context:
             scores["project_story"] += 4
+        conversational_application_context = bool(
+            question_tokens & {"conversacional", "conversacion", "consulta"}
+            and ios_application_context
+        )
+        operational_problem_context = bool(
+            question_tokens
+            & {
+                "problema", "operativo", "necesidad", "resolvia", "solucionaba",
+                "servia", "trabajadores", "datos", "excel",
+            }
+        )
+        if (
+            enerey_context
+            and conversational_application_context
+            and operational_problem_context
+        ):
+            scores["project_story"] += 5
+        freelance_site_context = bool(
+            question_tokens & {"freelance", "independiente", "modalidad"}
+            and question_tokens
+            & {"sitio", "sitios", "web", "pagina", "paginas", "global", "lugra"}
+        )
+        named_site_context = bool(
+            question_tokens & {"global", "lugra"}
+            and question_tokens
+            & {
+                "participacion", "participo", "desarrollo", "creo", "trabajo",
+                "modalidad", "sitio", "sitios", "pagina", "paginas",
+            }
+        )
+        if freelance_site_context or named_site_context:
+            scores["project_story"] += 5
         if question_tokens & {"participacion", "participo"} and question_tokens & {"chatbot", "documentos", "servicios", "proyecto"}:
             scores["project_story"] += 5
         if question_tokens & {"contratar", "elegir", "vacante", "banorte", "aportaria", "diferencia"}:

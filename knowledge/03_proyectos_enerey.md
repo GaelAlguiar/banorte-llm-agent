@@ -8,7 +8,7 @@ source: CV, repositorios y tareas profesionales revisadas
 ---
 ## Responsabilidad técnica
 
-Gael fue el único desarrollador de las soluciones de Enerey y asumió su ciclo completo: levantamiento de necesidades, arquitectura, backend, frontend, integraciones, pruebas, despliegues y soporte. Su alcance abarcó las herramientas móviles, administrativas, conversacionales y comerciales descritas en la evidencia del ecosistema Enerey.
+Gael fue el único desarrollador de las soluciones de Enerey y asumió su ciclo completo: levantamiento de necesidades, arquitectura, backend, frontend, integraciones, pruebas, despliegues y soporte. Su alcance abarcó herramientas móviles, administrativas, conversacionales y comerciales. Además, como desarrollador freelance creó los sitios Global y Lugra.
 
 ## Aplicación administrativa y financiera
 

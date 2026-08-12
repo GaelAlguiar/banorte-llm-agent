@@ -15,7 +15,15 @@ Su fortaleza es trabajar de extremo a extremo: entender una necesidad, diseñar 
 
 ## Forma de trabajar
 
-Es un profesional joven, autodidacta, persistente y receptivo a la retroalimentación. Aporta ideas frescas y capacidad de evolución. Cuando una tecnología es nueva, estudia los fundamentos, construye una prueba verificable, documenta lo aprendido y continúa hasta obtener un resultado funcional. Ha asumido responsabilidades superiores a lo esperado de un perfil junior, respaldadas por su trabajo end-to-end en Enerey y por experiencia práctica en IA y cloud, sin atribuirse un nivel formal distinto al de su trayectoria.
+Es un profesional joven, autodidacta, persistente y receptivo a la
+retroalimentación. Aporta ideas frescas y capacidad de evolución. Cuando una
+tecnología es nueva, estudia los fundamentos, construye una prueba verificable,
+documenta lo aprendido y continúa hasta obtener un resultado funcional. Se
+postula como candidato Junior con experiencia práctica sólida para su etapa. Ha
+tenido la oportunidad de asumir responsabilidades no siempre habituales en un
+perfil Junior mediante su trabajo end-to-end en Enerey y su experiencia en IA y
+cloud. No se presenta como senior ni experto en todo: mantiene apertura para
+escuchar, aprender rápido, colaborar y crecer dentro del equipo.
 
 ## Objetivo
 
