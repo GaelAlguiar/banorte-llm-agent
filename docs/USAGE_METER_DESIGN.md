@@ -42,6 +42,10 @@ con control de concurrencia optimista mediante ETag; las pruebas y el entorno
 local usarán una implementación en memoria con la misma interfaz. Si dos
 respuestas terminan al mismo tiempo, cada costo se aplicará una sola vez.
 
+Cada instancia de respuesta generará un identificador aleatorio interno antes
+de registrar el uso. Este identificador sólo garantiza idempotencia del cargo;
+no se expondrá en el pie ni permitirá que el cliente controle la contabilidad.
+
 Las tarifas de entrada, entrada cacheada y salida serán configuración de
 servidor asociada al modelo. El razonamiento está incluido por OpenAI dentro de
 los tokens de salida. La fórmula interna será:
@@ -59,10 +63,12 @@ no campos controlados por el cliente.
 3. El servicio calcula su costo interno con las tarifas configuradas.
 4. El almacén incrementa el consumo de manera atómica y devuelve el porcentaje
    actualizado.
-5. JSON y SSE incluyen `usage.total_tokens` y la extensión segura
-   `budget.available_percent`.
-6. El frontend agrega dos espacios verticales y renderiza, por ejemplo,
-   `1,234 tokens · 67.2% disponible`.
+5. El servidor agrega al texto final dos saltos de línea y, por ejemplo,
+   `1,234 tokens · 67.2% disponible`; así también aparece en clientes que
+   ignoran extensiones propias, incluido el portal del reto.
+6. JSON y SSE incluyen además `usage.total_tokens` y la extensión segura
+   `budget.available_percent`; el frontend propio reconoce el pie ya integrado
+   y no lo duplica.
 
 ## Contrato y presentación
 
@@ -76,10 +82,13 @@ extensión superior `budget` contendrá únicamente:
 }
 ```
 
-El endpoint Flask devolverá el mismo `usage` y `budget`. El cliente almacenará
-estos valores junto al mensaje para que el historial local conserve la línea
-tras recargar. La línea tendrá estilo secundario, contraste accesible y una
-etiqueta comprensible para lectores de pantalla.
+El endpoint Flask devolverá el mismo `usage` y `budget`. Tanto Open Responses
+como Flask devolverán el texto con un único pie separado por dos saltos de
+línea, para que el portal de terceros lo muestre aunque descarte los campos
+adicionales. El cliente almacenará estos valores junto al mensaje para que el
+historial local conserve la línea tras recargar y nunca añadirá un segundo pie.
+En el frontend propio la línea tendrá estilo secundario, contraste accesible y
+una etiqueta comprensible para lectores de pantalla.
 
 ## Errores y privacidad
 
@@ -100,7 +109,8 @@ etiqueta comprensible para lectores de pantalla.
 - Ausencia segura cuando `usage` falta o es inválido.
 - Cálculo de costo con entrada, cache y salida; redondeo y límites.
 - Actualización atómica e idempotente ante concurrencia y reintentos.
-- Paridad de `usage` y `budget` en JSON, SSE y Flask.
+- Paridad de `usage`, `budget` y pie visible en JSON, SSE y Flask, sin
+  duplicación.
 - Render exacto `1,234 tokens · 67.2% disponible`, persistencia local y
   accesibilidad.
 - Regresiones que demuestren que no aparecen dólares, presupuesto, consumo,
