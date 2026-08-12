@@ -1,6 +1,9 @@
 from dataclasses import dataclass
+import ipaddress
+from pathlib import PurePosixPath
+import re
 from typing import Any, Literal
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -40,21 +43,133 @@ DEFAULT_ATTACHMENT_QUESTION = (
     "Analiza el archivo o imagen y relaciónalo con el perfil profesional de Gael."
 )
 MAX_ATTACHMENTS = 4
+MAX_ATTACHMENT_FILENAME_LENGTH = 128
+_HOST_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+_INTERNAL_SUFFIXES = (
+    ".internal", ".localhost", ".local", ".lan", ".home", ".corp",
+)
+_IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif"})
+_FILE_EXTENSIONS = frozenset({".pdf", ".txt", ".md", ".docx"})
+_IMAGE_MIME_TYPES = frozenset({
+    "image/png", "image/jpeg", "image/webp", "image/gif",
+})
+_FILE_MIME_TYPES = frozenset({
+    "application/pdf",
+    "text/plain",
+    "text/markdown",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+})
 
 
-def _validated_https_url(value: Any) -> str:
+@dataclass(frozen=True)
+class AttachmentPolicy:
+    max_attachments: int = MAX_ATTACHMENTS
+    trusted_hosts: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.max_attachments <= MAX_ATTACHMENTS:
+            raise ValueError(
+                f"max_attachments debe estar entre 0 y {MAX_ATTACHMENTS}"
+            )
+        normalized = tuple(host.strip().lower().rstrip(".") for host in self.trusted_hosts)
+        if any(not _is_public_fqdn(host) for host in normalized):
+            raise ValueError("La lista de hosts de adjuntos contiene un host inválido")
+        object.__setattr__(self, "trusted_hosts", normalized)
+
+
+def _is_public_fqdn(hostname: str) -> bool:
+    if not hostname or len(hostname) > 253 or hostname.endswith("."):
+        return False
+    if "." not in hostname or hostname.endswith(_INTERNAL_SUFFIXES):
+        return False
+    if not hostname.isascii():
+        return False
+    return all(_HOST_LABEL.fullmatch(label) for label in hostname.split("."))
+
+
+def _validated_https_url(value: Any, policy: AttachmentPolicy) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError("El adjunto debe incluir una URL HTTPS")
     url = value.strip()
-    parsed = urlsplit(url)
-    if parsed.scheme != "https" or not parsed.hostname:
+    if any(character.isspace() or ord(character) < 32 for character in url):
+        raise ValueError("La URL HTTPS del adjunto contiene caracteres inválidos")
+    if "\\" in url:
+        raise ValueError("La URL HTTPS del adjunto contiene caracteres inválidos")
+    try:
+        parsed = urlsplit(url)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError as error:
+        raise ValueError("Los adjuntos deben usar una URL HTTPS válida") from error
+    if parsed.scheme != "https" or not hostname:
         raise ValueError("Los adjuntos deben usar una URL HTTPS válida")
     if parsed.username or parsed.password:
         raise ValueError("La URL HTTPS del adjunto no debe contener credenciales")
+    if "%" in parsed.netloc:
+        raise ValueError("La URL HTTPS del adjunto contiene un host codificado")
+    if port not in (None, 443):
+        raise ValueError("La URL HTTPS del adjunto solo puede usar el puerto 443")
+    normalized_host = hostname.lower()
+    try:
+        ipaddress.ip_address(normalized_host)
+    except ValueError:
+        if not _is_public_fqdn(normalized_host):
+            raise ValueError("El host del adjunto debe ser un FQDN público")
+    else:
+        raise ValueError("La URL del adjunto debe usar un FQDN público, no una IP")
+    if policy.trusted_hosts and normalized_host not in policy.trusted_hosts:
+        raise ValueError("El host del adjunto no está autorizado")
     return url
 
 
-def extract_user_input(value: str | list[dict[str, Any]]) -> UserInput:
+def _validated_filename(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("El nombre del adjunto es inválido")
+    filename = value.strip()
+    if len(filename) > MAX_ATTACHMENT_FILENAME_LENGTH:
+        raise ValueError(
+            f"El nombre del adjunto excede {MAX_ATTACHMENT_FILENAME_LENGTH} caracteres"
+        )
+    if filename != PurePosixPath(filename).name or any(
+        character in filename for character in ("\\", "\x00")
+    ):
+        raise ValueError("El nombre del adjunto es inválido")
+    return filename
+
+
+def _validate_attachment_type(
+    *, kind: Literal["image", "file"], url: str, filename: str | None,
+    mime_hints: tuple[Any, ...],
+) -> None:
+    allowed_extensions = _IMAGE_EXTENSIONS if kind == "image" else _FILE_EXTENSIONS
+    allowed_mime_types = _IMAGE_MIME_TYPES if kind == "image" else _FILE_MIME_TYPES
+    url_extension = PurePosixPath(unquote(urlsplit(url).path)).suffix.lower()
+    filename_extension = PurePosixPath(filename).suffix.lower() if filename else ""
+    extensions = tuple(
+        extension for extension in (url_extension, filename_extension) if extension
+    )
+    if any(extension not in allowed_extensions for extension in extensions):
+        raise ValueError("El tipo o extensión del adjunto no está permitido")
+    if len(set(extensions)) > 1:
+        raise ValueError("Las extensiones declaradas para el adjunto no coinciden")
+    supplied_mime_hints = tuple(hint for hint in mime_hints if hint is not None)
+    if any(
+        not isinstance(hint, str)
+        or hint.strip().lower() not in allowed_mime_types
+        for hint in supplied_mime_hints
+    ):
+        raise ValueError("El MIME declarado del adjunto no está permitido")
+    if not extensions and not supplied_mime_hints:
+        raise ValueError("El tipo o extensión del adjunto no está permitido")
+
+
+def extract_user_input(
+    value: str | list[dict[str, Any]],
+    policy: AttachmentPolicy | None = None,
+) -> UserInput:
+    active_policy = policy or AttachmentPolicy()
     if isinstance(value, str):
         text = value.strip()
         if not text:
@@ -80,24 +195,37 @@ def extract_user_input(value: str | list[dict[str, Any]]) -> UserInput:
                     continue
                 part_type = part.get("type")
                 if part_type == "input_image":
+                    url = _validated_https_url(part.get("image_url"), active_policy)
+                    _validate_attachment_type(
+                        kind="image", url=url, filename=None,
+                        mime_hints=tuple(
+                            part.get(key)
+                            for key in ("mime_type", "media_type", "content_type")
+                        ),
+                    )
                     attachments.append(UserAttachment(
                         kind="image",
-                        url=_validated_https_url(part.get("image_url")),
+                        url=url,
                     ))
                 elif part_type == "input_file":
-                    filename = part.get("filename")
+                    filename = _validated_filename(part.get("filename"))
+                    url = _validated_https_url(part.get("file_url"), active_policy)
+                    _validate_attachment_type(
+                        kind="file", url=url, filename=filename,
+                        mime_hints=tuple(
+                            part.get(key)
+                            for key in ("mime_type", "media_type", "content_type")
+                        ),
+                    )
                     attachments.append(UserAttachment(
                         kind="file",
-                        url=_validated_https_url(part.get("file_url")),
-                        filename=(
-                            filename.strip()
-                            if isinstance(filename, str) and filename.strip()
-                            else None
-                        ),
+                        url=url,
+                        filename=filename,
                     ))
-            if len(attachments) > MAX_ATTACHMENTS:
+            if len(attachments) > active_policy.max_attachments:
+                noun = "adjunto" if active_policy.max_attachments == 1 else "adjuntos"
                 raise ValueError(
-                    f"Se permiten como máximo {MAX_ATTACHMENTS} adjuntos por solicitud"
+                    f"Se permiten como máximo {active_policy.max_attachments} {noun} por solicitud"
                 )
             if parts or attachments:
                 return UserInput(

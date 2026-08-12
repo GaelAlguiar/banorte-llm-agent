@@ -15,6 +15,8 @@ class Settings:
     azure_search_index: str = "cv-profile-v1"
     azure_search_min_score: float = 0.03
     environment: str = "local"
+    max_attachments: int = 4
+    trusted_attachment_hosts: tuple[str, ...] = ()
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -46,4 +48,10 @@ class Settings:
                 os.getenv("AZURE_SEARCH_MIN_SCORE", "0.03")
             ),
             environment=os.getenv("APP_ENV", "local"),
+            max_attachments=int(os.getenv("MAX_ATTACHMENTS", "4")),
+            trusted_attachment_hosts=tuple(
+                host.strip()
+                for host in os.getenv("TRUSTED_ATTACHMENT_HOSTS", "").split(",")
+                if host.strip()
+            ),
         )

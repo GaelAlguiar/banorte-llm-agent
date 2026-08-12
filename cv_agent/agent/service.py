@@ -9,7 +9,7 @@ from cv_agent.agent.professional_intent import (
     ProfessionalIntentClassifier,
 )
 from cv_agent.agent.tools import ProfileTools
-from cv_agent.api.models import UserAttachment
+from cv_agent.api.models import DEFAULT_ATTACHMENT_QUESTION, UserAttachment
 from cv_agent.retrieval.base import RetrievalService
 from cv_agent.security.privacy_intent import (
     PrivacyIntentClassifier,
@@ -283,6 +283,42 @@ class CvAgentService:
             return ["experiencia"]
         return list(skill.allowed_categories)
 
+    @staticmethod
+    def _uses_attachment_analysis(
+        question: str,
+        attachments: tuple[UserAttachment, ...],
+        selected_skill: AgentSkill | None,
+    ) -> bool:
+        if not attachments:
+            return False
+        if question == DEFAULT_ATTACHMENT_QUESTION:
+            return True
+        attachment_terms = {
+            "adjunto", "analiza", "archivo", "captura", "compara",
+            "documento", "imagen", "requisito", "requisitos", "vacante",
+        }
+        specialized_skills = {
+            "architecture_explainer", "behavioral_interview",
+            "capability_advisor", "learning_evidence", "project_story",
+        }
+        return bool(set(tokenize(question)) & attachment_terms) and (
+            selected_skill is None or selected_skill.name not in specialized_skills
+        )
+
+    def _attachment_profile_evidence(self, skill: AgentSkill) -> list[dict]:
+        allowed_document_ids = {
+            document.id
+            for document in self.retrieval.documents
+            if document.source_path in skill.allowed_sources
+        }
+        return self.tools.search_profile(
+            "Gael perfil experiencia laboral proyectos IA GenAI cloud "
+            "habilidades candidato Junior ajuste vacante",
+            categories=list(skill.allowed_categories),
+            top_k=8,
+            allowed_document_ids=allowed_document_ids,
+        )
+
     def answer(
         self,
         question: str,
@@ -305,6 +341,11 @@ class CvAgentService:
             )
         else:
             skill = self._select_skill(question)
+            if self._uses_attachment_analysis(question, attachments, skill):
+                skill = next(
+                    item for item in self.skills
+                    if item.name == "attachment_analysis"
+                )
             if skill is None:
                 professional_intent = self.professional_classifier.classify(question)
                 skill_name = {
@@ -322,12 +363,15 @@ class CvAgentService:
                 for document in self.retrieval.documents
                 if document.source_path in skill.allowed_sources
             }
-            evidence = self.tools.search_profile(
-                question,
-                categories=self._retrieval_categories(skill, question),
-                top_k=8,
-                allowed_document_ids=allowed_document_ids,
-            )
+            if skill.name == "attachment_analysis":
+                evidence = self._attachment_profile_evidence(skill)
+            else:
+                evidence = self.tools.search_profile(
+                    question,
+                    categories=self._retrieval_categories(skill, question),
+                    top_k=8,
+                    allowed_document_ids=allowed_document_ids,
+                )
             if self._needs_safe_fallback(skill, evidence):
                 evidence = self.tools.search_profile(
                     question,
@@ -345,7 +389,9 @@ class CvAgentService:
             evidence=evidence,
             skill=skill,
             instructions=build_instructions(),
-            attachments=attachments,
+            attachments=(
+                () if skill.name == "privacy_guard" else attachments
+            ),
             reasoning_effort=reasoning_effort,
         ).strip()
         evidence_ids = tuple(dict.fromkeys(

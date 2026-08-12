@@ -131,7 +131,10 @@ def create_response(body: CreateResponseRequest, request: Request):
             },
         )
     try:
-        user_input = extract_user_input(body.input)
+        user_input = extract_user_input(
+            body.input,
+            policy=request.app.state.attachment_policy,
+        )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     question = user_input.text

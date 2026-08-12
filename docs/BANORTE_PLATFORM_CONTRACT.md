@@ -21,6 +21,14 @@ La documentación visible del reto no define un esquema técnico completo. Para 
 
 El agente de Gael soporta JSON y SSE. Su contrato acepta campos adicionales para mantener compatibilidad futura. La autenticación se configura fuera de la lógica del agente y utiliza bearer token cuando `AGENT_API_KEY` está definida.
 
+Los adjuntos conservan las partes nativas de Open Responses. Antes de enviarlas
+al proveedor, el agente valida HTTPS, host público sintáctico, puerto, tipo,
+extensión, MIME opcional, nombre y cantidad. No acepta ejecutables, archivos
+comprimidos ni tipos desconocidos. Las imágenes admitidas son PNG, JPEG, WebP y
+GIF; los documentos son PDF, TXT, Markdown y DOCX. `MAX_ATTACHMENTS` reduce el
+límite predeterminado de cuatro y `TRUSTED_ATTACHMENT_HOSTS` puede restringir
+las URLs firmadas a dominios exactos conocidos.
+
 No se asumen límites de timeout o payload como requisitos oficiales. Se establecen límites propios, documentados y configurables, y se validará el comportamiento final desde el chat oficial después del despliegue.
 
 ## Estado del registro y entrega

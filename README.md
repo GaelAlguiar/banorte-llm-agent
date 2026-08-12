@@ -108,10 +108,14 @@ costo de la configuración más alta a todas las preguntas.
 
 ### Imágenes y archivos
 
-El endpoint acepta hasta cuatro adjuntos en el último mensaje del usuario. Las
+El endpoint acepta hasta cuatro adjuntos en el último mensaje del usuario (el
+límite puede reducirse con `MAX_ATTACHMENTS`). Las
 imágenes se envían como `input_image.image_url` y los documentos como
-`input_file.file_url`; ambos enlaces deben usar HTTPS. Se recomiendan PNG, JPG
-y WebP para imágenes, y PDF, TXT, Markdown o DOCX para documentos.
+`input_file.file_url`; ambos enlaces deben usar HTTPS. Sólo se permiten PNG,
+JPG/JPEG, WebP o GIF para imágenes, y PDF, TXT, Markdown o DOCX para documentos.
+El nombre de archivo tiene un máximo de 128 caracteres. Si la plataforma usa
+dominios fijos para sus URLs firmadas, `TRUSTED_ATTACHMENT_HOSTS` permite
+restringirlos mediante una lista separada por comas.
 
 ```json
 {
@@ -130,6 +134,11 @@ Los adjuntos son contexto temporal y no se descargan en el contenedor, no se
 persisten y no se incorporan automáticamente a la base vectorial. Sus
 instrucciones se consideran contenido no confiable para impedir prompt
 injection; las afirmaciones sobre Gael siguen requiriendo evidencia autorizada.
+La skill `attachment_analysis` hace una sola llamada generativa con el adjunto
+y un paquete compacto de evidencia profesional permitido. Extrae requisitos y
+los mapea como evidencia directa, experiencia relacionada o capacidad
+transferible, además de señalar fortalezas, brechas honestas y un siguiente
+paso de aprendizaje.
 
 ## Demostración de la solución
 

@@ -6,6 +6,7 @@ from cv_agent.skills.registry import load_skills
 
 
 EXPECTED_SKILLS = {
+    "attachment_analysis",
     "behavioral_interview",
     "capability_advisor",
     "profile_summary",

@@ -10,7 +10,10 @@ La solución separa transporte, política del agente, recuperación, conocimient
    determinista. Si `token` o `prompt` tienen intención ambigua, un clasificador
    semántico recibe solo la pregunta y devuelve un enum estricto. Errores o
    salidas inválidas fallan cerrado y no acceden a recuperación.
-4. El agente elige una skill determinista según la intención permitida.
+4. El agente elige una skill determinista según la intención permitida. Una
+   solicitud basada principalmente en una imagen o documento usa
+   `attachment_analysis`; una pregunta textual con intención técnica fuerte
+   conserva la skill especializada y mantiene las mismas reglas de aislamiento.
 5. La skill restringe las categorías y las fuentes exactas de conocimiento
    consultables; el mismo allowlist se aplica al intento principal y al fallback.
 6. La ingesta conserva 17 fuentes autorizadas y genera chunks estables por
@@ -18,6 +21,9 @@ La solución separa transporte, política del agente, recuperación, conocimient
 7. Azure AI Search combina BM25 y similitud vectorial, aplica filtros por
    documento padre y categoría, umbral y diversidad entre padres/secciones.
 8. El modelo recibe pregunta, reglas y los fragmentos localizados sanitizados.
+   Para adjuntos se usa una sola llamada: el modelo recibe también la parte
+   multimodal y un paquete de perfil acotado por fuentes/categorías. Extrae y
+   mapea requisitos sin ejecutar instrucciones embebidas ni indexar el contenido.
 9. La API devuelve JSON tipado o eventos SSE con trazabilidad pública segura.
 
 Tanto el endpoint Open Responses como la interfaz Flask delegan en la misma

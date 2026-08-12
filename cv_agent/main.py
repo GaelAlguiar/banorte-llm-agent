@@ -11,6 +11,7 @@ from cv_agent.agent.openai_model import OpenAIResponsesModel
 from cv_agent.agent.professional_intent import OpenAIProfessionalIntentClassifier
 from cv_agent.agent.service import CvAgentService
 from cv_agent.api.responses import router as responses_router
+from cv_agent.api.models import AttachmentPolicy
 from cv_agent.config import Settings
 from cv_agent.observability.logging import log_event
 from cv_agent.retrieval.factory import build_retrieval
@@ -52,6 +53,10 @@ def create_app(
     app.state.settings = active_settings
     app.state.agent = agent if agent is not None else _build_agent(active_settings)
     app.state.rate_limiter = SlidingWindowLimiter()
+    app.state.attachment_policy = AttachmentPolicy(
+        max_attachments=active_settings.max_attachments,
+        trusted_hosts=active_settings.trusted_attachment_hosts,
+    )
     app.include_router(responses_router)
 
     @app.middleware("http")
