@@ -29,6 +29,7 @@ class ModelClient(Protocol):
         instructions: str,
         attachments: tuple[UserAttachment, ...] = (),
         reasoning_effort: str | None = None,
+        max_output_tokens: int | None = None,
     ) -> str:
         ...
 
@@ -52,6 +53,27 @@ class AgentAnswer:
     skill_name: str
     evidence_ids: tuple[str, ...]
     evidence: tuple[AnswerEvidence, ...] = ()
+    retrieval_hit_count: int = 0
+    source_kind_mix: tuple[str, ...] = ()
+    confidence_mix: tuple[str, ...] = ()
+    attachment_count: int = 0
+    attachment_kinds: tuple[str, ...] = ()
+    safety_decision: str = "allowed"
+
+
+MAX_OUTPUT_TOKENS = 1_200
+_OUTPUT_TOKEN_DEFAULTS = {
+    "privacy_guard": 256,
+    "profile_summary": 600,
+    "behavioral_interview": 700,
+    "capability_advisor": 700,
+    "learning_evidence": 700,
+    "architecture_explainer": 900,
+    "attachment_analysis": 900,
+    "project_story": 900,
+    "role_fit": 900,
+}
+_OBSERVABLE_SOURCE_KINDS = frozenset({"perfil", "laboral", "demostrativo"})
 
 
 _PUBLIC_EVIDENCE_URLS = {
@@ -324,6 +346,7 @@ class CvAgentService:
         question: str,
         attachments: tuple[UserAttachment, ...] = (),
         reasoning_effort: str | None = None,
+        max_output_tokens: int | None = None,
     ) -> AgentAnswer:
         if not question.strip():
             raise ValueError("La pregunta no puede estar vacía")
@@ -384,6 +407,11 @@ class CvAgentService:
                 and evidence[0]["score"] < 0.45
             ):
                 evidence = []
+        effective_max_output_tokens = (
+            _OUTPUT_TOKEN_DEFAULTS[skill.name]
+            if max_output_tokens is None
+            else min(MAX_OUTPUT_TOKENS, max_output_tokens)
+        )
         text = self.model.generate(
             question=question,
             evidence=evidence,
@@ -392,7 +420,10 @@ class CvAgentService:
             attachments=(
                 () if skill.name == "privacy_guard" else attachments
             ),
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=(
+                "low" if skill.name == "privacy_guard" else reasoning_effort
+            ),
+            max_output_tokens=effective_max_output_tokens,
         ).strip()
         evidence_ids = tuple(dict.fromkeys(
             item["document_id"] for item in evidence
@@ -425,9 +456,25 @@ class CvAgentService:
                 confidence=_confidence_bucket(item),
             ))
         safe_evidence = tuple(safe_evidence_items)
+        source_kind_mix = tuple(sorted({
+            item.source_kind for item in safe_evidence
+            if item.source_kind in _OBSERVABLE_SOURCE_KINDS
+        }))
+        confidence_mix = tuple(sorted({
+            item.confidence for item in safe_evidence
+            if item.confidence in {"alta", "media", "contextual"}
+        }))
         return AgentAnswer(
             text=text,
             skill_name=skill.name,
             evidence_ids=evidence_ids,
             evidence=safe_evidence,
+            retrieval_hit_count=min(len(evidence), 8),
+            source_kind_mix=source_kind_mix,
+            confidence_mix=confidence_mix,
+            attachment_count=min(len(attachments), 4),
+            attachment_kinds=tuple(sorted({item.kind for item in attachments})),
+            safety_decision=(
+                "blocked" if skill.name == "privacy_guard" else "allowed"
+            ),
         )

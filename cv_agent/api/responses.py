@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from cv_agent.api.models import CreateResponseRequest, extract_user_input
+from cv_agent.observability.logging import log_event
 from cv_agent.security.auth import valid_bearer
 
 
@@ -130,6 +131,18 @@ def create_response(body: CreateResponseRequest, request: Request):
                 }
             },
         )
+    if body.previous_response_id is not None:
+        return JSONResponse(
+            status_code=400,
+            content={"error": {
+                "message": (
+                    "previous_response_id no está soportado por este agente sin estado."
+                ),
+                "type": "invalid_request_error",
+                "code": "unsupported_previous_response_id",
+                "param": "previous_response_id",
+            }},
+        )
     try:
         user_input = extract_user_input(
             body.input,
@@ -156,12 +169,45 @@ def create_response(body: CreateResponseRequest, request: Request):
             status_code=503,
             detail="El agente no está configurado.",
         )
-    answer = agent.answer(
-        question,
-        attachments=user_input.attachments,
-        reasoning_effort=(
-            body.reasoning.effort if body.reasoning else None
-        ),
+    started = time.perf_counter()
+    try:
+        answer = agent.answer(
+            question,
+            attachments=user_input.attachments,
+            reasoning_effort=(
+                body.reasoning.effort if body.reasoning else None
+            ),
+            max_output_tokens=body.max_output_tokens,
+        )
+    except Exception:
+        log_event(
+            "agent_response",
+            status="error",
+            error_type="agent_error",
+            latency_ms=round((time.perf_counter() - started) * 1000, 2),
+            attachment_count=min(len(user_input.attachments), 4),
+            attachment_kinds=sorted({item.kind for item in user_input.attachments}),
+        )
+        return JSONResponse(
+            status_code=502,
+            content={"error": {
+                "message": "El agente no pudo completar la respuesta.",
+                "type": "server_error",
+                "code": "agent_execution_error",
+                "param": None,
+            }},
+        )
+    log_event(
+        "agent_response",
+        status="success",
+        latency_ms=round((time.perf_counter() - started) * 1000, 2),
+        skill_name=answer.skill_name,
+        retrieval_hit_count=answer.retrieval_hit_count,
+        source_kind_mix=list(answer.source_kind_mix),
+        confidence_mix=list(answer.confidence_mix),
+        attachment_count=answer.attachment_count,
+        attachment_kinds=list(answer.attachment_kinds),
+        safety_decision=answer.safety_decision,
     )
     answer_text = answer.text
     response_id = _ident("resp")

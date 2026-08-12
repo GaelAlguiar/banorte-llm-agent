@@ -5,6 +5,7 @@ from typing import Any
 from flask import Flask, jsonify, render_template, request
 
 from cv_agent.security.limits import SlidingWindowLimiter
+from cv_agent.observability.logging import log_event
 from cv_agent.web.suggestions import SUGGESTED_QUESTIONS
 
 
@@ -60,8 +61,14 @@ def create_flask_app(agent_provider: Callable[[], Any]) -> Flask:
         try:
             answer = agent.answer(message)
         except Exception:
-            app.logger.exception("agent_request_failed")
-            return _error(502, "No fue posible generar la respuesta.", "agent_error")
+            log_event(
+                "agent_response", status="error", error_type="agent_error"
+            )
+            return _error(
+                502,
+                "No fue posible generar la respuesta.",
+                "agent_execution_error",
+            )
         return jsonify({
             "response": answer.text,
             "evidence": [asdict(item) for item in answer.evidence],

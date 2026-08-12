@@ -1,3 +1,5 @@
+import logging
+
 from fastapi.testclient import TestClient
 
 from cv_agent.agent.service import AgentAnswer
@@ -123,3 +125,29 @@ def test_chat_does_not_legacy_block_prevention_question() -> None:
 
     assert response.status_code == 200
     assert agent.calls == [question]
+
+
+def test_chat_agent_exception_is_content_free_in_response_and_logs(caplog) -> None:
+    secret = "flask-secret-id https://provider.example/private"
+
+    class FailingAgent:
+        def answer(self, question):
+            raise RuntimeError(secret)
+
+    caplog.set_level(logging.INFO)
+    client = TestClient(create_app(agent=FailingAgent()))
+
+    response = client.post(
+        "/chat/api/messages", json={"message": "private user prompt"}
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "agent_execution_error"
+    serialized = response.text + "\n" + "\n".join(
+        record.getMessage() for record in caplog.records
+    )
+    for forbidden in (
+        secret, "flask-secret-id", "provider.example", "private user prompt",
+    ):
+        assert forbidden not in serialized
+    assert all(record.exc_info is None for record in caplog.records)
