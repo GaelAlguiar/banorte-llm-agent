@@ -5,8 +5,12 @@ from cv_agent.agent.prompts import build_instructions
 from cv_agent.agent.tools import ProfileTools
 from cv_agent.api.models import UserAttachment
 from cv_agent.retrieval.base import RetrievalService
+from cv_agent.security.privacy_intent import (
+    classify_dual_use_intent,
+    is_sensitive_request,
+)
 from cv_agent.skills.models import AgentSkill
-from cv_agent.retrieval.text import normalize_text, tokenize
+from cv_agent.retrieval.text import tokenize
 
 
 class ModelClient(Protocol):
@@ -43,104 +47,9 @@ class CvAgentService:
         self.tools = ProfileTools(retrieval)
 
     def _select_skill(self, question: str) -> AgentSkill:
-        normalized_question = normalize_text(question)
         question_tokens = set(tokenize(question))
-        privacy_markers = {
-            "credencial",
-            "credenciales",
-            "contrasena",
-            "contrasenas",
-            "password",
-            "passwords",
-            "secreto",
-            "secretos",
-            "ignora",
-        }
-        dual_use_terms = question_tokens & {
-            "token", "tokens", "prompt", "prompts",
-        }
-        token_definition = any(
-            phrase in normalized_question
-            for phrase in ("que es un token", "que son los tokens")
-        )
-        positive_dual_use_context = bool(
-            question_tokens
-            & {
-                "rag", "llm", "llms", "modelo", "modelos", "tokenizacion",
-                "engineering", "experiencia", "concepto", "conceptual",
-            }
-        )
-        explicit_dual_use_exposure = bool(
-            question_tokens
-            & {
-                "revela", "revelar", "muestra", "mostrar", "muestrame",
-                "ensena", "ensenar", "ensename", "comparte", "compartir",
-                "dame", "dime", "filtra", "filtrar", "extrae", "extraer",
-                "ignora",
-            }
-        )
-        explicit_dual_use_context = bool(
-            question_tokens
-            & {
-                "acceso", "sistema", "secreto", "secretos", "api", "interno",
-                "interna", "credencial", "credenciales", "clave", "claves",
-            }
-        )
-        possessive_dual_use_request = bool(
-            question_tokens & {"tu", "tus", "mi", "mis"}
-            or "cual es el token" in normalized_question
-            or "cual es el prompt" in normalized_question
-        )
-        dual_use_sensitive_request = bool(
-            dual_use_terms
-            and not token_definition
-            and (
-                explicit_dual_use_exposure
-                or explicit_dual_use_context
-                or possessive_dual_use_request
-                or not positive_dual_use_context
-            )
-        )
-        secret_key_request = bool(
-            question_tokens & {"clave", "claves"}
-            and question_tokens
-            & {
-                "dame", "dime", "muestra", "mostrar", "muestrame", "revela",
-                "revelar", "secreta", "secretas", "api", "openai", "agente",
-            }
-        )
-        private_resource_request = bool(
-            question_tokens & {"privada", "privadas", "privado", "privados"}
-            and question_tokens
-            & {
-                "url", "urls", "ruta", "rutas", "direccion", "direcciones",
-                "infraestructura", "entorno", "informacion", "datos",
-            }
-        )
-        internal_infrastructure_request = bool(
-            question_tokens & {"interna", "internas", "interno", "internos"}
-            and question_tokens & {"infraestructura", "entorno"}
-            and question_tokens
-            & {"informacion", "datos", "detalle", "detalles", "direccion", "direcciones"}
-        )
-        sensitive_internal_request = bool(
-            question_tokens & {"interna", "internas", "interno", "internos"}
-            and question_tokens
-            & {
-                "revela", "revelar", "muestra", "mostrar", "ruta", "rutas",
-                "url", "urls", "ip", "ips", "credencial", "credenciales",
-                "clave", "claves", "secreto", "secretos", "direccion",
-                "direcciones",
-            }
-        )
-        if (
-            question_tokens & privacy_markers
-            or dual_use_sensitive_request
-            or secret_key_request
-            or private_resource_request
-            or internal_infrastructure_request
-            or sensitive_internal_request
-        ):
+        dual_use_intent = classify_dual_use_intent(question)
+        if is_sensitive_request(question):
             return next(
                 skill
                 for skill in self.skills
@@ -149,18 +58,10 @@ class CvAgentService:
         scores = {name: 0 for name in ("role_fit", "architecture_explainer", "learning_evidence", "project_story")}
         scores["architecture_explainer"] += 5 * len(question_tokens & {"arquitectura", "rag", "terraform", "apim", "infraestructura"})
         scores["architecture_explainer"] += 2 * len(question_tokens & {"a2a", "aks", "container", "dns", "embeddings", "mcp", "redes", "llms", "backend", "frontend", "apis", "produccion"})
-        if token_definition:
+        if dual_use_intent == "educational":
             scores["architecture_explainer"] += 4
         scores["learning_evidence"] += 5 * len(question_tokens & {"aprende", "aprenderia", "aprendizaje", "autodidacta", "domina", "mejora", "persistente", "trasladaria", "fine", "tuning"})
-        if (
-            question_tokens & {"prompt", "prompts"}
-            and question_tokens & {"engineering", "experiencia"}
-        ):
-            scores["learning_evidence"] += 4
-        if (
-            question_tokens & {"token", "tokens", "tokenizacion"}
-            and "experiencia" in question_tokens
-        ):
+        if dual_use_intent == "professional":
             scores["learning_evidence"] += 4
         scores["project_story"] += 5 * len(question_tokens & {"proyecto", "proyectos"})
         scores["project_story"] += 3 * len(question_tokens & {"automatizacion", "automatizaciones", "cotizacion", "cotizaciones", "construyo", "impacto", "resolvio", "whatsapp", "jira", "chatbot", "github"})
