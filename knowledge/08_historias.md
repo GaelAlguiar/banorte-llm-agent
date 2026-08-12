@@ -5,6 +5,10 @@ category: historia
 evidence_level: directa
 source: experiencias profesionales y técnicas revisadas
 ---
+Estas historias documentan aprendizaje, depuración estructurada, apertura a la
+retroalimentación y ownership técnico. No documentan un incidente específico
+de conflicto o presión y no deben convertirse en una anécdota inventada.
+
 ## Resolver por capas
 
 En problemas de conectividad aprendió a separar peering o VPN, rutas, firewall, DNS y servicio de aplicación. Una conexión puede estar correctamente creada y aun así fallar porque otra capa bloquea tráfico. Esta forma estructurada de diagnosticar también se aplica a agentes: modelo, contexto, herramientas, permisos y transporte deben validarse por separado.

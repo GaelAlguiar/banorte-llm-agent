@@ -52,7 +52,29 @@ class CvAgentService:
 
     def _select_skill(self, question: str) -> AgentSkill:
         question_tokens = set(tokenize(question))
-        scores = {name: 0 for name in ("role_fit", "architecture_explainer", "learning_evidence", "project_story")}
+        scores = {
+            name: 0
+            for name in (
+                "role_fit", "architecture_explainer", "learning_evidence",
+                "project_story", "capability_advisor", "behavioral_interview",
+            )
+        }
+        behavioral_terms = {
+            "debilidad", "debilidades", "presion", "error", "errores",
+            "conflicto", "conflictos", "feedback", "retroalimentacion",
+            "scrum", "fracaso", "fallo",
+        }
+        scores["behavioral_interview"] += 7 * len(
+            question_tokens & behavioral_terms
+        )
+        capability_terms = {
+            "databricks", "react", "ci", "cd", "mlops", "monitoreo",
+            "monitorizacion", "owasp", "crewai", "framework", "frameworks",
+            "adoptar", "adoptaria",
+        }
+        scores["capability_advisor"] += 7 * len(
+            question_tokens & capability_terms
+        )
         scores["architecture_explainer"] += 5 * len(question_tokens & {"arquitectura", "rag", "terraform", "apim", "infraestructura"})
         scores["architecture_explainer"] += 2 * len(question_tokens & {"a2a", "aks", "container", "dns", "embeddings", "mcp", "redes", "llms", "backend", "frontend", "apis", "produccion"})
         dual_use_terms = question_tokens & {"token", "tokens", "prompt", "prompts"}
@@ -107,6 +129,8 @@ class CvAgentService:
         )
         if enerey_experience_context:
             scores["project_story"] += 5
+        if {"proyecto", "importante"} <= question_tokens:
+            scores["project_story"] += 4
         freelance_site_context = bool(
             question_tokens & {"freelance", "independiente", "modalidad"}
             and question_tokens
@@ -123,6 +147,12 @@ class CvAgentService:
         global_lugra_context = {"global", "lugra"} <= question_tokens
         if freelance_site_context or named_site_context or global_lugra_context:
             scores["project_story"] += 5
+        if "freelance" in question_tokens:
+            scores["project_story"] += 8
+        if dual_use_terms and {"proyectos", "hizo"} <= question_tokens:
+            scores["project_story"] += 8
+        if dual_use_terms and "resume" in question_tokens:
+            scores["architecture_explainer"] += 8
         if question_tokens & {"participacion", "participo"} and question_tokens & {"chatbot", "documentos", "servicios", "proyecto"}:
             scores["project_story"] += 5
         if question_tokens & {"contratar", "elegir", "vacante", "banorte", "aportaria", "diferencia"}:
@@ -146,6 +176,21 @@ class CvAgentService:
                 if skill.name == "profile_summary"
             )
         return selected
+
+    @staticmethod
+    def _needs_safe_fallback(skill: AgentSkill, evidence: list[dict]) -> bool:
+        if not evidence:
+            return True
+        if skill.name in {"capability_advisor", "behavioral_interview"}:
+            return evidence[0]["score"] < 0.30
+        return False
+
+    @staticmethod
+    def _retrieval_categories(skill: AgentSkill, question: str) -> list[str]:
+        question_tokens = set(tokenize(question))
+        if skill.name == "profile_summary" and "trayectoria" in question_tokens:
+            return ["experiencia"]
+        return list(skill.allowed_categories)
 
     def answer(
         self,
@@ -177,11 +222,11 @@ class CvAgentService:
             }
             evidence = self.tools.search_profile(
                 question,
-                categories=list(skill.allowed_categories),
+                categories=self._retrieval_categories(skill, question),
                 top_k=8,
                 allowed_document_ids=allowed_document_ids,
             )
-            if not evidence:
+            if self._needs_safe_fallback(skill, evidence):
                 evidence = self.tools.search_profile(
                     question,
                     top_k=3,

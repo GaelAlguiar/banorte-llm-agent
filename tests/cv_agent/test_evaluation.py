@@ -206,3 +206,53 @@ def test_evaluation_rejects_duplicate_case_ids(tmp_path: Path) -> None:
         assert "duplicado" in str(error)
     else:
         raise AssertionError("Debió rechazar IDs duplicados")
+
+
+def test_core_or_must_pass_failure_is_a_zero_tolerance_gate(tmp_path: Path) -> None:
+    cases = tmp_path / "cases.jsonl"
+    write_case(
+        cases,
+        id="core-01",
+        core=True,
+        required_terms=["evidencia inexistente"],
+        expected_skill="role_fit",
+        category="role_fit",
+    )
+
+    with pytest.raises(SystemExit, match="core_failure_count"):
+        run_evaluation(
+            cases,
+            DeterministicAgent(),
+            tmp_path / "report.json",
+            enforce_thresholds=True,
+        )
+
+
+def test_non_core_cases_still_enforce_category_quality_floor(tmp_path: Path) -> None:
+    cases = tmp_path / "cases.jsonl"
+    rows = []
+    for index in range(10):
+        rows.append({
+            "id": f"adjacent-{index}",
+            "question": "pregunta",
+            "expected_document_ids": ["ajuste-vacante-banorte"],
+            "required_terms": ["Azure"] if index else ["ausente"],
+            "forbidden_terms": [],
+            "expected_skill": "role_fit",
+            "category": "adjacent_skill",
+            "core": False,
+        })
+    cases.write_text(
+        "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+        encoding="utf-8",
+    )
+
+    report = run_evaluation(
+        cases,
+        DeterministicAgent(),
+        tmp_path / "report.json",
+        enforce_thresholds=True,
+    )
+
+    assert report["category_pass_rates"]["adjacent_skill"] == 0.9
+    assert report["metrics"]["core_failure_count"] == 0

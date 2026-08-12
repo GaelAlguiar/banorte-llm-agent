@@ -6,6 +6,8 @@ from cv_agent.skills.registry import load_skills
 
 
 EXPECTED_SKILLS = {
+    "behavioral_interview",
+    "capability_advisor",
     "profile_summary",
     "project_story",
     "role_fit",
@@ -63,6 +65,14 @@ def test_enterprise_knowledge_is_allowlisted_for_relevant_skills():
             "knowledge/15_heytech_ia_plataforma.md",
             "knowledge/16_entrega_jira.md",
         },
+        "capability_advisor": {
+            "knowledge/13_heytech_apim_chatbot.md",
+            "knowledge/15_heytech_ia_plataforma.md",
+            "knowledge/16_entrega_jira.md",
+        },
+        "behavioral_interview": {
+            "knowledge/16_entrega_jira.md",
+        },
     }
     enterprise_sources = set().union(*expected_enterprise_sources.values())
 
@@ -81,6 +91,28 @@ def test_freelance_source_is_limited_to_project_story_skill():
     for skill_name, skill in skills_by_name.items():
         if skill_name != "project_story":
             assert source not in skill.allowed_sources
+
+
+def test_new_professional_skills_use_narrow_explicit_source_allowlists():
+    skills = {skill.name: skill for skill in load_skills()}
+
+    assert set(skills["capability_advisor"].allowed_sources) == {
+        "knowledge/05_genai.md",
+        "knowledge/06_habilidades.md",
+        "knowledge/08_historias.md",
+        "knowledge/13_heytech_apim_chatbot.md",
+        "knowledge/15_heytech_ia_plataforma.md",
+        "knowledge/16_entrega_jira.md",
+    }
+    assert set(skills["behavioral_interview"].allowed_sources) == {
+        "knowledge/01_perfil.md",
+        "knowledge/08_historias.md",
+        "knowledge/16_entrega_jira.md",
+    }
+    assert set(skills["role_fit"].allowed_sources) >= {
+        "knowledge/10_cotizaciones_ia.md",
+        "knowledge/11_enerey_ia.md",
+    }
 
 
 def test_skill_with_url_is_rejected(tmp_path: Path):

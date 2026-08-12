@@ -6,6 +6,12 @@ evidence_level: directa
 source_kind: demostrativo
 source: implementación demostrable del Reto IA Banorte
 ---
+La arquitectura incluye RAG, chunking, embeddings, recuperación híbrida,
+ranking, generación aumentada, tools, evaluación, guardrails y observabilidad.
+También demuestra fundamentos transferibles para integración entre agentes por
+A2A y exposición controlada de herramientas mediante MCP; estos dos últimos se
+describen como diseño relacionado, no como adopción productiva atribuida.
+
 ## Problema
 
 Construir un agente capaz de conversar con naturalidad sobre la trayectoria de Gael y, al mismo tiempo, demostrar ingeniería GenAI más allá de una interfaz atractiva.

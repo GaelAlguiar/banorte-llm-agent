@@ -1,5 +1,6 @@
 import json
 import time
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
@@ -30,6 +31,7 @@ THRESHOLDS = {
     "tool_routing_accuracy": 0.90,
     "impact_evidence_coverage": 0.90,
 }
+CATEGORY_PASS_FLOOR = 0.90
 
 
 def _load_cases(path: Path) -> list[dict]:
@@ -72,6 +74,8 @@ def run_evaluation(
     impact_evidence_scores: list[float] = []
     latencies: list[float] = []
     failures: list[dict] = []
+    category_scores: dict[str, list[float]] = defaultdict(list)
+    core_failure_count = 0
 
     for case in cases:
         started = time.perf_counter()
@@ -133,7 +137,7 @@ def run_evaluation(
         routing_scores.append(1.0 if route_ok else 0.0)
         if requires_impact:
             impact_evidence_scores.append(1.0 if impact_story_ok else 0.0)
-        if not all(
+        case_pass = all(
             (
                 evidence_expectation_ok,
                 required_ok,
@@ -141,7 +145,11 @@ def run_evaluation(
                 route_ok,
                 impact_story_ok,
             )
-        ):
+        )
+        category_scores[case["category"]].append(1.0 if case_pass else 0.0)
+        if not case_pass and case.get("core", True):
+            core_failure_count += 1
+        if not case_pass:
             failures.append(
                 {
                     "case_id": case["id"],
@@ -167,11 +175,18 @@ def run_evaluation(
         ),
         "latency_p50_ms": round(_percentile(latencies, 0.50), 2),
         "latency_p95_ms": round(_percentile(latencies, 0.95), 2),
+        "core_failure_count": core_failure_count,
+    }
+    category_pass_rates = {
+        category: round(mean(scores), 4)
+        for category, scores in sorted(category_scores.items())
     }
     report = {
         "case_count": len(cases),
         "metrics": metrics,
         "thresholds": THRESHOLDS,
+        "category_pass_floor": CATEGORY_PASS_FLOOR,
+        "category_pass_rates": category_pass_rates,
         "failures": failures,
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -185,8 +200,19 @@ def run_evaluation(
             for name, threshold in THRESHOLDS.items()
             if metrics[name] < threshold
         ]
+        if core_failure_count:
+            missed.append("core_failure_count")
         if missed:
             raise SystemExit("Umbrales no alcanzados: " + ", ".join(missed))
+        weak_categories = [
+            category
+            for category, score in category_pass_rates.items()
+            if score < CATEGORY_PASS_FLOOR
+        ]
+        if weak_categories:
+            raise SystemExit(
+                "Piso por categoría no alcanzado: " + ", ".join(weak_categories)
+            )
     return report
 
 
