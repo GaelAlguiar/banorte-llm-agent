@@ -1,4 +1,5 @@
 from typing import Any
+from collections import Counter
 
 from azure.search.documents.models import VectorizedQuery
 
@@ -9,6 +10,9 @@ from cv_agent.retrieval.models import RetrievalHit
 
 RESULT_FIELDS = [
     "id",
+    "document_id",
+    "chunk_id",
+    "section",
     "title",
     "category",
     "evidence_level",
@@ -37,7 +41,7 @@ def _document_filter(
     if not allowed_document_ids:
         return "id eq '__no_allowed_documents__'"
     expressions = [
-        f"id eq '{identifier.replace(chr(39), chr(39) * 2)}'"
+        f"document_id eq '{identifier.replace(chr(39), chr(39) * 2)}'"
         for identifier in sorted(allowed_document_ids)
     ]
     return " or ".join(expressions)
@@ -76,10 +80,11 @@ class AzureSearchRetrieval:
         allowed_document_ids: set[str] | None = None,
     ) -> list[RetrievalHit]:
         limit = max(1, min(top_k, 8))
+        candidate_limit = max(limit, min(8, limit * 3))
         vector = self.embeddings.embed(query)
         vector_query = VectorizedQuery(
             vector=list(vector),
-            k_nearest_neighbors=max(limit, 5),
+            k_nearest_neighbors=max(candidate_limit, 5),
             fields="content_vector",
         )
         results = self.client.search(
@@ -88,13 +93,13 @@ class AzureSearchRetrieval:
             filter=_search_filter(categories, allowed_document_ids),
             search_fields=["title", "content"],
             select=RESULT_FIELDS,
-            top=limit,
+            top=candidate_limit,
         )
         hits: list[RetrievalHit] = []
         for item in results:
             if (
                 allowed_document_ids is not None
-                and item["id"] not in allowed_document_ids
+                and item.get("document_id", item["id"]) not in allowed_document_ids
             ):
                 continue
             score = float(item.get("@search.score", 0.0))
@@ -102,7 +107,9 @@ class AzureSearchRetrieval:
                 continue
             hits.append(
                 RetrievalHit(
-                    document_id=item["id"],
+                    document_id=item.get("document_id", item["id"]),
+                    chunk_id=item.get("chunk_id", item["id"]),
+                    section=item.get("section"),
                     title=item["title"],
                     category=item["category"],
                     evidence_level=item["evidence_level"],
@@ -116,7 +123,18 @@ class AzureSearchRetrieval:
                     score=score,
                 )
             )
-        return hits
+        if allowed_document_ids and len(allowed_document_ids) == 1:
+            return hits[:limit]
+        selected: list[RetrievalHit] = []
+        per_parent: Counter[str] = Counter()
+        for hit in hits:
+            if per_parent[hit.document_id] >= 2:
+                continue
+            selected.append(hit)
+            per_parent[hit.document_id] += 1
+            if len(selected) == limit:
+                break
+        return selected
 
     def ready(self) -> bool:
         try:

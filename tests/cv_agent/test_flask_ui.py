@@ -85,7 +85,8 @@ def test_chat_message_uses_shared_agent() -> None:
 
     assert response.status_code == 200
     assert response.json() == {
-        "response": "Gael integra IA, nube y desarrollo de software."
+        "response": "Gael integra IA, nube y desarrollo de software.",
+        "evidence": [],
     }
     assert agent.calls == ["¿Quién es Gael?"]
 

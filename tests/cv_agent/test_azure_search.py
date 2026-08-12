@@ -16,10 +16,13 @@ class FakeSearchClient:
         return self.results
 
 
-def result(score=0.91):
+def result(score=0.91, *, section="Infraestructura", document_id="terraform-banregio"):
     return {
-        "id": "terraform-banregio",
-        "title": "Terraform en Banregio",
+        "id": f"{document_id}--{section.lower()}",
+        "document_id": document_id,
+        "chunk_id": f"{document_id}--{section.lower()}",
+        "section": section,
+        "title": f"Terraform en Banregio — {section}",
         "category": "infraestructura",
         "evidence_level": "directa",
         "impact_type": "confirmado",
@@ -46,13 +49,15 @@ def test_search_sends_text_vector_and_category_filter():
     )
 
     assert hits[0].document_id == "terraform-banregio"
+    assert hits[0].chunk_id == "terraform-banregio--infraestructura"
+    assert hits[0].section == "Infraestructura"
     assert hits[0].score == 0.91
     assert client.kwargs["search_text"] == "experiencia con Terraform"
-    assert client.kwargs["top"] == 3
+    assert client.kwargs["top"] == 8
     assert client.kwargs["filter"] == "category eq 'infraestructura'"
     vector_query = client.kwargs["vector_queries"][0]
     assert vector_query.fields == "content_vector"
-    assert vector_query.k_nearest_neighbors == 5
+    assert vector_query.k_nearest_neighbors == 8
     assert vector_query.vector == [0.1, 0.2, 0.3]
 
 
@@ -88,7 +93,7 @@ def test_search_combines_categories_with_allowed_document_ids():
 
     assert client.kwargs["filter"] == (
         "(category eq 'habilidad' or category eq 'proyecto') and "
-        "(id eq 'id''quoted' or id eq 'terraform-banregio')"
+        "(document_id eq 'id''quoted' or document_id eq 'terraform-banregio')"
     )
 
 
@@ -142,3 +147,20 @@ def test_ready_returns_false_when_search_is_unavailable():
     )
 
     assert retrieval.ready() is False
+
+
+def test_azure_search_limits_repeated_parent_but_keeps_distinct_sections():
+    client = FakeSearchClient([
+        result(0.95, section="Uno"),
+        result(0.94, section="Dos"),
+        result(0.93, section="Tres"),
+        result(0.90, section="Otro", document_id="otro-proyecto"),
+    ])
+    retrieval = AzureSearchRetrieval(
+        documents=[], client=client, embeddings=FakeEmbeddings()
+    )
+
+    hits = retrieval.search("consulta compuesta", top_k=4)
+
+    assert [hit.section for hit in hits] == ["Uno", "Dos", "Otro"]
+    assert client.kwargs["top"] == 8

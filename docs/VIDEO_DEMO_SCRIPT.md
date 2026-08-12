@@ -78,8 +78,9 @@ Azure Container Apps y mostrar la revisión activa, la imagen y la identidad.
 **Speech:**
 
 > Aquí está la infraestructura desplegada en la suscripción configurada para la demostración. Azure
-> AI Search está activo en nivel Free y el índice contiene diecisiete documentos
-> autorizados. La API corre en Azure Container Apps como un contenedor sin
+> AI Search está activo en nivel Free y el índice representa diecisiete documentos
+> fuente autorizados mediante chunks temáticos trazables. La API corre en Azure
+> Container Apps como un contenedor sin
 > privilegios. Para conectarse al buscador no almacena una clave administrativa:
 > utiliza identidad administrada con el rol mínimo Search Index Data Reader.
 > La clave administrativa se usa únicamente durante la ingesta y no queda

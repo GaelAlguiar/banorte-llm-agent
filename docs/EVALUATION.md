@@ -6,6 +6,13 @@ La evaluación offline utiliza un adaptador determinista que devuelve los extrac
 
 Los casos sin documentos esperados sólo aprueban recuperación y groundedness cuando la respuesta tampoco expone evidencia. `impact_evidence_coverage` se calcula exclusivamente sobre los casos marcados con `requires_impact_story`; cada uno declara `impact_terms` y debe recuperar toda la evidencia esperada, cubrir sus términos requeridos y prohibidos, y contener al menos un término de impacto respaldado. No valida la narrativa del modelo.
 
+Las pruebas de recuperación también cubren contenido situado después del antiguo
+límite de 1200 caracteres: Firebase/Maps/Sheets en Enerey, operación y
+observabilidad del agente RAG e impacto de HeyTech. Los allowlists continúan
+comparándose contra el `document_id` padre, mientras `chunk_id` permite auditar
+la sección exacta. Las pruebas de contrato verifican que la trazabilidad no
+exponga rutas locales, URLs privadas ni scores precisos.
+
 El adaptador offline conserva el mismo contrato que Azure AI Search, pero no
 pretende sustituir la prueba productiva. El tono, la afirmación correcta de
 participación confirmada y la redacción final deben verificarse manualmente

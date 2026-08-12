@@ -14,7 +14,7 @@ de su carrera, ha tenido la oportunidad de asumir responsabilidades no siempre
 habituales en un perfil Junior: en Enerey fue el único desarrollador y llevó
 soluciones de IA, backend, frontend y cloud de extremo a extremo con sistemas
 reales. Esto representa experiencia práctica sólida para su etapa. No se
-presenta como senior ni experto en todo.
+presenta como senior ni atribuye capacidades sin evidencia.
 
 Por separado, aporta ideas frescas, autodidactismo, aprendizaje rápido y
 perseverancia para convertir retos en resultados. También mantiene apertura

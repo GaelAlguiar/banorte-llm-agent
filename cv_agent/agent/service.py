@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+import ipaddress
 from typing import Protocol
+from urllib.parse import urlsplit
 
 from cv_agent.agent.prompts import build_instructions
 from cv_agent.agent.professional_intent import (
@@ -32,10 +34,54 @@ class ModelClient(Protocol):
 
 
 @dataclass(frozen=True)
+class AnswerEvidence:
+    document_id: str
+    chunk_id: str
+    title: str
+    section: str | None
+    public_url: str | None
+    source_kind: str
+    evidence_level: str
+    impact_type: str
+    confidence: str
+
+
+@dataclass(frozen=True)
 class AgentAnswer:
     text: str
     skill_name: str
     evidence_ids: tuple[str, ...]
+    evidence: tuple[AnswerEvidence, ...] = ()
+
+
+def _public_source_url(source: str) -> str | None:
+    for candidate in source.replace(",", " ").replace(";", " ").split():
+        value = candidate.strip("()[]<>.\"")
+        parsed = urlsplit(value)
+        if parsed.scheme != "https" or not parsed.hostname:
+            continue
+        hostname = parsed.hostname.lower()
+        if hostname == "localhost" or hostname.endswith((".local", ".internal")):
+            continue
+        try:
+            if ipaddress.ip_address(hostname).is_private:
+                continue
+        except ValueError:
+            pass
+        if parsed.username or parsed.password:
+            continue
+        # Query strings often carry signatures or other private capabilities.
+        return parsed._replace(query="", fragment="").geturl()
+    return None
+
+
+def _confidence_bucket(item: dict) -> str:
+    score = float(item.get("score", 0.0))
+    if item.get("evidence_level") == "directa" and score >= 0.65:
+        return "alta"
+    if score >= 0.35:
+        return "media"
+    return "contextual"
 
 
 class CvAgentService:
@@ -285,10 +331,40 @@ class CvAgentService:
             attachments=attachments,
             reasoning_effort=reasoning_effort,
         ).strip()
+        evidence_ids = tuple(dict.fromkeys(
+            item["document_id"] for item in evidence
+        ))
+        source_documents = {
+            document.id: document for document in self.retrieval.documents
+        }
+        safe_evidence_items: list[AnswerEvidence] = []
+        for item in evidence:
+            parent = source_documents.get(item["document_id"])
+            safe_evidence_items.append(AnswerEvidence(
+                document_id=item["document_id"],
+                chunk_id=item.get("chunk_id", item["document_id"]),
+                title=item.get("title") or (
+                    parent.title if parent else item["document_id"]
+                ),
+                section=item.get("section"),
+                public_url=_public_source_url(
+                    item.get("source") or (parent.source if parent else "")
+                ),
+                source_kind=item.get("source_kind") or (
+                    parent.source_kind if parent else "perfil"
+                ),
+                evidence_level=item.get("evidence_level") or (
+                    parent.evidence_level if parent else "transferible"
+                ),
+                impact_type=item.get("impact_type") or (
+                    parent.impact_type if parent else "inferido"
+                ),
+                confidence=_confidence_bucket(item),
+            ))
+        safe_evidence = tuple(safe_evidence_items)
         return AgentAnswer(
             text=text,
             skill_name=skill.name,
-            evidence_ids=tuple(
-                item["document_id"] for item in evidence
-            ),
+            evidence_ids=evidence_ids,
+            evidence=safe_evidence,
         )

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from cv_agent.knowledge.loader import load_knowledge
+from cv_agent.knowledge.loader import load_knowledge, load_knowledge_chunks
 
 
 ENTERPRISE_KNOWLEDGE_FORBIDDEN_PATTERNS = {
@@ -127,6 +127,73 @@ def test_loaded_knowledge_exposes_its_canonical_skill_source_path():
     freelance = next(item for item in documents if item.id == "freelance-global-lugra")
 
     assert freelance.source_path == "knowledge/17_freelance_global_lugra.md"
+
+
+def test_section_chunks_keep_stable_parent_metadata_and_local_content(tmp_path: Path):
+    content = """---
+id: proyecto-estable
+title: Proyecto estable
+category: proyecto
+evidence_level: directa
+impact_type: estimado
+source_kind: laboral
+source: experiencia confirmada; https://example.com/proyecto
+---
+Introducción del proyecto.
+
+## Arquitectura y operación
+
+Detalle de arquitectura que debe permanecer localizado en esta sección.
+
+## Seguridad
+
+Detalle de seguridad que no debe mezclarse con arquitectura.
+"""
+    (tmp_path / "proyecto.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(tmp_path, split_threshold=1)
+
+    assert [chunk.document_id for chunk in chunks] == [
+        "proyecto-estable", "proyecto-estable", "proyecto-estable"
+    ]
+    assert chunks[1].chunk_id == "proyecto-estable--arquitectura-y-operacion"
+    assert chunks[1].section == "Arquitectura y operación"
+    assert chunks[1].title == "Proyecto estable — Arquitectura y operación"
+    assert chunks[1].source_path == "knowledge/proyecto.md"
+    assert "Detalle de seguridad" not in chunks[1].text
+
+
+def test_tiny_document_remains_one_chunk_even_when_it_has_headings(tmp_path: Path):
+    content = """---
+id: breve
+title: Documento breve
+category: perfil
+evidence_level: directa
+source: CV
+---
+## Uno
+Breve.
+## Dos
+También breve.
+"""
+    (tmp_path / "breve.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(tmp_path)
+
+    assert len(chunks) == 1
+    assert chunks[0].chunk_id == "breve"
+    assert chunks[0].section is None
+
+
+def test_repository_keeps_17_sources_while_producing_more_index_chunks():
+    documents = load_knowledge(Path("knowledge"))
+    chunks = load_knowledge_chunks(Path("knowledge"))
+
+    assert len(documents) == 17
+    assert len(chunks) > len(documents)
+    assert {chunk.document_id for chunk in chunks} == {
+        document.id for document in documents
+    }
 
 
 def test_rag_story_describes_the_deployed_search_backend():

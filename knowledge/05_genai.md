@@ -33,15 +33,16 @@ prompts ni secretos.
 
 ## Recuperación
 
-Para este alcance, el chunking se resolvió durante la curación: cada archivo
-Markdown autorizado representa una unidad temática con metadatos y un ID
-estable. No se aplica partición dinámica en runtime. Esta decisión simplifica
-la trazabilidad y evita fragmentos sin contexto; para documentos extensos se
-incorporaría una estrategia de chunks con solapamiento y evaluación específica.
+La ingesta interpreta los encabezados Markdown y convierte los documentos
+extensos en fragmentos temáticos estables. Cada chunk conserva el ID del
+documento padre, ruta de procedencia, título, sección y metadatos de evidencia;
+los documentos pequeños permanecen completos para no perder contexto. Así la
+generación recibe el pasaje localizado que respondió a la consulta, incluso si
+aparece al final de la fuente, en vez de truncar siempre el inicio del archivo.
 
 La solución desplegada usa Azure AI Search Free como índice real. Una ingesta
 controlada genera embeddings con OpenAI, sincroniza únicamente los documentos
-autorizados y elimina registros obsoletos. Cada pregunta combina búsqueda
+autorizados y elimina chunks obsoletos. Cada pregunta combina búsqueda
 textual BM25 y búsqueda vectorial; Azure fusiona ambos rankings y el agente
 aplica filtros por categoría y un umbral de relevancia.
 
@@ -55,6 +56,13 @@ AI Search. Después, las skills aplican routing, categorías y allowlists de
 fuentes antes de entregar la evidencia al modelo de OpenAI para la generación
 aumentada. Los guardrails clasifican privacidad antes del retrieval y fallan
 cerrado si la clasificación semántica no puede completarse.
+
+Los resultados se diversifican por documento padre para evitar secciones
+repetitivas, aunque una pregunta compuesta puede recuperar dos secciones
+distintas del mismo proyecto. La respuesta conserva trazabilidad interna por
+`document_id` y `chunk_id`, y expone sólo metadatos no sensibles: título,
+sección, tipo y nivel de evidencia, impacto, confianza por rango y, cuando está
+autorizada, una URL pública. No publica rutas locales ni scores precisos.
 
 ## Agentes y protocolos
 

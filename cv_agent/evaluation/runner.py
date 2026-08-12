@@ -21,7 +21,12 @@ class EvidenceModel:
                 "Protejo la privacidad: puedo compartir experiencia y "
                 "proyectos públicos, pero no información sensible."
             )
-        return "\n".join(item["excerpt"] for item in evidence)
+        # Mirror the factual payload available to the production model: titles
+        # carry essential section context in addition to localized excerpts.
+        return "\n".join(
+            f"{item.get('title', '')}\n{item['excerpt']}"
+            for item in evidence
+        )
 
 
 THRESHOLDS = {

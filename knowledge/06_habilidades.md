@@ -23,4 +23,6 @@ Su experiencia principal está en OpenAI y componentes propios. Los fundamentos 
 
 ## Datos
 
-Ha trabajado con SQL, fuentes operativas, hojas de cálculo, APIs y datos no estructurados. Comprende la diferencia entre una base transaccional, una fuente documental y un índice vectorial.
+Sus fundamentos de datos se apoyan en trabajo con SQL, fuentes operativas,
+hojas de cálculo, APIs y datos no estructurados. Comprende la diferencia entre
+una base transaccional, una fuente documental y un índice vectorial.
