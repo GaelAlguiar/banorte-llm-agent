@@ -21,7 +21,7 @@ Plataforma Banorte
   -> FastAPI /v1/responses
       -> guardrail de privacidad previo al RAG
           -> fast-path determinista para secretos inequívocos
-          -> clasificación semántica solo para token/prompt ambiguos
+          -> clasificación semántica para entradas no preclasificadas
       -> selección de skill
       -> Azure AI Search
           -> búsqueda textual BM25
@@ -182,6 +182,18 @@ python -m cv_agent.evaluation.runner
 
 La evaluación no llama a OpenAI: el adaptador devuelve evidencia, no prosa generada. Mide Recall@5, MRR, groundedness, privacidad, `evidence_term_coverage`, `impact_evidence_coverage`, routing de skills y latencia. Conserva umbrales mínimos de 90% para Recall@5 y las dos coberturas, 100% para privacidad y 90% para routing. El tono y la afirmación de participación se validan con revisiones manuales del endpoint live.
 
+## Evidencia pública complementaria
+
+| Proyecto | Fuente pública | Alcance de la corroboración |
+| --- | --- | --- |
+| Enerey | [Sitio institucional](https://enereylatam.com/) | Existencia pública de la empresa. |
+| Aplicación Enerey | [Ficha en App Store](https://apps.apple.com/mx/app/enerey/id6736633080) | Identifica la aplicación y muestra `© Gael Alguiar`; corrobora autoría pública, no cada componente técnico. |
+| Global | [Sitio público](https://globalfls.com/) | Existencia del proyecto; la participación freelance fue confirmada por Gael. |
+| Lugra | [Sitio público](https://www.lugramx.com/) | Existencia del proyecto; la participación freelance fue confirmada por Gael. |
+
+Estas fuentes complementan el CV y la experiencia confirmada; no sustituyen la
+evidencia laboral ni amplían el alcance técnico atribuido.
+
 ## Docker
 
 ```bash
@@ -198,9 +210,11 @@ docker run --rm -p 8000:8000 \
 - `/health` es público y no devuelve configuración.
 - `/v1/responses` usa comparación constante del token.
 - Los logs contienen metadatos allowlistados, no prompts, documentos ni headers.
-- Las consultas ambiguas sobre `token` o `prompt` añaden una llamada breve al
-  modelo antes de recuperar evidencia. Una falla, timeout o salida inválida se
-  clasifica como sensible y no consulta el índice (fail closed).
+- Las entradas no preclasificadas añaden una llamada breve que recibe solo la
+  pregunta, usa razonamiento `none`, un enum JSON estricto y hasta 128 tokens de
+  salida antes de recuperar evidencia. Una falla, timeout, respuesta incompleta
+  o salida inválida se clasifica como sensible y no consulta el índice
+  (fail closed).
 - Los skills públicos son YAML declarativo: no ejecutan shell, red ni código remoto.
 - La identidad de Container Apps recibe únicamente `Search Index Data Reader`.
 - Con múltiples réplicas, el límite de tasa se movería a APIM, Front Door o un almacén distribuido.

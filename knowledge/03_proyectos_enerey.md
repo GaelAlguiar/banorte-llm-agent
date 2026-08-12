@@ -4,7 +4,7 @@ title: Ecosistema de soluciones Enerey
 category: proyecto
 evidence_level: directa
 source_kind: laboral
-source: CV, repositorios y tareas profesionales revisadas
+source: CV, repositorios y tareas profesionales revisadas; https://enereylatam.com/; https://apps.apple.com/mx/app/enerey/id6736633080
 ---
 ## Responsabilidad técnica
 
@@ -33,3 +33,14 @@ Desarrolló una aplicación Django para reportes, desviaciones, pronósticos, al
 En conjunto, su responsabilidad exclusiva en Enerey comprendió backend,
 frontend, integraciones y despliegues de la aplicación iOS, el chatbot interno,
 WhatsApp para seguimiento de pedidos y la automatización de cotizaciones.
+
+## Corroboración pública
+
+El [sitio de Enerey](https://enereylatam.com/) corrobora públicamente la
+existencia de la empresa. La ficha pública de la aplicación
+[Enerey en App Store](https://apps.apple.com/mx/app/enerey/id6736633080)
+identifica la aplicación y muestra `© Gael Alguiar`, lo que constituye una
+corroboración pública de su autoría. Esta ficha no demuestra por sí sola cada
+componente de backend, integración o despliegue descrito arriba; ese alcance se
+basa en la experiencia profesional confirmada por Gael y las fuentes laborales
+revisadas.

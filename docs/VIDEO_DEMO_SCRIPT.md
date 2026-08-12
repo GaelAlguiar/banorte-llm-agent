@@ -78,7 +78,7 @@ Azure Container Apps y mostrar la revisión activa, la imagen y la identidad.
 **Speech:**
 
 > Aquí está la infraestructura desplegada en la suscripción configurada para la demostración. Azure
-> AI Search está activo en nivel Free y el índice contiene doce documentos
+> AI Search está activo en nivel Free y el índice contiene diecisiete documentos
 > autorizados. La API corre en Azure Container Apps como un contenedor sin
 > privilegios. Para conectarse al buscador no almacena una clave administrativa:
 > utiliza identidad administrada con el rol mínimo Search Index Data Reader.
@@ -100,7 +100,7 @@ readiness.
 > razonamiento controlado y no reenvía parámetros arbitrarios. Los secretos se
 > inyectan en runtime, los logs no guardan preguntas ni documentos y el script
 > de despliegue se detiene antes de crear un nivel de Search con costo. La
-> solución cuenta con ochenta pruebas automatizadas. La evaluación obtuvo más
+> solución cuenta con pruebas automatizadas y una matriz de noventa y siete casos. La evaluación obtuvo más
 > de noventa y cuatro por ciento de Recall at 5, más de noventa y siete por
 > ciento de groundedness y cien por ciento en privacidad.
 
