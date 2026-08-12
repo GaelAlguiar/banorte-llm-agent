@@ -319,7 +319,7 @@ class CvAgentService:
         current_cv_agent = (
             skill.name == "architecture_explainer"
             and "agente" in question_tokens
-            and bool(question_tokens & {"cv", "este", "actual"})
+            and bool(question_tokens & {"cv", "actual"})
             and bool(
                 question_tokens
                 & {"rag", "arquitectura", "codigo", "construyo", "repositorio"}

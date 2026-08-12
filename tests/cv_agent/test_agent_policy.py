@@ -1302,6 +1302,21 @@ def test_project_presentation_payload_covers_delivery_and_public_repository():
     assert "api key" in instructions and "nunca" in instructions
 
 
+def test_other_agent_architecture_keeps_authorized_project_sources():
+    agent, model = build_agent()
+
+    result = agent.answer("¿Cuál es la arquitectura de este agente de HeyTech?")
+
+    assert result.skill_name == "architecture_explainer"
+    assert any(
+        item["document_id"].startswith("heytech-")
+        for item in model.calls[0]["evidence"]
+    )
+    assert {
+        item["document_id"] for item in model.calls[0]["evidence"]
+    } != {"genai-banorte-agent"}
+
+
 def test_low_relevance_capability_search_falls_back_within_explicit_allowlist(monkeypatch):
     agent, model = build_agent()
     calls = []
