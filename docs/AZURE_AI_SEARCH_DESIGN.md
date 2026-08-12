@@ -1,145 +1,86 @@
-# Diseño de integración con Azure AI Search
+# Azure AI Search: diseño y operación
 
-## Objetivo
+## Propósito
 
-Reemplazar el índice en memoria utilizado por la aplicación desplegada con un
-índice híbrido real en Azure AI Search. La solución debe recuperar evidencia
-del perfil mediante búsqueda textual y vectorial, conservar el contrato Open
-Responses y evitar que una falla de Azure quede oculta por un fallback local.
+Azure AI Search es el recuperador productivo del agente. Combina coincidencia
+léxica y similitud vectorial para localizar evidencia profesional autorizada,
+sin convertir el modelo generativo en fuente de hechos. El recuperador local se
+reserva para pruebas reproducibles; producción falla de forma visible si Azure
+no está disponible y nunca cambia silenciosamente de backend.
 
-El despliegue se realizará en `$EXPECTED_SUBSCRIPTION`, dentro del grupo de
-recursos `rg-prueba-b-gael-ai`. Se intentará utilizar el nivel Free. Si ese
-nivel no se encuentra disponible, el proceso debe detenerse antes de crear un
-servicio con costo.
+## Modelo del índice
 
-## Arquitectura
+Cada registro representa un fragmento temático de uno de los documentos
+revisados en `knowledge/`. El esquema conserva:
 
-La aplicación conservará una interfaz de recuperación común con dos
-implementaciones:
+- identificadores estables de documento y fragmento;
+- título, sección, contenido y categoría;
+- tipo y nivel de evidencia;
+- referencia pública opcional y hash del contenido;
+- vector generado con `text-embedding-3-small`.
 
-- Azure AI Search será la implementación obligatoria cuando
-  `APP_ENV=production`.
-- El índice determinista local se conservará para desarrollo, pruebas unitarias
-  y evaluación sin red.
+Los fragmentos extensos se dividen por secciones y párrafos con solapamiento
+acotado. Así se evita truncar evidencia relevante y se mantienen citas
+trazables incluso cuando cambia otra parte del mismo documento.
 
-No habrá fallback silencioso de Azure al índice local en producción. Una
-configuración incompleta o un servicio indisponible debe reflejarse en la sonda
-de disponibilidad y en un error controlado, para que la operación no reporte
-una arquitectura distinta de la que realmente atiende las consultas.
+## Recuperación híbrida
 
-## Índice y documentos
+La consulta genera un embedding y ejecuta en una sola operación:
 
-El índice almacenará uno o más chunks por documento autorizado de `knowledge/` con
-los siguientes campos:
+1. búsqueda textual BM25 para términos precisos, nombres y tecnologías;
+2. búsqueda vectorial para equivalencia semántica;
+3. filtros derivados de la skill seleccionada;
+4. calibración del ranking, umbral de relevancia y diversidad por fuente.
 
-- identificadores estables del documento padre y del chunk;
-- título, sección localizada y contenido;
-- categoría;
-- tipo de fuente;
-- nivel de evidencia;
-- tipo de impacto;
-- referencia de origen;
-- hash del contenido;
-- vector del título y contenido.
+El adaptador convierte los resultados al modelo interno `RetrievalHit`. Los
+scores detallados y las rutas internas no salen en la respuesta pública; sólo
+se exponen identificadores, etiquetas profesionales, confianza aproximada y
+URLs HTTPS previamente autorizadas.
 
-El vector se generará con `text-embedding-3-small`. La dimensión se declarará
-en configuración para que el esquema y el cliente se validen entre sí. Los
-campos de texto admitirán búsqueda léxica y los metadatos relevantes admitirán
-filtros.
+## Ingesta controlada
 
-## Ingesta
+La sincronización se ejecuta separada de la API:
 
-La ingesta será un comando explícito y reproducible, separado del arranque de
-la API. El comando deberá:
+```bash
+python -m cv_agent.retrieval.ingest --knowledge knowledge
+```
 
-1. leer únicamente los documentos autorizados;
-2. calcular el hash y los embeddings;
-3. crear o validar el esquema del índice;
-4. cargar o actualizar los documentos;
-5. eliminar del índice los documentos que ya no estén autorizados;
-6. emitir un resumen sin incluir secretos ni el contenido completo.
-
-Los archivos adjuntos por usuarios no se incorporarán automáticamente. Cambiar
-la base profesional seguirá requiriendo revisión, control de versiones,
-evaluación e ingesta.
-
-## Recuperación
-
-Cada consulta producirá un embedding y ejecutará una búsqueda híbrida que
-combine:
-
-- coincidencia textual de Azure AI Search;
-- similitud vectorial;
-- filtros opcionales por categoría;
-- un límite de resultados entre uno y ocho.
-
-El adaptador convertirá los resultados de Azure al modelo `RetrievalHit` que ya
-consume el agente. El umbral de relevancia continuará evitando respuestas
-basadas en evidencia débil. Los identificadores, puntajes y metadatos se
-conservarán para evaluación y trazabilidad, sin exponer información sensible.
+El proceso valida el esquema, calcula hashes y embeddings, actualiza los
+fragmentos vigentes y elimina registros obsoletos. Los adjuntos de una
+conversación son contexto temporal: no se incorporan al índice ni producen
+aprendizaje automático.
 
 ## Seguridad
 
-Azure Container Apps utilizará su identidad administrada para consultar el
-índice. La identidad recibirá solamente el rol de lectura de datos requerido
-por Azure AI Search. La creación del esquema y la ingesta se ejecutarán como
-una operación administrativa separada; las credenciales administrativas no se
-guardarán en la imagen ni estarán disponibles para el proceso web.
+- La API consulta Search con identidad administrada y el rol mínimo
+  `Search Index Data Reader`.
+- La operación de ingesta usa permisos administrativos sólo durante la
+  sincronización; esas credenciales no están disponibles para el proceso web.
+- Secretos, prompts, documentos, vectores y encabezados de autorización no se
+  escriben en logs.
+- Las categorías y fuentes consultables se limitan mediante allowlists por
+  skill.
+- Las URLs públicas de evidencia también requieren una allowlist exacta.
 
-Las claves de OpenAI permanecerán como secretos de Container Apps. Los logs no
-registrarán prompts, vectores, contenido completo, encabezados de autorización
-ni secretos.
+## Disponibilidad y observabilidad
 
-## Disponibilidad y errores
+`/health` confirma que el proceso responde. `/health/ready` comprueba además la
+configuración y el acceso real al índice. La telemetría conserva únicamente
+dimensiones seguras, como skill, cantidad de resultados, mezcla de tipos de
+fuente, decisión de seguridad, latencia y clase de error.
 
-`/health` continuará indicando que el proceso está activo. Una sonda adicional
-`/health/ready` verificará que la configuración de producción exista y que el
-índice pueda consultarse. Un problema de autenticación, red o esquema devolverá
-una respuesta controlada y quedará registrado mediante metadatos seguros.
+## Operación
 
-El despliegue no promoverá una revisión si la ingesta, la sonda de
-disponibilidad o las consultas de aceptación fallan.
+Antes de promover una revisión se verifican:
 
-## Pruebas y evaluación
+- sincronización completa de los documentos autorizados;
+- acceso de lectura mediante identidad administrada;
+- disponibilidad de `/health/ready`;
+- recuperación correcta para consultas representativas;
+- rechazo de preguntas fuera de alcance y solicitudes sensibles;
+- pruebas unitarias, contrato Open Responses y evaluación offline.
 
-Las pruebas unitarias usarán clientes falsos alrededor del límite de Azure y
-verificarán:
-
-- selección del backend según el entorno;
-- composición de consultas híbridas y filtros;
-- conversión de resultados a `RetrievalHit`;
-- rechazo de configuración incompleta en producción;
-- comportamiento de la sonda de disponibilidad;
-- sincronización determinista de documentos.
-
-La evaluación offline seguirá usando el adaptador local para ser rápida y
-reproducible. Después del despliegue se ejecutará una evaluación de aceptación
-contra Azure con preguntas sobre inteligencia artificial, Terraform,
-cotizaciones y preguntas fuera de alcance.
-
-## Infraestructura y operación
-
-El script de despliegue registrará `Microsoft.Search`, comprobará la
-disponibilidad del nivel Free y creará el servicio solo cuando no implique un
-costo. También configurará variables no sensibles, asignará RBAC a la identidad
-administrada, ejecutará la ingesta y desplegará la nueva imagen.
-
-La documentación mostrará comandos para repetir la ingesta, comprobar el
-estado del índice y diagnosticar una falla. El README afirmará que producción
-usa Azure AI Search únicamente después de que las pruebas de aceptación lo
-demuestren.
-
-## Criterios de aceptación
-
-- El servicio Azure AI Search existe en `$EXPECTED_SUBSCRIPTION` con nivel Free.
-- El índice contiene todos los documentos autorizados y ningún documento
-  eliminado del repositorio.
-- La revisión activa de Container Apps consulta Azure AI Search mediante
-  identidad administrada.
-- Producción no utiliza fallback local.
-- `/health/ready` confirma acceso al índice.
-- Las pruebas automatizadas y la evaluación offline pasan.
-- Las consultas públicas de aceptación recuperan evidencia correcta y rechazan
-  preguntas fuera de alcance.
-- El repositorio público explica diseño, ingesta, seguridad, despliegue y
-  operación sin contener secretos.
+Para escalar la solución se puede añadir versionado de índices, despliegue
+canary, caché distribuida, telemetría OpenTelemetry y una cola para ingestas.
+Estas extensiones no cambian el límite principal: ninguna conversación modifica
+la base profesional sin revisión y versionado explícitos.
