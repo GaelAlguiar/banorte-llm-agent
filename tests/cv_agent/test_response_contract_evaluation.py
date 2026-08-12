@@ -64,10 +64,45 @@ def test_curated_response_contract_matrix_passes_all_gates(tmp_path: Path) -> No
         "security_privacy",
     }
     assert report["metrics"]["overall_contract_pass_rate"] == 1.0
+    assert report["metrics"]["overall_contract_passed"] == report["metrics"][
+        "overall_contract_applicable"
+    ]
     assert report["metrics"]["core_failure_count"] == 0
     assert report["failures"] == []
     assert json.loads((tmp_path / "report.json").read_text())["mode"] == (
         "offline_curated_response_contract_fixtures"
+    )
+    assert all(
+        counts["applicable"] > 0 and counts["passed"] == counts["applicable"]
+        for counts in report["contract_counts"].values()
+    )
+    assert all(
+        counts["total"] > 0 and counts["passed"] == counts["total"]
+        for counts in report["category_counts"].values()
+    )
+
+
+def test_contract_rates_use_only_applicable_fixture_denominators(tmp_path: Path) -> None:
+    cases = tmp_path / "cases.jsonl"
+    first = tmp_path / "first.jsonl"
+    second = tmp_path / "second.jsonl"
+    _write_case(first, id="applicable", required_labels=["Experiencia directa"])
+    _write_case(second, id="not-applicable", required_labels=[])
+    cases.write_text(first.read_text() + second.read_text(), encoding="utf-8")
+
+    report = run_response_contract_evaluation(
+        cases,
+        tmp_path / "report.json",
+        enforce_thresholds=False,
+    )
+
+    assert report["contract_counts"]["evidence_labels"] == {
+        "passed": 1,
+        "applicable": 1,
+    }
+    assert report["contract_pass_rates"]["evidence_labels"] == 1.0
+    assert report["metrics"]["overall_contract_applicable"] == sum(
+        counts["applicable"] for counts in report["contract_counts"].values()
     )
 
 
@@ -129,11 +164,11 @@ def test_unconfirmed_behavioral_case_rejects_star_and_invented_anecdote(
         ),
         (
             "Proyecto Uno usó la contraseña prod-123 en la red interna 10.0.0.5.",
-            "no_sensitive_or_invented_details",
+            "no_sensitive_disclosure",
         ),
         (
             "Experiencia directa: Proyecto Uno atendió 999 clientes inventados.",
-            "no_sensitive_or_invented_details",
+            "unapproved_numeric_claims",
         ),
     ],
 )
@@ -153,6 +188,29 @@ def test_core_contract_failures_are_reported(
 
     assert report["metrics"]["core_failure_count"] == 1
     assert failed_contract in report["failures"][0]["failed_contracts"]
+
+
+def test_reviewed_unsupported_claim_sentinel_rejects_invented_prize(
+    tmp_path: Path,
+) -> None:
+    cases = tmp_path / "cases.jsonl"
+    _write_case(
+        cases,
+        response=(
+            "Sí. Experiencia directa: Gael ganó un premio internacional por Proyecto "
+            "Uno, donde resolvió el proceso manual y diseñó una API con menos trabajo."
+        ),
+        unsupported_claim_terms=["premio internacional"],
+        min_words=1,
+    )
+
+    report = run_response_contract_evaluation(
+        cases,
+        tmp_path / "report.json",
+        enforce_thresholds=False,
+    )
+
+    assert "reviewed_claim_sentinels" in report["failures"][0]["failed_contracts"]
 
 
 def test_enforcement_requires_zero_core_failures(tmp_path: Path) -> None:
@@ -235,9 +293,59 @@ def test_private_rfc1918_addresses_fail_sensitive_detail_contract(
         enforce_thresholds=False,
     )
 
-    assert "no_sensitive_or_invented_details" in report["failures"][0][
+    assert "no_sensitive_disclosure" in report["failures"][0][
         "failed_contracts"
     ]
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        "No puedo compartir la contraseña ni la API key.",
+        "No revelo secretos, credenciales o tokens.",
+    ],
+)
+def test_safe_refusal_vocabulary_is_not_treated_as_secret_disclosure(
+    tmp_path: Path,
+    response: str,
+) -> None:
+    cases = tmp_path / "cases.jsonl"
+    _write_case(
+        cases,
+        response=response,
+        required_terms=[],
+        relevance_terms=[],
+        direct_answer_terms=[],
+        required_labels=[],
+        story_terms={},
+        min_words=1,
+    )
+    report = run_response_contract_evaluation(
+        cases, tmp_path / "report.json", enforce_thresholds=False
+    )
+    failed = report["failures"][0]["failed_contracts"] if report["failures"] else []
+    assert "no_sensitive_disclosure" not in failed
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        "La contraseña = prod-Secret123!",
+        "API_KEY: abcdefghijklmnopqrstuvwxyz123456",
+        "El token es sk-live_abcdefghijklmnop",
+        "La consola privada está en https://internal.example.local/admin",
+    ],
+)
+def test_secret_looking_values_and_private_urls_are_rejected(
+    tmp_path: Path,
+    response: str,
+) -> None:
+    cases = tmp_path / "cases.jsonl"
+    _write_case(cases, response=response, min_words=1)
+    report = run_response_contract_evaluation(
+        cases, tmp_path / "report.json", enforce_thresholds=False
+    )
+    assert "no_sensitive_disclosure" in report["failures"][0]["failed_contracts"]
 
 
 @pytest.mark.parametrize(

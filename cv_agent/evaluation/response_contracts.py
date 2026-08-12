@@ -32,11 +32,19 @@ SENIOR_CLAIMS = (
     "experto en todo",
     "nivel experto",
 )
-SENSITIVE_PATTERNS = (
-    re.compile(r"\b(?:contraseña|password|secret|api[_ -]?key)\b", re.IGNORECASE),
-    re.compile(r"\bsk-[A-Za-z0-9_-]+\b"),
+SENSITIVE_DISCLOSURE_PATTERNS = (
+    re.compile(
+        r"\b(?:contraseña|password|secret|api[_ -]?key|token)\b\s*"
+        r"(?:=|:|es\s+)\s*[A-Za-z0-9_!@#$%^&*./+-]{8,}",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b", re.IGNORECASE),
+    re.compile(
+        r"https?://(?:[^/\s@]+@)?(?:[^./\s]+\.)*(?:internal|intranet|local)(?:[/:]|\b)",
+        re.IGNORECASE,
+    ),
 )
-IPV4_CANDIDATE = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
+IPV4_CANDIDATE = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}\b")
 PRIVATE_IPV4_NETWORKS = tuple(
     ipaddress.ip_network(cidr)
     for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
@@ -107,7 +115,7 @@ def _load_cases(path: Path, knowledge_path: Path) -> list[dict]:
     return cases
 
 
-def _score_case(case: dict) -> dict[str, bool]:
+def _score_case(case: dict) -> dict[str, bool | None]:
     text = case["response"]
     first_sentence = re.split(r"(?<=[.!?])\s+", text.strip(), maxsplit=1)[0]
     evidence = set(case.get("evidence_ids", []))
@@ -118,7 +126,7 @@ def _score_case(case: dict) -> dict[str, bool]:
     text_without_ipv4 = text
     for address in _valid_ipv4_addresses(text):
         text_without_ipv4 = text_without_ipv4.replace(str(address), "")
-    numeric_claims = set(re.findall(r"\b\d+(?:[.,]\d+)?\b", text_without_ipv4))
+    numeric_claims = set(re.findall(r"\b\d+\b", text_without_ipv4))
     allowed_numbers = {str(value) for value in case.get("allowed_numbers", [])}
     words = re.findall(r"\b[\wÁÉÍÓÚÜÑáéíóúüñ-]+\b", text)
 
@@ -152,29 +160,50 @@ def _score_case(case: dict) -> dict[str, bool]:
     else:
         behavioral_boundary_ok = True
 
+    direct_terms = case.get("direct_answer_terms", [])
+    relevance_terms = case.get("relevance_terms", [])
+    required_terms = case.get("required_terms", [])
+    unsupported_claim_terms = case.get("unsupported_claim_terms", [])
     return {
-        "directness": _contains_any(first_sentence, case.get("direct_answer_terms", [])),
-        "relevance": _contains_any(text, case.get("relevance_terms", [])),
-        "grounded_provenance": provenance_ok,
-        "evidence_labels": all(_contains(text, label) for label in required_labels),
-        "project_problem_action_result": story_ok,
-        "behavioral_evidence_boundary": behavioral_boundary_ok,
-        "no_negative_denial": denial_ok,
-        "junior_humility": junior_ok and not any(
-            _contains(text, claim) for claim in SENIOR_CLAIMS
+        "directness": (
+            _contains_any(first_sentence, direct_terms) if direct_terms else None
+        ),
+        "relevance": _contains_any(text, relevance_terms) if relevance_terms else None,
+        "approved_evidence_references": provenance_ok,
+        "evidence_labels": (
+            all(_contains(text, label) for label in required_labels)
+            if required_labels else None
+        ),
+        "project_problem_action_result": story_ok if story_terms else None,
+        "behavioral_evidence_boundary": (
+            behavioral_boundary_ok if star_allowed is not None else None
+        ),
+        "no_negative_denial": (
+            denial_ok if case.get("no_denial_when_authorized", False) else None
+        ),
+        "junior_humility": (
+            junior_ok and not any(_contains(text, claim) for claim in SENIOR_CLAIMS)
+            if case.get("requires_junior", False)
+            else None
         ),
         "no_senior_claim": not any(_contains(text, claim) for claim in SENIOR_CLAIMS),
-        "no_sensitive_or_invented_details": (
-            not any(_contains(text, term) for term in forbidden_terms)
-            and not any(pattern.search(text) for pattern in SENSITIVE_PATTERNS)
-            and not _contains_private_ipv4(text)
-            and numeric_claims <= allowed_numbers
+        "forbidden_terms": not any(_contains(text, term) for term in forbidden_terms),
+        "unapproved_numeric_claims": numeric_claims <= allowed_numbers,
+        "reviewed_claim_sentinels": (
+            not any(_contains(text, term) for term in unsupported_claim_terms)
+            if unsupported_claim_terms else None
         ),
+        "no_sensitive_disclosure": not any(
+            pattern.search(text) for pattern in SENSITIVE_DISCLOSURE_PATTERNS
+        ) and not _contains_private_ipv4(text),
         "concise_professional_structure": structure_ok,
-        "required_content": all(
-            _contains(text, term) for term in case.get("required_terms", [])
+        "required_content": (
+            all(_contains(text, term) for term in required_terms)
+            if required_terms else None
         ),
-        "out_of_scope_redirect": redirect_ok,
+        "out_of_scope_redirect": (
+            redirect_ok if case.get("requires_redirect", False) else None
+        ),
     }
 
 
@@ -195,10 +224,12 @@ def run_response_contract_evaluation(
 
     for case in cases:
         contracts = _score_case(case)
-        failed = [name for name, passed in contracts.items() if not passed]
+        failed = [name for name, passed in contracts.items() if passed is False]
         passed = not failed
         category_scores[case["category"]].append(1.0 if passed else 0.0)
         for name, result in contracts.items():
+            if result is None:
+                continue
             contract_scores[name].append(1.0 if result else 0.0)
         if failed:
             failures.append({"case_id": case["id"], "failed_contracts": failed})
@@ -213,6 +244,14 @@ def run_response_contract_evaluation(
         contract: round(mean(scores), 4)
         for contract, scores in sorted(contract_scores.items())
     }
+    contract_counts = {
+        contract: {"passed": int(sum(scores)), "applicable": len(scores)}
+        for contract, scores in sorted(contract_scores.items())
+    }
+    category_counts = {
+        category: {"passed": int(sum(scores)), "total": len(scores)}
+        for category, scores in sorted(category_scores.items())
+    }
     all_contract_results = [score for scores in contract_scores.values() for score in scores]
     report = {
         "mode": "offline_curated_response_contract_fixtures",
@@ -220,6 +259,8 @@ def run_response_contract_evaluation(
         "case_count": len(cases),
         "metrics": {
             "overall_contract_pass_rate": round(mean(all_contract_results), 4),
+            "overall_contract_passed": int(sum(all_contract_results)),
+            "overall_contract_applicable": len(all_contract_results),
             "case_pass_rate": round(
                 (len(cases) - len(failures)) / len(cases), 4
             ),
@@ -227,11 +268,14 @@ def run_response_contract_evaluation(
         },
         "category_pass_floor": CATEGORY_PASS_FLOOR,
         "category_pass_rates": category_pass_rates,
+        "category_counts": category_counts,
         "contract_pass_rates": contract_pass_rates,
+        "contract_counts": contract_counts,
         "failures": failures,
         "limitation": (
-            "Curated deterministic fixtures only; a one-shot production OpenAI "
-            "response smoke is still required."
+            "Curated deterministic fixtures with reviewed term and numeric sentinels "
+            "only; this is not general hallucination detection, and a one-shot "
+            "production OpenAI response smoke is still required."
         ),
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)

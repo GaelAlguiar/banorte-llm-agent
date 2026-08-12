@@ -224,12 +224,15 @@ Ninguna evaluación offline llama a OpenAI. La primera usa `EvidenceModel`, que
 devuelve evidencia y mide Recall@8, precisión de evidencia@8, MRR,
 groundedness, privacidad, cobertura, routing y latencia sobre 125 casos. La
 segunda califica contratos observables en respuestas representativas curadas:
-directitud, relevancia, procedencia, etiquetas Directa/Relacionada/Transferible,
-historias con problema/acción/resultado, humildad Junior, privacidad y
-concisión. Esos fixtures no son prosa del modelo productivo. Antes de una
-liberación se requiere todavía un smoke de una consulta real contra el endpoint
-live y revisión manual de tono, atribución, ausencia de invenciones y
-trazabilidad.
+directitud, relevancia, referencias de evidencia aprobadas, etiquetas
+Directa/Relacionada/Transferible, historias con problema/acción/resultado,
+humildad Junior, privacidad y concisión. Sus sentinelas de términos no
+respaldados y números no autorizados son listas revisadas, no un detector
+general de alucinaciones. Las tasas reportan denominadores aplicables por
+contrato y conteos por categoría. Esos fixtures no son prosa del modelo
+productivo. Antes de una liberación se requiere todavía un smoke de una consulta
+real contra el endpoint live y revisión manual de tono, atribución, ausencia de
+invenciones y trazabilidad.
 
 ## Evidencia pública complementaria
 

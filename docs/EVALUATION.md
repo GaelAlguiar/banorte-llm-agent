@@ -38,13 +38,16 @@ desconocida, conducta con STAR sólo cuando está confirmado, seguridad y
 privacidad, redirección fuera de alcance y comparaciones multimodales de
 vacante, CV, proyecto y arquitectura.
 
-Cada fixture declara su procedencia autorizada, términos necesarios y
-prohibidos, etiquetas de experiencia directa, relacionada o transferible
+Cada fixture declara referencias de evidencia autorizadas, términos necesarios
+y prohibidos, etiquetas de experiencia directa, relacionada o transferible
 cuando aplican, y elementos de problema, acción y resultado cuando la evidencia
-los respalda. El evaluador también rechaza boilerplate negativo ante evidencia
-autorizada, afirmaciones senior, detalles inventados o sensibles, respuestas
-indirectas y estructuras innecesariamente extensas. Exige cero fallos core y
-un piso de 90% por categoría.
+los respalda. Algunos fixtures incluyen sentinelas de afirmaciones no
+respaldadas revisadas explícitamente —por ejemplo, un premio internacional— y
+números permitidos. Estas comprobaciones detectan sólo coincidencias declaradas;
+no constituyen detección general de alucinaciones, factualidad ni grounding
+semántico. El evaluador también comprueba boilerplate negativo ante evidencia
+autorizada, afirmaciones senior, revelaciones con forma de secreto, respuestas
+indirectas y estructura. Exige cero fallos core y un piso de 90% por categoría.
 
 La cobertura conductual contiene ambos límites: una historia técnica confirmada
 que exige los cuatro elementos STAR y una pregunta de conflicto/liderazgo sin
@@ -52,6 +55,15 @@ anécdota confirmada que prohíbe emitir etiquetas STAR o inventar el incidente.
 La detección de detalles sensibles reconoce direcciones privadas RFC 1918 en
 los rangos completos `10/8`, `172.16/12` y `192.168/16`, valida cada dirección
 antes de clasificarla y no bloquea texto con direcciones públicas o inválidas.
+También detecta asignaciones con valor, tokens con forma de clave y URLs
+privadas; mencionar “contraseña”, “API key”, “secreto” o “token” dentro de una
+negativa segura no cuenta como revelación.
+
+Las tasas por contrato usan sólo fixtures donde el contrato aplica. El reporte
+publica `passed/applicable` por contrato y `passed/total` por categoría. El piso
+por categoría se calcula sobre casos completos: un caso aprueba únicamente si
+todos sus contratos aplicables aprueban. De este modo el piso no se infla con
+checks que no correspondían a una categoría.
 
 ```bash
 python -m cv_agent.evaluation.runner
