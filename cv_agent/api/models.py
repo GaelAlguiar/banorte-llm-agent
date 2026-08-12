@@ -457,10 +457,23 @@ def validate_attachment_envelope(
         for part in parts:
             key = "image_url" if part.get("type") == "input_image" else "file_url"
             reference = part.get(key)
-            if (
-                isinstance(reference, str)
-                and reference.startswith("parley-file:")
-                and not _PARLEY_FILE_REFERENCE.fullmatch(reference)
-            ):
-                raise ValueError("La referencia del archivo del portal es inválida")
+            if isinstance(reference, str) and _PARLEY_FILE_REFERENCE.fullmatch(reference):
+                continue
+            filename = (
+                _validated_filename(part.get("filename"))
+                if part.get("type") == "input_file" else None
+            )
+            url = _validated_https_url(reference, policy)
+            kind: Literal["image", "file"] = (
+                "image" if part.get("type") == "input_image" else "file"
+            )
+            _validate_attachment_type(
+                kind=kind,
+                url=url,
+                filename=filename,
+                mime_hints=tuple(
+                    part.get(field)
+                    for field in ("mime_type", "media_type", "content_type")
+                ),
+            )
         return

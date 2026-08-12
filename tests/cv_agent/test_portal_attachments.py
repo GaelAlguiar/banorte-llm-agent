@@ -490,6 +490,28 @@ def test_oversized_text_is_rejected_before_classifier_or_portal_resolution():
             "image_url": "parley-file:file_abcdefgh/../../secret",
         },
     ],
+    [
+        {"type": "input_text", "text": "Analiza el adjunto"},
+        {
+            "type": "input_image",
+            "image_url": "PARLEY-FILE:file_abcdefgh12345678",
+        },
+    ],
+    [
+        {"type": "input_text", "text": "Analiza el adjunto"},
+        {"type": "input_image", "image_url": None},
+    ],
+    [
+        {"type": "input_text", "text": "Analiza el adjunto"},
+        {"type": "input_image", "image_url": "garbage"},
+    ],
+    [
+        {"type": "input_text", "text": "Analiza el adjunto"},
+        {
+            "type": "input_image",
+            "image_url": "https://untrusted.example.net/captura.png",
+        },
+    ],
 ])
 def test_invalid_attachment_envelope_is_rejected_before_classifier(content):
     class PrivacyAwareAgent(RecordingAgent):
