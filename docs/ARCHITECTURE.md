@@ -13,9 +13,12 @@ La solución separa transporte, política del agente, recuperación, conocimient
 4. El agente elige una skill determinista según la intención permitida.
 5. La skill restringe las categorías y las fuentes exactas de conocimiento
    consultables; el mismo allowlist se aplica al intento principal y al fallback.
-6. Azure AI Search combina BM25 y similitud vectorial, aplica filtros y un umbral.
-7. El modelo recibe pregunta, reglas y fragmentos sanitizados.
-8. La API devuelve JSON tipado o eventos SSE.
+6. La ingesta conserva 17 fuentes autorizadas y genera chunks estables por
+   encabezado para los documentos extensos; los pequeños permanecen completos.
+7. Azure AI Search combina BM25 y similitud vectorial, aplica filtros por
+   documento padre y categoría, umbral y diversidad entre padres/secciones.
+8. El modelo recibe pregunta, reglas y los fragmentos localizados sanitizados.
+9. La API devuelve JSON tipado o eventos SSE con trazabilidad pública segura.
 
 Tanto el endpoint Open Responses como la interfaz Flask delegan en la misma
 instancia de `CvAgentService`. Los transportes validan su contrato, pero no
@@ -33,6 +36,25 @@ Azure Container Apps consulta el índice con identidad administrada y el rol
 `Search Index Data Reader`. La creación del esquema y la sincronización se
 ejecutan fuera del proceso web. No existe fallback local en producción: la
 sonda `/health/ready` informa si el índice no está disponible.
+
+`document_id` identifica una de las 17 fuentes; `chunk_id` combina el breadcrumb
+de encabezados con un hash corto del contenido. Insertar otra sección no
+renumera las existentes; renombrar el encabezado o modificar el contenido
+cambia deliberadamente el ID afectado. Una sección que supera el límite se divide por párrafos
+con solapamiento semántico acotado; el ID añade `part-NN`. Ningún adaptador
+trunca silenciosamente el extracto después de recuperar. La sincronización
+carga el conjunto de chunks vigente y
+elimina IDs obsoletos, incluida la forma histórica de un registro por fuente.
+La evidencia entregada al modelo conserva el extracto local de cada sección.
+La respuesta externa omite `source_path`, URLs no públicas y scores numéricos;
+las URLs requieren un dominio de evidencia explícitamente autorizado, sin DNS
+en runtime. `metadata.evidence_ids` permanece como string de hasta 512
+caracteres y la extensión superior `evidence` contiene el detalle seguro.
+
+Azure devuelve scores RRF pequeños cuyo valor absoluto no equivale al score
+local. El adaptador los calibra por rango dentro del conjunto candidato antes
+del umbral y del bucket de confianza. La diversidad permite una sola parte
+solapada por sección y hasta dos secciones por documento padre.
 
 Para mayor escala se añadirían caché distribuida, APIM, OpenTelemetry, colas
 para ingesta, versionado de índices y pruebas canary.

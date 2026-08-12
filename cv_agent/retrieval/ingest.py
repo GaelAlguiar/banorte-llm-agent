@@ -18,7 +18,7 @@ from azure.search.documents.indexes.models import (
     VectorSearchProfile,
 )
 
-from cv_agent.knowledge.loader import load_knowledge
+from cv_agent.knowledge.loader import load_knowledge_chunks
 from cv_agent.knowledge.models import KnowledgeDocument
 from cv_agent.retrieval.embeddings import (
     EmbeddingProvider,
@@ -33,6 +33,20 @@ def build_index(index_name: str, dimensions: int) -> SearchIndex:
             type=SearchFieldDataType.String,
             key=True,
             filterable=True,
+        ),
+        SimpleField(
+            name="document_id",
+            type=SearchFieldDataType.String,
+            filterable=True,
+        ),
+        SimpleField(
+            name="chunk_id",
+            type=SearchFieldDataType.String,
+            filterable=True,
+        ),
+        SearchableField(
+            name="section",
+            type=SearchFieldDataType.String,
         ),
         SearchableField(
             name="title",
@@ -103,7 +117,10 @@ def build_search_document(
 ) -> dict:
     vector_text = f"{document.title}\n{document.text}"
     return {
-        "id": document.id,
+        "id": document.index_id,
+        "document_id": document.parent_id,
+        "chunk_id": document.index_id,
+        "section": document.section,
         "title": document.title,
         "content": document.text,
         "category": document.category,
@@ -184,7 +201,7 @@ def main() -> None:
     )
     summary = sync_documents(
         client=client,
-        documents=load_knowledge(args.knowledge),
+        documents=load_knowledge_chunks(args.knowledge),
         embeddings=embeddings,
     )
     print(json.dumps(summary, ensure_ascii=False))

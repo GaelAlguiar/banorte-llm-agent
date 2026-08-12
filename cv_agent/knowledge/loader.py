@@ -1,4 +1,7 @@
 from pathlib import Path
+import hashlib
+import re
+import unicodedata
 
 from cv_agent.knowledge.models import KnowledgeDocument
 
@@ -66,3 +69,162 @@ def load_knowledge(directory: Path) -> list[KnowledgeDocument]:
     if not documents:
         raise ValueError(f"No hay documentos en {directory}")
     return documents
+
+
+DEFAULT_SPLIT_THRESHOLD = 1_200
+DEFAULT_MAX_CHUNK_CHARS = 1_200
+DEFAULT_OVERLAP_CHARS = 120
+_HEADING = re.compile(r"(?m)^(#{1,6})[ \t]+(.+?)[ \t]*$")
+
+
+def _slug(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    compact = re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+    return compact or "seccion"
+
+
+def _section_parts(text: str) -> list[tuple[str | None, str]]:
+    matches = list(_HEADING.finditer(text))
+    if not matches:
+        return [(None, text.strip())]
+    parts: list[tuple[str | None, str]] = []
+    introduction = text[:matches[0].start()].strip()
+    if introduction:
+        parts.append(("Introducción", introduction))
+    hierarchy: list[tuple[int, str]] = []
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        body = text[match.end():end].strip()
+        heading = match.group(2).strip().rstrip("#").strip()
+        level = len(match.group(1))
+        hierarchy = [item for item in hierarchy if item[0] < level]
+        hierarchy.append((level, heading))
+        breadcrumb = " › ".join(item[1] for item in hierarchy)
+        # Include the heading in the embedded excerpt so lexical retrieval can
+        # find concepts expressed primarily by section titles.
+        parts.append((breadcrumb, f"{match.group(1)} {heading}\n\n{body}".strip()))
+    return parts
+
+
+def _chunks_for_document(
+    document: KnowledgeDocument,
+    *,
+    split_threshold: int,
+    max_chunk_chars: int,
+    overlap_chars: int,
+) -> list[KnowledgeDocument]:
+    parts = _section_parts(document.text)
+    if len(document.text) < split_threshold and len(document.text) <= max_chunk_chars:
+        return [KnowledgeDocument(
+            **{
+                **document.__dict__,
+                "document_id": document.id,
+                "chunk_id": document.id,
+                "section": None,
+            }
+        )]
+    chunks: list[KnowledgeDocument] = []
+    for section, text in parts:
+        section_name = section or "Introducción"
+        base_slug = _slug(section_name)
+        subchunks = _bounded_parts(text, max_chunk_chars, overlap_chars)
+        for part_index, subchunk in enumerate(subchunks, start=1):
+            digest = hashlib.sha256(subchunk.encode("utf-8")).hexdigest()[:10]
+            part_suffix = f"--part-{part_index:02d}" if len(subchunks) > 1 else ""
+            chunks.append(KnowledgeDocument(
+                **{
+                    **document.__dict__,
+                    "title": f"{document.title} — {section_name}",
+                    "text": subchunk,
+                    "document_id": document.id,
+                    "chunk_id": f"{document.id}--{base_slug}{part_suffix}--{digest}",
+                    "section": section_name,
+                }
+            ))
+    return chunks
+
+
+def _bounded_parts(text: str, limit: int, overlap: int) -> list[str]:
+    if limit < 200 or overlap < 0 or overlap >= limit:
+        raise ValueError("Configuración de chunks inválida")
+    if len(text) <= limit:
+        return [text]
+    paragraphs = [item.strip() for item in re.split(r"\n\s*\n", text) if item.strip()]
+    units: list[str] = []
+    for paragraph in paragraphs:
+        if len(paragraph) <= limit:
+            units.append(paragraph)
+            continue
+        words = paragraph.split()
+        current = ""
+        for word in words:
+            if len(word) > limit:
+                if current:
+                    units.append(current)
+                    current = ""
+                units.extend(
+                    word[index:index + limit]
+                    for index in range(0, len(word), limit)
+                )
+                continue
+            candidate = f"{current} {word}".strip()
+            if current and len(candidate) > limit:
+                units.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            units.append(current)
+    result: list[str] = []
+    current_units: list[str] = []
+    for unit in units:
+        candidate = "\n\n".join([*current_units, unit])
+        if current_units and len(candidate) > limit:
+            completed = "\n\n".join(current_units)
+            result.append(completed)
+            overlap_text = _word_suffix(completed, overlap)
+            current_units = [item for item in (overlap_text, unit) if item]
+            if len("\n\n".join(current_units)) > limit:
+                available = max(0, limit - len(unit) - 2)
+                overlap_text = _word_suffix(completed, available)
+                current_units = [item for item in (overlap_text, unit) if item]
+        else:
+            current_units.append(unit)
+    if current_units:
+        result.append("\n\n".join(current_units))
+    return result
+
+
+def _word_suffix(text: str, limit: int) -> str:
+    if limit <= 0:
+        return ""
+    suffix = text[-limit:]
+    if len(text) <= limit:
+        return suffix
+    boundary = suffix.find(" ")
+    return suffix[boundary + 1:] if boundary >= 0 else suffix
+
+
+def load_knowledge_chunks(
+    directory: Path,
+    *,
+    split_threshold: int = DEFAULT_SPLIT_THRESHOLD,
+    max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    overlap_chars: int = DEFAULT_OVERLAP_CHARS,
+) -> list[KnowledgeDocument]:
+    """Load authorized source documents as stable, heading-aware chunks.
+
+    Small documents intentionally remain one chunk. Longer Markdown sources are
+    split at semantic heading boundaries without losing parent provenance.
+    """
+    return [
+        chunk
+        for document in load_knowledge(directory)
+        for chunk in _chunks_for_document(
+            document,
+            split_threshold=split_threshold,
+            max_chunk_chars=max_chunk_chars,
+            overlap_chars=overlap_chars,
+        )
+    ]

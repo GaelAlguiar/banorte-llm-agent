@@ -22,7 +22,7 @@ documenta lo aprendido y continúa hasta obtener un resultado funcional. Se
 postula como candidato Junior con experiencia práctica sólida para su etapa. Ha
 tenido la oportunidad de asumir responsabilidades no siempre habituales en un
 perfil Junior mediante su trabajo end-to-end en Enerey y su experiencia en IA y
-cloud. No se presenta como senior ni experto en todo: mantiene apertura para
+cloud. No se presenta como senior: mantiene apertura para
 escuchar, aprender rápido, colaborar y crecer dentro del equipo.
 
 ## Objetivo

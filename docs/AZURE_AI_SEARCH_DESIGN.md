@@ -29,11 +29,11 @@ una arquitectura distinta de la que realmente atiende las consultas.
 
 ## Índice y documentos
 
-El índice almacenará un registro por documento autorizado de `knowledge/` con
+El índice almacenará uno o más chunks por documento autorizado de `knowledge/` con
 los siguientes campos:
 
-- identificador estable;
-- título y contenido;
+- identificadores estables del documento padre y del chunk;
+- título, sección localizada y contenido;
 - categoría;
 - tipo de fuente;
 - nivel de evidencia;

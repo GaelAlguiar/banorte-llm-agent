@@ -2,7 +2,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from cv_agent.agent.service import AgentAnswer
+from cv_agent.agent.service import AgentAnswer, AnswerEvidence, _public_source_url
 from cv_agent.main import create_app
 
 
@@ -22,6 +22,17 @@ class StubAgent:
             text="Gael es un AI Engineer con experiencia en GenAI y cloud.",
             skill_name="profile_summary",
             evidence_ids=("perfil-gael",),
+            evidence=(AnswerEvidence(
+                document_id="perfil-gael",
+                chunk_id="perfil-gael--resumen",
+                title="Perfil de Gael — Resumen",
+                section="Resumen",
+                public_url="https://example.com/gael",
+                source_kind="perfil",
+                evidence_level="directa",
+                impact_type="confirmado",
+                confidence="alta",
+            ),),
         )
 
 
@@ -45,6 +56,18 @@ def test_create_response_returns_typed_output():
     assert body["output"][0]["type"] == "message"
     assert body["output"][0]["content"][0]["type"] == "output_text"
     assert "AI Engineer" in body["output"][0]["content"][0]["text"]
+    evidence = body["evidence"]
+    assert evidence[0] == {
+        "document_id": "perfil-gael",
+        "chunk_id": "perfil-gael--resumen",
+        "title": "Perfil de Gael — Resumen",
+        "section": "Resumen",
+        "public_url": "https://example.com/gael",
+        "source_kind": "perfil",
+        "evidence_level": "directa",
+        "impact_type": "confirmado",
+        "confidence": "alta",
+    }
 
 
 def test_message_item_input_uses_last_user_text():
@@ -222,3 +245,73 @@ def test_streaming_response_matches_reference_event_sequence():
     ]
     assert all(json.loads(line) for line in data_lines)
     assert response.text.rstrip().endswith("data: [DONE]")
+    completed = json.loads(data_lines[-1])["response"]
+    assert completed["evidence"][0]["chunk_id"] == (
+        "perfil-gael--resumen"
+    )
+
+
+def test_response_evidence_never_exposes_local_or_private_sources():
+    class PrivateEvidenceAgent(StubAgent):
+        def answer(self, question, attachments=(), reasoning_effort=None):
+            return AgentAnswer(
+                text="Respuesta segura.",
+                skill_name="profile_summary",
+                evidence_ids=("perfil-gael",),
+                evidence=(AnswerEvidence(
+                    document_id="perfil-gael",
+                    chunk_id="perfil-gael--resumen",
+                    title="Perfil",
+                    section=None,
+                    public_url=None,
+                    source_kind="perfil",
+                    evidence_level="directa",
+                    impact_type="confirmado",
+                    confidence="alta",
+                ),),
+            )
+
+    body = TestClient(create_app(agent=PrivateEvidenceAgent())).post(
+        "/v1/responses", json={"input": "¿Quién es Gael?"}
+    ).json()
+
+    serialized = json.dumps(body)
+    assert "/Users/" not in serialized
+    assert "source_path" not in serialized
+    assert "vector_score" not in serialized
+    assert "score" not in serialized
+
+
+def test_response_metadata_values_are_compact_strings_with_detailed_top_level_evidence():
+    body = TestClient(create_app(agent=StubAgent())).post(
+        "/v1/responses", json={"input": "¿Quién es Gael?"}
+    ).json()
+
+    assert body["evidence"][0]["document_id"] == "perfil-gael"
+    assert all(isinstance(value, str) for value in body["metadata"].values())
+    assert all(len(value) <= 512 for value in body["metadata"].values())
+    assert body["metadata"]["evidence_ids"] == "perfil-gael--resumen"
+
+
+def test_public_evidence_url_requires_an_authorized_domain():
+    assert _public_source_url("https://enereylatam.com/proyecto") == (
+        None
+    )
+    assert _public_source_url("https://enereylatam.com") == "https://enereylatam.com/"
+    assert _public_source_url("https://www.lugramx.com/") == "https://www.lugramx.com/"
+    assert _public_source_url("https://apps.apple.com/mx/app/enerey/id6736633080/") == (
+        "https://apps.apple.com/mx/app/enerey/id6736633080"
+    )
+    for unsafe in (
+        "https://intranet/path",
+        "https://example.com/path",
+        "https://evil.com/path",
+        "https://user:pass@enereylatam.com/path",
+        "https://enereylatam.com:8443/path",
+        "https://enereylatam.com:bad/path",
+        "https://enereylatam.com.evil.com/path",
+        "https://ｅｎｅｒｅｙlatam.com/path",
+        "https://enereylatam.com/%2e%2e/private",
+        "https://apps.apple.com/mx/app/enerey/id6736633080/private",
+    ):
+        assert _public_source_url(unsafe) is None

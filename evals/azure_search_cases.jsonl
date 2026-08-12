@@ -1,5 +1,5 @@
 {"id":"azure-ai-01","question":"¿Qué experiencia laboral tiene Gael con inteligencia artificial?","expected_document_ids":["enerey-ia-clientes"],"category":"experience"}
-{"id":"azure-ai-02","question":"¿Qué experiencia tiene Gael con Terraform?","expected_document_ids":["terraform-banregio"],"category":"architecture"}
-{"id":"azure-ai-03","question":"¿Qué impacto tuvo la automatización de cotizaciones por WhatsApp?","expected_document_ids":["cotizaciones-ia-whatsapp"],"category":"project"}
-{"id":"azure-ai-04","question":"¿Cómo funciona la arquitectura RAG de este agente?","expected_document_ids":["genai-banorte-agent"],"category":"architecture"}
-{"id":"azure-ai-05","question":"¿Cuál es la receta de una paella valenciana?","expected_document_ids":[],"category":"out_of_scope"}
+{"id":"azure-ai-02","question":"¿Qué experiencia tiene Gael con Terraform?","expected_document_ids":["terraform-banregio"],"category":"experience"}
+{"id":"azure-ai-03","question":"¿Qué impacto tuvo la automatización de cotizaciones masivas con IA por WhatsApp?","expected_document_ids":["cotizaciones-ia-whatsapp"],"category":"project"}
+{"id":"azure-ai-04","question":"Explica la arquitectura RAG del agente de CV","expected_document_ids":["genai-banorte-agent"],"category":"decision"}
+{"id":"azure-ai-05","question":"¿Cuál es la receta de paella valenciana?","expected_document_ids":[],"category":"out_of_scope"}

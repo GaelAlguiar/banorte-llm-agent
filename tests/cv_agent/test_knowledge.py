@@ -3,7 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from cv_agent.knowledge.loader import load_knowledge
+from cv_agent.knowledge.loader import (
+    DEFAULT_MAX_CHUNK_CHARS,
+    load_knowledge,
+    load_knowledge_chunks,
+)
 
 
 ENTERPRISE_KNOWLEDGE_FORBIDDEN_PATTERNS = {
@@ -127,6 +131,178 @@ def test_loaded_knowledge_exposes_its_canonical_skill_source_path():
     freelance = next(item for item in documents if item.id == "freelance-global-lugra")
 
     assert freelance.source_path == "knowledge/17_freelance_global_lugra.md"
+
+
+def test_section_chunks_keep_stable_parent_metadata_and_local_content(tmp_path: Path):
+    content = """---
+id: proyecto-estable
+title: Proyecto estable
+category: proyecto
+evidence_level: directa
+impact_type: estimado
+source_kind: laboral
+source: experiencia confirmada; https://example.com/proyecto
+---
+Introducción del proyecto.
+
+## Arquitectura y operación
+
+Detalle de arquitectura que debe permanecer localizado en esta sección.
+
+## Seguridad
+
+Detalle de seguridad que no debe mezclarse con arquitectura.
+"""
+    (tmp_path / "proyecto.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(tmp_path, split_threshold=1)
+
+    assert [chunk.document_id for chunk in chunks] == [
+        "proyecto-estable", "proyecto-estable", "proyecto-estable"
+    ]
+    assert chunks[1].chunk_id.startswith("proyecto-estable--arquitectura-y-operacion--")
+    assert chunks[1].section == "Arquitectura y operación"
+    assert chunks[1].title == "Proyecto estable — Arquitectura y operación"
+    assert chunks[1].source_path == "knowledge/proyecto.md"
+    assert "Detalle de seguridad" not in chunks[1].text
+
+
+def test_tiny_document_remains_one_chunk_even_when_it_has_headings(tmp_path: Path):
+    content = """---
+id: breve
+title: Documento breve
+category: perfil
+evidence_level: directa
+source: CV
+---
+## Uno
+Breve.
+## Dos
+También breve.
+"""
+    (tmp_path / "breve.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(tmp_path)
+
+    assert len(chunks) == 1
+    assert chunks[0].chunk_id == "breve"
+    assert chunks[0].section is None
+
+
+def test_repository_keeps_17_sources_while_producing_more_index_chunks():
+    documents = load_knowledge(Path("knowledge"))
+    chunks = load_knowledge_chunks(Path("knowledge"))
+
+    assert len(documents) == 17
+    assert len(chunks) > len(documents)
+    assert {chunk.document_id for chunk in chunks} == {
+        document.id for document in documents
+    }
+    assert all(len(chunk.text) <= DEFAULT_MAX_CHUNK_CHARS for chunk in chunks)
+
+
+def test_long_heading_section_splits_at_paragraph_boundaries_with_stable_parts(tmp_path: Path):
+    paragraphs = [
+        f"Párrafo {index} " + ("contenido semántico " * 12)
+        for index in range(8)
+    ]
+    content = """---
+id: largo
+title: Documento largo
+category: proyecto
+evidence_level: directa
+source: CV
+---
+## Operación
+
+""" + "\n\n".join(paragraphs)
+    (tmp_path / "largo.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(
+        tmp_path, split_threshold=1, max_chunk_chars=520, overlap_chars=80
+    )
+
+    assert len(chunks) > 1
+    assert all(len(chunk.text) <= 520 for chunk in chunks)
+    assert chunks[0].chunk_id.startswith("largo--operacion--part-01--")
+    assert chunks[1].chunk_id.startswith("largo--operacion--part-02--")
+    assert all(chunk.section == "Operación" for chunk in chunks)
+    assert "Párrafo 7" in chunks[-1].text
+
+
+def test_single_oversized_token_never_exceeds_chunk_bound(tmp_path: Path):
+    content = """---
+id: token-largo
+title: Token largo
+category: proyecto
+evidence_level: directa
+source: CV
+---
+""" + ("x" * 900)
+    (tmp_path / "token.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(
+        tmp_path, split_threshold=1, max_chunk_chars=300, overlap_chars=30
+    )
+
+    assert len(chunks) == 3
+    assert all(len(chunk.text) <= 300 for chunk in chunks)
+
+
+def test_subchunks_share_a_bounded_word_boundary_overlap(tmp_path: Path):
+    marker = "frontera compartida verificable"
+    first = ("contexto anterior " * 28) + marker
+    second = "contexto posterior " * 28
+    content = """---
+id: solapado
+title: Documento solapado
+category: proyecto
+evidence_level: directa
+source: CV
+---
+## Operación
+
+""" + first + "\n\n" + second
+    (tmp_path / "overlap.md").write_text(content, encoding="utf-8")
+
+    chunks = load_knowledge_chunks(
+        tmp_path, split_threshold=1, max_chunk_chars=700, overlap_chars=120
+    )
+
+    assert marker in chunks[0].text
+    assert marker in chunks[1].text
+    assert all(len(chunk.text) <= 700 for chunk in chunks)
+
+
+def test_nested_headings_use_breadcrumb_titles_and_stable_content_ids(tmp_path: Path):
+    base = """---
+id: jerarquia
+title: Arquitectura
+category: proyecto
+evidence_level: directa
+source: CV
+---
+## Operación
+### Azure
+Contenido Azure único.
+### AWS
+Contenido AWS único.
+"""
+    path = tmp_path / "hierarchy.md"
+    path.write_text(base, encoding="utf-8")
+    before = load_knowledge_chunks(tmp_path, split_threshold=1)
+    azure_before = next(item for item in before if "Azure" in (item.section or ""))
+
+    path.write_text(base.replace(
+        "### AWS\nContenido AWS único.",
+        "### GCP\nContenido GCP nuevo.\n### AWS\nContenido AWS único.",
+    ), encoding="utf-8")
+    after = load_knowledge_chunks(tmp_path, split_threshold=1)
+    azure_after = next(item for item in after if "Azure" in (item.section or ""))
+
+    assert azure_before.section == "Operación › Azure"
+    assert azure_before.title == "Arquitectura — Operación › Azure"
+    assert azure_before.chunk_id == azure_after.chunk_id
 
 
 def test_rag_story_describes_the_deployed_search_backend():

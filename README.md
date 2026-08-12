@@ -5,12 +5,12 @@ Agente conversacional en español construido para el Reto IA Banorte. Permite ex
 ## Qué demuestra
 
 - Python y FastAPI con contrato `POST /v1/responses` y streaming SSE.
-- RAG sobre una base profesional sanitizada, con búsqueda híbrida de Azure AI Search, embeddings de OpenAI, filtros y umbral de relevancia.
+- RAG sobre 17 documentos fuente sanitizados, divididos por encabezados en chunks temáticos estables para Azure AI Search, con embeddings de OpenAI, búsqueda híbrida, filtros y umbral de relevancia.
 - Skills declarativas y auditables para perfil, proyectos, arquitectura, ajuste a la vacante, aprendizaje y privacidad.
 - Guardrail semántico previo al RAG contra extracción de secretos e instrucciones internas.
 - Análisis multimodal de imágenes y archivos temporales sin agregarlos al RAG.
 - Autenticación Bearer, límites de cuerpo, tipo de contenido y 30 solicitudes por minuto.
-- Evaluación offline reproducible con 124 preguntas en español.
+- Evaluación offline reproducible con 125 preguntas en español.
 - Contenedor no root preparado para Azure Container Apps.
 
 ## Arquitectura
@@ -27,11 +27,26 @@ Plataforma Banorte
           -> búsqueda textual BM25
           -> búsqueda vectorial con embeddings
           -> fusión híbrida + filtros + threshold
+          -> fragmentos localizados y diversificados por documento padre
       -> OpenAI Responses API
-      -> respuesta Open Responses JSON o SSE
+      -> respuesta Open Responses JSON o SSE con evidencia pública segura
 ```
 
 El modelo redacta; los hechos provienen de `knowledge/`. Las etiquetas `directa`, `relacionada` y `transferible` evitan presentar experiencia adyacente como experiencia comprobada.
+
+Los 17 archivos de `knowledge/` son las fuentes autorizadas, no el conteo de
+registros del índice. La cantidad actual se deriva con
+`len(load_knowledge_chunks(Path("knowledge")))`: los archivos
+pequeños permanecen completos y los extensos se separan por secciones Markdown.
+Cada chunk conserva `document_id`, `chunk_id`, título, sección y metadatos del
+padre. El número de chunks puede cambiar cuando se edita el contenido sin que
+cambie el concepto de 17 documentos fuente.
+
+Las respuestas incluyen `metadata.evidence_ids` como string compacto (máximo
+512 caracteres) y una extensión superior `evidence` tanto en JSON como en el
+evento final de SSE. Sólo contiene identificadores estables, etiquetas profesionales,
+un rango de confianza y URLs HTTPS públicas autorizadas; nunca rutas locales,
+URLs privadas ni scores internos precisos.
 
 ## Uso local
 
@@ -180,7 +195,7 @@ python -m pytest tests/cv_agent -q
 python -m cv_agent.evaluation.runner
 ```
 
-La evaluación no llama a OpenAI: el adaptador devuelve evidencia, no prosa generada. Mide Recall@5, MRR, groundedness, privacidad, `evidence_term_coverage`, `impact_evidence_coverage`, routing de skills y latencia. Conserva umbrales mínimos de 90% para Recall@5 y las dos coberturas, 100% para privacidad y 90% para routing. El tono y la afirmación de participación se validan con revisiones manuales del endpoint live.
+La evaluación no llama a OpenAI: el adaptador devuelve evidencia, no prosa generada. Mide Recall@8, precisión de evidencia@8, MRR, groundedness, privacidad, `evidence_term_coverage`, `impact_evidence_coverage`, routing de skills y latencia. Conserva umbrales mínimos por métrica y categoría. El tono y la afirmación de participación se validan con revisiones manuales del endpoint live.
 
 ## Evidencia pública complementaria
 

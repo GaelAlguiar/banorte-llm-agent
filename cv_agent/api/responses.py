@@ -2,6 +2,7 @@ import json
 import time
 import uuid
 from collections.abc import Iterator
+from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -39,7 +40,12 @@ def _completed_response(
     message_id: str,
     text: str,
     created_at: int,
+    evidence: tuple = (),
 ) -> dict[str, Any]:
+    public_evidence = [asdict(item) for item in evidence]
+    compact_ids = ",".join(
+        item["chunk_id"] for item in public_evidence[:3]
+    )[:512]
     return {
         "id": response_id,
         "object": "response",
@@ -54,6 +60,10 @@ def _completed_response(
             "total_tokens": 0,
         },
         "error": None,
+        # Open Responses metadata values are short strings. Detailed safe
+        # evidence is an additive top-level extension for first-party clients.
+        "metadata": ({"evidence_ids": compact_ids} if compact_ids else {}),
+        "evidence": public_evidence,
     }
 
 
@@ -69,6 +79,7 @@ def _stream_events(
     message_id: str,
     text: str,
     created_at: int,
+    evidence: tuple = (),
 ) -> Iterator[str]:
     base = {
         "id": response_id,
@@ -83,6 +94,7 @@ def _stream_events(
         message_id,
         text,
         created_at,
+        evidence,
     )
     events = [
         ("response.created", {"type": "response.created", "response": {**base, "status": "queued", "output": []}}),
@@ -141,13 +153,14 @@ def create_response(body: CreateResponseRequest, request: Request):
             status_code=503,
             detail="El agente no está configurado.",
         )
-    answer_text = agent.answer(
+    answer = agent.answer(
         question,
         attachments=user_input.attachments,
         reasoning_effort=(
             body.reasoning.effort if body.reasoning else None
         ),
-    ).text
+    )
+    answer_text = answer.text
     response_id = _ident("resp")
     message_id = _ident("msg")
     created_at = int(time.time())
@@ -158,6 +171,7 @@ def create_response(body: CreateResponseRequest, request: Request):
                 message_id,
                 answer_text,
                 created_at,
+                answer.evidence,
             ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-store"},
@@ -167,4 +181,5 @@ def create_response(body: CreateResponseRequest, request: Request):
         message_id,
         answer_text,
         created_at,
+        answer.evidence,
     )

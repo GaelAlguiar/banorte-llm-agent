@@ -210,3 +210,104 @@ def test_role_fit_case_preserves_vacancy_and_profile_ranks():
 
     assert positions["ajuste-vacante-banorte"] <= 4
     assert positions["perfil-gael"] <= 5
+
+
+def test_enerey_stack_query_retrieves_later_serverless_integrations_section():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Qué stack usó Gael en Enerey con Firebase, Maps y Sheets?",
+        top_k=5,
+    )
+
+    matching = [
+        hit for hit in hits
+        if hit.document_id == "proyectos-enerey"
+        and hit.section == "Firebase Functions y automatización"
+    ]
+    assert matching
+    assert all(term in matching[0].excerpt for term in ("Firebase", "Maps", "Sheets"))
+    assert "Aplicación administrativa" not in matching[0].excerpt
+
+
+def test_rag_query_retrieves_operational_section_beyond_old_excerpt_boundary():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Cómo operó el agente RAG con readiness, observabilidad y guardrails?",
+        top_k=8,
+    )
+
+    rag_hits = [hit for hit in hits if hit.document_id == "genai-banorte-agent"]
+    assert rag_hits
+    assert any(
+        "health/ready" in hit.excerpt and "observabilidad" in hit.excerpt.lower()
+        for hit in rag_hits
+    )
+    assert all(len(hit.excerpt) <= 1200 for hit in rag_hits)
+
+
+def test_retrieval_can_return_distinct_sections_without_duplicate_chunk_ids():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "Explica el flujo RAG, recuperación, evaluación, seguridad y operación",
+        top_k=8,
+        allowed_document_ids={"genai-banorte-agent"},
+    )
+
+    assert len({hit.chunk_id for hit in hits}) == len(hits)
+    assert {hit.document_id for hit in hits} == {"genai-banorte-agent"}
+    assert len({hit.section for hit in hits}) >= 2
+
+
+def test_heytech_impact_query_retrieves_later_impact_section():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Qué impacto tuvo la fachada segura de APIM en HeyTech?",
+        top_k=5,
+    )
+
+    assert hits[0].document_id == "heytech-apim-chatbot"
+    assert hits[0].section == "Impacto inferido"
+    assert "Cualitativamente" in hits[0].excerpt
+
+
+def test_retrieval_returns_tail_subchunk_without_silent_truncation(tmp_path: Path):
+    filler = "\n\n".join(
+        f"Contexto operativo {index} " + ("detalle " * 35)
+        for index in range(8)
+    )
+    content = f"""---
+id: tail-project
+title: Proyecto con operación extensa
+category: proyecto
+evidence_level: directa
+source: CV
+---
+## Operación
+
+{filler}
+
+Hallazgo final: telemetriax confirma la operación posterior.
+"""
+    (tmp_path / "tail.md").write_text(content, encoding="utf-8")
+    retrieval = HybridCvRetrieval.from_directory(
+        tmp_path, relevance_threshold=0.05
+    )
+
+    hits = retrieval.search("telemetriax", top_k=3)
+
+    assert hits[0].document_id == "tail-project"
+    assert "telemetriax" in hits[0].excerpt
+    assert hits[0].chunk_id.endswith("part-03") or "part-" in hits[0].chunk_id
+    assert len(hits[0].excerpt) <= 1200

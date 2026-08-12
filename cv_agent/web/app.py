@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from dataclasses import asdict
 from typing import Any
 
 from flask import Flask, jsonify, render_template, request
@@ -61,6 +62,9 @@ def create_flask_app(agent_provider: Callable[[], Any]) -> Flask:
         except Exception:
             app.logger.exception("agent_request_failed")
             return _error(502, "No fue posible generar la respuesta.", "agent_error")
-        return jsonify({"response": answer.text})
+        return jsonify({
+            "response": answer.text,
+            "evidence": [asdict(item) for item in answer.evidence],
+        })
 
     return app
