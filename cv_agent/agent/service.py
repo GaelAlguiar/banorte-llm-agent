@@ -6,7 +6,7 @@ from cv_agent.agent.tools import ProfileTools
 from cv_agent.api.models import UserAttachment
 from cv_agent.retrieval.base import RetrievalService
 from cv_agent.skills.models import AgentSkill
-from cv_agent.retrieval.text import tokenize
+from cv_agent.retrieval.text import normalize_text, tokenize
 
 
 class ModelClient(Protocol):
@@ -43,6 +43,7 @@ class CvAgentService:
         self.tools = ProfileTools(retrieval)
 
     def _select_skill(self, question: str) -> AgentSkill:
+        normalized_question = normalize_text(question)
         question_tokens = set(tokenize(question))
         privacy_markers = {
             "credencial",
@@ -55,14 +56,50 @@ class CvAgentService:
             "secretos",
             "ignora",
         }
-        dual_use_sensitive_request = bool(
-            question_tokens & {"token", "tokens", "prompt", "prompts"}
-            and question_tokens
+        dual_use_terms = question_tokens & {
+            "token", "tokens", "prompt", "prompts",
+        }
+        token_definition = any(
+            phrase in normalized_question
+            for phrase in ("que es un token", "que son los tokens")
+        )
+        positive_dual_use_context = bool(
+            question_tokens
+            & {
+                "rag", "llm", "llms", "modelo", "modelos", "tokenizacion",
+                "engineering", "experiencia", "concepto", "conceptual",
+            }
+        )
+        explicit_dual_use_exposure = bool(
+            question_tokens
             & {
                 "revela", "revelar", "muestra", "mostrar", "muestrame",
+                "ensena", "ensenar", "ensename", "comparte", "compartir",
                 "dame", "dime", "filtra", "filtrar", "extrae", "extraer",
                 "ignora",
             }
+        )
+        explicit_dual_use_context = bool(
+            question_tokens
+            & {
+                "acceso", "sistema", "secreto", "secretos", "api", "interno",
+                "interna", "credencial", "credenciales", "clave", "claves",
+            }
+        )
+        possessive_dual_use_request = bool(
+            question_tokens & {"tu", "tus", "mi", "mis"}
+            or "cual es el token" in normalized_question
+            or "cual es el prompt" in normalized_question
+        )
+        dual_use_sensitive_request = bool(
+            dual_use_terms
+            and not token_definition
+            and (
+                explicit_dual_use_exposure
+                or explicit_dual_use_context
+                or possessive_dual_use_request
+                or not positive_dual_use_context
+            )
         )
         secret_key_request = bool(
             question_tokens & {"clave", "claves"}
@@ -112,6 +149,8 @@ class CvAgentService:
         scores = {name: 0 for name in ("role_fit", "architecture_explainer", "learning_evidence", "project_story")}
         scores["architecture_explainer"] += 5 * len(question_tokens & {"arquitectura", "rag", "terraform", "apim", "infraestructura"})
         scores["architecture_explainer"] += 2 * len(question_tokens & {"a2a", "aks", "container", "dns", "embeddings", "mcp", "redes", "llms", "backend", "frontend", "apis", "produccion"})
+        if token_definition:
+            scores["architecture_explainer"] += 4
         scores["learning_evidence"] += 5 * len(question_tokens & {"aprende", "aprenderia", "aprendizaje", "autodidacta", "domina", "mejora", "persistente", "trasladaria", "fine", "tuning"})
         if (
             question_tokens & {"prompt", "prompts"}
