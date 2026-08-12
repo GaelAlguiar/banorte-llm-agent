@@ -9,9 +9,20 @@ Controles implementados:
 - `application/json` obligatorio;
 - límite local de 30 solicitudes por minuto e IP;
 - respuestas `Cache-Control: no-store` y request ID;
-- detección de solicitudes de credenciales, prompts y datos internos;
+- guardrail previo a recuperación: las solicitudes inequívocas de secretos,
+  inyección o recursos privados se bloquean de forma determinista;
+- clasificación semántica con salida estructurada `sensitive|benign` para
+  preguntas ambiguas sobre tokens o prompts; recibe únicamente la pregunta,
+  nunca evidencia del CV, y ante error, timeout o salida inválida falla cerrado
+  sin consultar el índice;
 - logs allowlistados sin prompts, chunks, tokens de autorización ni secretos;
 - imagen Linux ejecutada como usuario sin privilegios;
 - skills YAML sin red, shell, URLs ni código ejecutable.
 
 La versión del reto no afirma cumplimiento bancario. En producción se agregarían APIM/WAF, Key Vault con identidad administrada, rate limiting distribuido, SIEM, escaneo de imágenes y dependencias, rotación de secretos, redes privadas y políticas formales de retención.
+
+La clasificación semántica mejora la intención frente a listas extensas de
+palabras, a cambio de una llamada adicional y algo de latencia únicamente en
+consultas de doble uso. El modelo predeterminado es el mismo configurado para
+generación; `OPENAI_PRIVACY_CLASSIFIER_MODEL` permite separarlo sin codificar
+un modelo que pudiera no estar disponible.

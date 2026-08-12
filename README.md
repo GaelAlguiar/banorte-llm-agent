@@ -7,10 +7,10 @@ Agente conversacional en español construido para el Reto IA Banorte. Permite ex
 - Python y FastAPI con contrato `POST /v1/responses` y streaming SSE.
 - RAG sobre una base profesional sanitizada, con búsqueda híbrida de Azure AI Search, embeddings de OpenAI, filtros y umbral de relevancia.
 - Skills declarativas y auditables para perfil, proyectos, arquitectura, ajuste a la vacante, aprendizaje y privacidad.
-- Guardrails contra extracción de secretos e instrucciones internas.
+- Guardrail semántico previo al RAG contra extracción de secretos e instrucciones internas.
 - Análisis multimodal de imágenes y archivos temporales sin agregarlos al RAG.
 - Autenticación Bearer, límites de cuerpo, tipo de contenido y 30 solicitudes por minuto.
-- Evaluación offline reproducible con 40 preguntas en español.
+- Evaluación offline reproducible con 94 preguntas en español.
 - Contenedor no root preparado para Azure Container Apps.
 
 ## Arquitectura
@@ -19,7 +19,10 @@ Agente conversacional en español construido para el Reto IA Banorte. Permite ex
 Plataforma Banorte
   -> HTTPS + Bearer token
   -> FastAPI /v1/responses
-      -> guardrails y selección de skill
+      -> guardrail de privacidad previo al RAG
+          -> fast-path determinista para secretos inequívocos
+          -> clasificación semántica solo para token/prompt ambiguos
+      -> selección de skill
       -> Azure AI Search
           -> búsqueda textual BM25
           -> búsqueda vectorial con embeddings
@@ -195,6 +198,9 @@ docker run --rm -p 8000:8000 \
 - `/health` es público y no devuelve configuración.
 - `/v1/responses` usa comparación constante del token.
 - Los logs contienen metadatos allowlistados, no prompts, documentos ni headers.
+- Las consultas ambiguas sobre `token` o `prompt` añaden una llamada breve al
+  modelo antes de recuperar evidencia. Una falla, timeout o salida inválida se
+  clasifica como sensible y no consulta el índice (fail closed).
 - Los skills públicos son YAML declarativo: no ejecutan shell, red ni código remoto.
 - La identidad de Container Apps recibe únicamente `Search Index Data Reader`.
 - Con múltiples réplicas, el límite de tasa se movería a APIM, Front Door o un almacén distribuido.

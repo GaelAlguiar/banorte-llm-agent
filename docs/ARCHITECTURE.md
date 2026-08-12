@@ -5,13 +5,17 @@ La solución separa transporte, política del agente, recuperación, conocimient
 ## Flujo
 
 1. El cliente envía JSON y un Bearer token a `/v1/responses`.
-2. La API valida tipo, tamaño, tasa y posibles solicitudes sensibles.
-3. El agente elige una skill determinista según la intención.
-4. La skill restringe las categorías y las fuentes exactas de conocimiento
+2. La API valida tipo, tamaño y tasa.
+3. Antes del RAG, el agente bloquea secretos inequívocos mediante un fast-path
+   determinista. Si `token` o `prompt` tienen intención ambigua, un clasificador
+   semántico recibe solo la pregunta y devuelve un enum estricto. Errores o
+   salidas inválidas fallan cerrado y no acceden a recuperación.
+4. El agente elige una skill determinista según la intención permitida.
+5. La skill restringe las categorías y las fuentes exactas de conocimiento
    consultables; el mismo allowlist se aplica al intento principal y al fallback.
-5. Azure AI Search combina BM25 y similitud vectorial, aplica filtros y un umbral.
-6. El modelo recibe pregunta, reglas y fragmentos sanitizados.
-7. La API devuelve JSON tipado o eventos SSE.
+6. Azure AI Search combina BM25 y similitud vectorial, aplica filtros y un umbral.
+7. El modelo recibe pregunta, reglas y fragmentos sanitizados.
+8. La API devuelve JSON tipado o eventos SSE.
 
 ## Implementación productiva
 
