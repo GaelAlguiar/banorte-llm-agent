@@ -1,145 +1,143 @@
 # Guion de demostración técnica — 5 minutos
 
-El video debe grabarse sin mostrar variables de entorno, claves, secretos ni
-valores de autenticación. Conviene tener abiertas previamente las pestañas de
-código, Azure, consumo de OpenAI y la plataforma del reto.
+El video se graba con dos preguntas en vivo. Antes de comenzar, deben estar
+abiertas y ordenadas las pestañas indicadas en cada bloque. No se muestran
+variables de entorno, secretos, identificadores de suscripción ni valores de
+autenticación.
 
-## 0:00–0:30 — Introducción
+## 0:00–0:25 — Apertura
 
-**Pantalla:** interfaz del agente en la plataforma del reto, sin ejecutar aún
-una pregunta.
+**Pantalla:** plataforma Reto IA, agente `GAEL ALGUIAR IA`.
 
-**Speech:**
+> Hola, soy Gael Alguiar. Para este reto construí un agente de CV que permite
+> consultar mi experiencia y mis proyectos mediante respuestas fundamentadas
+> en evidencia autorizada. Mi objetivo no fue hacer solamente un chatbot, sino
+> demostrar una solución de inteligencia artificial que pudiera diseñarse,
+> integrarse, desplegarse, evaluarse y operarse. La arquitectura combina el
+> protocolo Open Responses, un orquestador por skills, RAG híbrido, OpenAI,
+> Azure AI Search y Azure Container Apps.
 
-> Hola, soy Gael Alguiar. Para este reto construí y desplegué un agente de CV
-> que permite conversar sobre mi experiencia, habilidades y proyectos. Mi
-> objetivo no fue crear solamente un chatbot con una interfaz atractiva, sino
-> demostrar cómo diseñaría un producto de inteligencia artificial que pueda
-> integrarse, evaluarse, asegurarse y operarse en un entorno real. La solución
-> combina Open Responses, un flujo agéntico, RAG con Azure AI Search, OpenAI y
-> Azure Container Apps.
+## 0:25–1:10 — Orquestación y evidencia
 
-## 0:30–1:15 — Orquestación del agente
+**Pantalla:** `cv_agent/agent/service.py`, líneas 387–490.
 
-**Pantalla:** `cv_agent/agent/service.py`. Mostrar `CvAgentService`,
-`_select_skill` y `answer`.
+> Éste es el núcleo del agente. La entrada pasa primero por guardrails de
+> privacidad; después se selecciona una skill según la intención: perfil,
+> proyecto, arquitectura, ajuste al rol, aprendizaje o comportamiento. Cada
+> skill tiene una lista mínima de fuentes autorizadas, de modo que una pregunta
+> de arquitectura no obtiene acceso indiscriminado a todo el CV. Luego recupero
+> hasta ocho fragmentos relevantes y se los entrego al modelo junto con las
+> reglas de respuesta. Así separo dos responsabilidades: Azure aporta los
+> hechos y OpenAI redacta la respuesta. Si la pregunta está fuera del propósito
+> profesional, el agente redirige sin inventar información.
 
-**Speech:**
+## 1:10–1:50 — RAG híbrido
 
-> El núcleo está separado de la interfaz y del proveedor de infraestructura.
-> En este servicio recibo la pregunta, selecciono una skill de forma
-> determinista y limito las categorías de conocimiento que esa intención puede
-> consultar. Por ejemplo, hay skills para proyectos, arquitectura, ajuste al
-> rol, aprendizaje y privacidad. Después recupero evidencia autorizada y se la
-> entrego al modelo junto con reglas de respuesta. Esta separación hace que el
-> modelo redacte con naturalidad, pero evita usarlo como fuente de hechos. Los
-> hechos deben provenir de los documentos sanitizados de mi perfil.
+**Pantalla:** `cv_agent/retrieval/azure_search.py`, líneas 76–158.
 
-## 1:15–2:05 — Recuperación híbrida
+> En producción genero un embedding de la pregunta y hago una búsqueda híbrida.
+> En la misma consulta envío texto para BM25 y un vector para similitud
+> semántica. Azure fusiona ambos rankings; después aplico filtros por categoría,
+> documento y umbral, y diversifico los resultados para evitar que fragmentos
+> repetidos desplacen evidencia más útil. Elegí este enfoque porque preguntas
+> sobre APIM, Terraform o WhatsApp necesitan coincidencia léxica precisa, pero
+> otras expresan la misma experiencia con palabras diferentes y se benefician
+> de recuperación semántica.
 
-**Pantalla:** `cv_agent/retrieval/azure_search.py`. Señalar `search`,
-`VectorizedQuery`, `search_text`, filtros, `top` y `ready`.
+## 1:50–2:35 — Azure y operación
 
-**Speech:**
+**Pantalla:** capturas sanitizadas de componentes, Azure AI Search, Container
+Apps y Managed Identity.
 
-> En producción el agente usa Azure AI Search como motor real de recuperación.
-> Para cada pregunta genero un embedding con OpenAI y ejecuto una consulta
-> híbrida: envío tanto el texto para BM25 como el vector para similitud
-> semántica. Azure fusiona ambos rankings. También aplico filtros por categoría,
-> limito el número de resultados y descarto evidencia por debajo de un umbral.
-> Elegí búsqueda híbrida porque una consulta puede contener nombres exactos,
-> como Terraform o APIM, y al mismo tiempo expresar una intención semántica.
-> Así aprovecho precisión léxica y cobertura conceptual. En producción no hay
-> fallback silencioso: si Azure no está disponible, la sonda de readiness lo
-> refleja en lugar de aparentar que la arquitectura sigue funcionando.
+> La solución está desplegada en Azure Container Apps como un contenedor sin
+> privilegios. Azure AI Search contiene diecisiete documentos fuente divididos
+> en cincuenta y cuatro chunks temáticos y trazables. La aplicación consulta el
+> índice mediante identidad administrada y el rol mínimo Search Index Data
+> Reader; la clave administrativa se utiliza únicamente durante la ingesta y
+> no queda disponible para la API. También separé liveness de readiness:
+> `/health` confirma que el proceso vive y `/health/ready` valida acceso real a
+> Search y al almacén del medidor antes de dirigir tráfico a una revisión.
 
-## 2:05–2:45 — Ingesta y aprendizaje controlado
+## 2:35–2:55 — OpenAI y control de consumo
 
-**Pantalla:** `cv_agent/retrieval/ingest.py`. Señalar `build_index`,
-`build_search_document` y `sync_documents`.
+**Pantalla:** OpenAI Usage, sin abrir API keys. Después, si hay tiempo,
+`cv_agent/usage/meter.py`, líneas 12–85.
 
-**Speech:**
+> OpenAI se utiliza para embeddings, clasificación semántica y generación
+> fundamentada. Para hacer visible y responsable el consumo, cada respuesta
+> muestra sus tokens reales y el porcentaje disponible. El cálculo considera
+> entrada, caché, escritura de caché y salida; el acumulado se persiste de forma
+> atómica en Azure Table Storage. La interfaz nunca muestra dinero, tarifas ni
+> secretos y el cliente no puede modificar la contabilidad.
 
-> Separé la ingesta del proceso web. Este comando crea o valida el esquema,
-> calcula un hash por documento, genera embeddings, actualiza la información
-> vigente y elimina registros que dejaron de estar autorizados. Los archivos
-> enviados durante una conversación no se agregan automáticamente al índice.
-> Esta es una decisión importante: el agente no aprende sin control de cada
-> usuario. Mejorarlo implica revisar información, versionarla, ejecutar la
-> ingesta, evaluar el resultado y desplegarlo. Eso reduce contaminación de
-> datos, prompt injection y respuestas basadas en información no validada.
+## 2:55–3:45 — Pregunta en vivo: arquitectura y repositorio
 
-## 2:45–3:35 — Azure y operación
+**Pantalla:** volver a Reto IA y enviar:
 
-**Pantalla:** Azure AI Search. Mostrar nombre, estado Running, nivel Free,
-ubicación y Search Explorer o el índice `cv-profile-v1`. Después cambiar a
-Azure Container Apps y mostrar la revisión activa, la imagen y la identidad.
+`¿Cómo construyó Gael este agente de CV, qué decisiones tomó y dónde puedo revisar el repositorio y la demostración técnica?`
 
-**Speech:**
+**Mientras se genera:**
 
-> Aquí está la infraestructura desplegada en la suscripción configurada para la demostración. Azure
-> AI Search está activo en nivel Free y el índice representa diecisiete documentos
-> fuente autorizados mediante chunks temáticos trazables. La API corre en Azure
-> Container Apps como un contenedor sin
-> privilegios. Para conectarse al buscador no almacena una clave administrativa:
-> utiliza identidad administrada con el rol mínimo Search Index Data Reader.
-> La clave administrativa se usa únicamente durante la ingesta y no queda
-> disponible para el proceso web. También configuré una sonda
-> `/health/ready`, que comprueba el acceso real al índice antes de considerar
-> saludable una revisión.
+> Esta pregunta valida el proyecto como un sistema completo. La respuesta debe
+> explicar el contrato Open Responses, la base de conocimiento sanitizada, el
+> flujo de chunking, embeddings, recuperación híbrida, ranking, generación
+> aumentada, guardrails, evaluación, despliegue y operación. También debe
+> entregar el repositorio público, que permite revisar el código y las
+> decisiones técnicas. La evaluación determinista cubre ciento veinticinco
+> casos de recuperación y enrutamiento, además de contratos separados para la
+> calidad estructural de las respuestas.
 
-## 3:35–4:05 — OpenAI, seguridad y evaluación
+**Cuando termine:** señalar el enlace al repositorio y el pie
+`N tokens · P% disponible`.
 
-**Pantalla:** consumo de OpenAI. Mostrar actividad sin abrir claves. Después
-mostrar brevemente `infra/azure/deploy.sh` en las líneas de SKU Free, RBAC y
-readiness.
+## 3:45–4:35 — Pregunta en vivo: experiencia laboral
 
-**Speech:**
+**Pantalla:** enviar:
 
-> OpenAI se utiliza para embeddings y para generar la respuesta final, pero la
-> evidencia se recupera desde Azure AI Search. La aplicación acepta un nivel de
-> razonamiento controlado y no reenvía parámetros arbitrarios. Los secretos se
-> inyectan en runtime, los logs no guardan preguntas ni documentos y el script
-> de despliegue se detiene antes de crear un nivel de Search con costo. La
-> solución cuenta con pruebas automatizadas y una matriz de noventa y siete casos. La evaluación obtuvo más
-> de noventa y cuatro por ciento de Recall at 5, más de noventa y siete por
-> ciento de groundedness y cien por ciento en privacidad.
+`¿Qué proyecto demuestra mejor la experiencia laboral de Gael con inteligencia artificial y qué impacto tuvo?`
 
-## 4:05–4:45 — Demostración en la plataforma
+**Mientras se genera:**
 
-**Pantalla:** plataforma del reto. Ejecutar estas preguntas; si el tiempo de
-respuesta consume demasiado video, mostrar la respuesta ya preparada y
-explicar qué valida.
+> Aquí quiero demostrar que el agente distingue un proyecto laboral de una
+> prueba técnica. Debe priorizar Enerey, donde fui el único desarrollador y
+> responsable técnico de extremo a extremo. La historia incluye automatización
+> de cotizaciones por WhatsApp y el cambio estimado de un proceso de unas ocho
+> horas a cerca de una hora. También existen chatbots para seguimiento de
+> pedidos y consulta interna desde iOS, pero el agente debe elegir la evidencia
+> más fuerte para responder de forma concreta y no listar todo el CV.
 
-1. `¿Qué experiencia laboral tiene Gael con inteligencia artificial?`
-2. `¿Cómo funciona la arquitectura RAG de este agente?`
-3. `¿Cuál es la receta de una paella valenciana?`
+**Cuando termine:** señalar la atribución, el impacto marcado como estimado y
+el nuevo pie de tokens, cuyo porcentaje debe reflejar el consumo acumulado.
 
-**Speech mientras se muestran las respuestas:**
+## 4:35–5:00 — Cierre
 
-> La primera pregunta valida que el agente recupera proyectos laborales,
-> responsabilidades e impacto, en lugar de responder con un resumen genérico.
-> La segunda explica su propia arquitectura usando la evidencia técnica
-> actualizada. Finalmente hago una pregunta fuera del alcance. El agente se
-> abstiene porque no existe evidencia autorizada, demostrando que el objetivo
-> no es contestar todo, sino responder de forma confiable sobre mi trayectoria.
+**Pantalla:** repositorio público o conversación final en Reto IA.
 
-## 4:45–5:00 — Cierre
+> Este proyecto reúne mi experiencia en backend, frontend, integraciones,
+> cloud e inteligencia artificial aplicada. También refleja mi forma de
+> trabajar como candidato Junior: partir de fundamentos, construir componentes
+> verificables, proteger la información, medir resultados, documentar
+> decisiones e iterar con retroalimentación. El repositorio incluye la
+> arquitectura, seguridad, evaluación, operación y los límites conocidos de la
+> solución. Soy Gael Alguiar; gracias por revisar mi agente.
 
-**Pantalla:** interfaz del agente con las conversaciones visibles.
+## Orden de pestañas
 
-**Speech:**
+1. Reto IA — agente y preguntas en vivo.
+2. `service.py` — orquestación, guardrails, skills y evidencia.
+3. `azure_search.py` — embeddings y búsqueda híbrida.
+4. Componentes Azure — captura sanitizada.
+5. Azure AI Search — captura sanitizada.
+6. Azure Container Apps — captura sanitizada.
+7. Managed Identity y RBAC — captura sanitizada.
+8. OpenAI Usage — actividad general, nunca claves.
+9. `usage/meter.py` — contador por respuesta.
+10. Repositorio — cierre y futura liga del video.
 
-> Este proyecto reúne mi experiencia full stack, integraciones empresariales,
-> nube e inteligencia artificial aplicada. También refleja cómo trabajo:
-> aprendo con rapidez, documento decisiones, pruebo lo que construyo y llevo
-> una idea hasta una solución desplegada y operable. Soy Gael Alguiar y gracias
-> por revisar mi agente.
+## No mostrar
 
-## Pantallas que no deben mostrarse
-
-- `.env` o cualquier vista de secretos;
-- claves de OpenAI, Azure o del agente;
-- comandos que impriman tokens;
-- datos de facturación distintos de la gráfica general de consumo;
-- logs completos con información que no haya sido revisada previamente.
+- `.env`, secretos, API keys o valores de autenticación;
+- identificadores de cuenta, tenant o suscripción;
+- direcciones privadas, nombres internos o topología sensible;
+- importes monetarios del presupuesto interno del medidor;
+- correos, mensajes u otras pestañas ajenas a la demostración.

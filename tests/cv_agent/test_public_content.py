@@ -58,7 +58,7 @@ def test_demo_documents_use_current_verified_counts():
     video = Path("docs/VIDEO_DEMO_SCRIPT.md").read_text(encoding="utf-8")
 
     assert "diecisiete documentos" in video
-    assert "noventa y siete casos" in video
+    assert "ciento veinticinco" in video
     assert "doce documentos" not in video
     assert "ochenta pruebas" not in video
 

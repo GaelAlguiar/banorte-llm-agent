@@ -2,6 +2,10 @@
 
 Agente conversacional en español construido para el Reto IA Banorte. Permite explorar el perfil, experiencia, habilidades y proyectos de Gael mediante un endpoint compatible con Open Responses. La solución prioriza evidencia verificable, respuestas concisas y una operación segura.
 
+- **Demo web propia:** [probar GAEL IA](https://ca-prueba-b-gael-ai.agreeablefield-a028190c.eastus.azurecontainerapps.io/chat/)
+- **Endpoint Open Responses:** `POST https://ca-prueba-b-gael-ai.agreeablefield-a028190c.eastus.azurecontainerapps.io/v1/responses`
+- **Integración adicional:** el mismo agente está registrado en la plataforma del Reto IA Banorte.
+
 ## Qué demuestra
 
 - Python y FastAPI con contrato `POST /v1/responses` y streaming SSE.
