@@ -4,6 +4,9 @@ from pathlib import Path
 import pytest
 
 from cv_agent.agent.prompts import build_instructions
+from cv_agent.agent.professional_intent import (
+    DeterministicProfessionalIntentClassifier,
+)
 from cv_agent.agent.service import CvAgentService
 from cv_agent.knowledge.loader import load_knowledge
 from cv_agent.retrieval.service import HybridCvRetrieval
@@ -31,6 +34,7 @@ class RecordingModel:
 
 def build_agent(
     privacy_classifier=None,
+    professional_classifier=None,
 ) -> tuple[CvAgentService, RecordingModel]:
     privacy_cases = {
         row["question"]: "sensitive"
@@ -59,6 +63,10 @@ def build_agent(
         privacy_classifier=(
             privacy_classifier
             or ScriptedPrivacyIntentClassifier(decisions=privacy_cases)
+        ),
+        professional_classifier=(
+            professional_classifier
+            or DeterministicProfessionalIntentClassifier()
         ),
         trusted_benign_questions=SUGGESTED_QUESTIONS,
     )
@@ -1012,3 +1020,269 @@ def test_instructions_use_strongest_honest_career_connection():
     for phrase in ("no hay información", "no hay proyectos atribuibles", "no es posible confirmar", "si se proporciona evidencia"):
         assert phrase in instructions
     assert "cuando exista evidencia autorizada relevante" in instructions
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_skill", "expected_evidence"),
+    (
+        ("¿Qué experiencia freelance tiene Gael?", "project_story", "freelance-global-lugra"),
+        ("¿Cuál es la principal debilidad de Gael?", "behavioral_interview", "historias-profesionales"),
+        ("¿Cómo responde Gael ante presión o un error?", "behavioral_interview", "historias-profesionales"),
+        ("¿Qué experiencia tiene Gael con Databricks?", "capability_advisor", "habilidades-tecnicas"),
+        ("¿Qué experiencia tiene con React?", "capability_advisor", "habilidades-tecnicas"),
+        ("¿Cómo trabaja con CI/CD?", "capability_advisor", "habilidades-tecnicas"),
+        ("¿Cómo aplicaría Scrum en un equipo?", "behavioral_interview", "entrega-jira-sprints"),
+        ("¿Cómo abordaría MLOps y monitoreo?", "capability_advisor", "genai-banorte-agent"),
+        ("¿Cómo aplicaría OWASP LLM?", "capability_advisor", "genai-banorte-agent"),
+        ("¿Podría adoptar el framework CrewAI?", "capability_advisor", "habilidades-tecnicas"),
+    ),
+)
+def test_professional_question_families_route_to_safe_relevant_evidence(
+    question, expected_skill, expected_evidence
+):
+    agent, model = build_agent()
+
+    result = agent.answer(question)
+
+    assert result.skill_name == expected_skill
+    assert expected_evidence in result.evidence_ids
+    skill = next(item for item in agent.skills if item.name == expected_skill)
+    sources_by_id = {
+        document.id: document.source_path for document in agent.retrieval.documents
+    }
+    assert all(sources_by_id[item] in skill.allowed_sources for item in result.evidence_ids)
+    assert model.calls[0]["evidence"]
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Ha usado React profesionalmente?",
+        "¿Domina Databricks?",
+        "¿Tiene proyectos con una tecnología nueva como CrewAI?",
+    ),
+)
+def test_adjacent_technology_policy_avoids_disqualifying_claims(question):
+    agent, model = build_agent()
+    agent.answer(question)
+
+    assert model.calls[0]["skill"].name == "capability_advisor"
+    assert model.calls[0]["evidence"]
+    instructions = " ".join(model.calls[0]["instructions"].split()).lower()
+    for phrase in ("no sabe", "no ha trabajado", "no hay proyectos"):
+        assert phrase in instructions
+    for expected in ("fundamentos transferibles", "plan concreto", "candidato junior"):
+        assert expected in instructions
+
+
+def test_behavioral_policy_never_invents_star_incidents():
+    agent, model = build_agent()
+
+    agent.answer("Cuéntame una ocasión en que Gael cometió un error bajo presión")
+
+    assert model.calls[0]["skill"].name == "behavioral_interview"
+    assert "historias-profesionales" in {
+        item["document_id"] for item in model.calls[0]["evidence"]
+    }
+    instructions = " ".join(model.calls[0]["instructions"].split()).lower()
+    assert "star" in instructions
+    assert "solo si" in instructions
+    assert "incidente" in instructions
+    assert "no inventes" in instructions
+
+
+def test_low_relevance_capability_search_falls_back_within_explicit_allowlist(monkeypatch):
+    agent, model = build_agent()
+    calls = []
+
+    def low_then_related(query, categories=None, top_k=5, allowed_document_ids=None):
+        calls.append((categories, frozenset(allowed_document_ids or ())))
+        if len(calls) == 1:
+            return [{
+                "document_id": "perfil-gael", "score": 0.12,
+                "excerpt": "Perfil", "category": "perfil",
+            }]
+        return [{
+            "document_id": "habilidades-tecnicas", "score": 0.80,
+            "excerpt": "Fundamentos transferibles", "category": "habilidad",
+        }]
+
+    monkeypatch.setattr(agent.tools, "search_profile", low_then_related)
+    result = agent.answer("¿Qué experiencia tiene Gael con un framework desconocido?")
+
+    assert result.skill_name == "capability_advisor"
+    assert result.evidence_ids == ("habilidades-tecnicas",)
+    assert len(calls) == 2
+    assert calls[0][1] == calls[1][1]
+    assert model.calls[0]["evidence"][0]["score"] == 0.80
+
+
+def test_unrelated_questions_retrieve_nothing_and_use_redirect_policy():
+    agent, model = build_agent()
+
+    result = agent.answer("¿Cuál es la receta de paella valenciana?")
+
+    assert result.skill_name == "profile_summary"
+    assert result.evidence_ids == ()
+    assert model.calls[0]["evidence"] == []
+    instructions = model.calls[0]["instructions"].lower()
+    assert "redirige" in instructions
+    assert "perfil profesional" in instructions
+
+
+def test_role_fit_can_use_direct_enerey_ai_impact_evidence():
+    agent, model = build_agent()
+
+    result = agent.answer("¿Por qué contratar a Gael para automatización con IA?")
+
+    assert result.skill_name == "role_fit"
+    assert "enerey-ia-clientes" in result.evidence_ids
+    assert "cotizaciones-ia-whatsapp" in result.evidence_ids
+    evidence = model.calls[0]["evidence"]
+    assert any(item["source_kind"] == "laboral" for item in evidence)
+    assert any(item["document_id"] == "ajuste-vacante-banorte" for item in evidence)
+
+
+def test_suggested_questions_are_byte_identical_to_release_baseline():
+    expected = (
+        "¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para un equipo de IA Generativa?",
+        "¿Qué proyecto demuestra mejor la experiencia laboral de Gael con inteligencia artificial y qué impacto tuvo?",
+        "¿Cómo construyó Gael este agente de CV y qué decisiones técnicas tomó para llevar su arquitectura RAG a producción?",
+        "¿Cómo participó Gael en el chatbot, el análisis de documentos con IA, el despliegue en AKS y el uso de Vertex AI en HeyTech?",
+        "¿Cómo diseñó Gael una fachada segura entre clientes, Azure Functions y APIM?",
+        "¿Qué experiencia tiene Gael con Terraform y conectividad multicloud entre Azure, AWS y Google Cloud?",
+        "¿Cómo combina Gael backend, frontend, APIs y cloud para llevar soluciones de IA a producción?",
+        "¿Qué diferencia a Gael de otros candidatos y qué aportaría durante sus primeros meses en un equipo de IA?",
+    )
+    assert SUGGESTED_QUESTIONS == expected
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Cuál es la comida favorita de Gael?",
+        "¿Qué opina Gael del partido de fútbol?",
+        "¿Qué platillo prefiere Gael?",
+        "¿A qué equipo deportivo apoya Gael?",
+    ),
+)
+def test_unrelated_questions_about_gael_redirect_without_profile_evidence(question):
+    agent, model = build_agent()
+
+    result = agent.answer(question)
+
+    assert result.skill_name == "profile_summary"
+    assert result.evidence_ids == ()
+    assert model.calls[0]["evidence"] == []
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_evidence"),
+    (
+        ("¿Qué experiencia tiene Gael con Grafana?", "habilidades-tecnicas"),
+        ("¿Podría trabajar con Snowflake?", "habilidades-tecnicas"),
+        ("¿Cómo adoptaría una plataforma como Kubeflow?", "habilidades-tecnicas"),
+        ("¿Tiene fundamentos para trabajar con Apache Airflow?", "habilidades-tecnicas"),
+    ),
+)
+def test_arbitrary_technology_frames_route_to_capability_advisor(
+    question, expected_evidence
+):
+    agent, _ = build_agent()
+
+    result = agent.answer(question)
+
+    assert result.skill_name == "capability_advisor"
+    assert expected_evidence in result.evidence_ids
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Cómo ejerce liderazgo en un equipo?",
+        "¿Cómo lideraría Gael a un equipo ante un bloqueo?",
+        "¿Cómo colabora y recibe feedback?",
+    ),
+)
+def test_behavioral_leadership_frames_route_without_inventing_incidents(question):
+    agent, model = build_agent()
+
+    result = agent.answer(question)
+
+    assert result.skill_name == "behavioral_interview"
+    assert "historias-profesionales" in result.evidence_ids
+    assert model.calls[0]["evidence"]
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_skill"),
+    (
+        ("¿Cuál es el proyecto favorito de Gael?", "project_story"),
+        ("¿Qué experiencia tiene Gael con Azure?", "architecture_explainer"),
+        ("¿Qué experiencia tiene Gael en Enerey?", "profile_summary"),
+        ("¿Por qué Gael es valioso para un equipo de IA?", "role_fit"),
+        ("¿Cómo diseñó Gael el monitoreo del agente RAG?", "architecture_explainer"),
+    ),
+)
+def test_scope_and_generic_technology_frames_do_not_collide_with_known_intents(
+    question, expected_skill
+):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == expected_skill
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Cuál es el color favorito de Gael?",
+        "¿Gael tiene mascotas?",
+        "¿Qué libro prefiere Gael?",
+    ),
+)
+def test_semantic_fallback_redirects_unforeseen_personal_topics_without_evidence(
+    question
+):
+    agent, model = build_agent()
+    result = agent.answer(question)
+    assert result.skill_name == "profile_summary"
+    assert result.evidence_ids == ()
+    assert model.calls[0]["evidence"] == []
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_skill"),
+    (
+        ("¿Cómo sería trabajar con Gael?", "behavioral_interview"),
+        ("¿Cómo colabora Gael con un equipo?", "behavioral_interview"),
+        ("¿Qué hizo Gael en Enerey?", "project_story"),
+        ("¿Qué proyecto musical desarrolló Gael?", "project_story"),
+    ),
+)
+def test_semantic_fallback_does_not_steal_known_or_behavioral_routes(
+    question, expected_skill
+):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == expected_skill
+
+
+def test_known_routes_bypass_professional_semantic_classifier():
+    class FailingIfCalled:
+        def classify(self, question):
+            raise AssertionError("no debe llamarse")
+
+    agent, _ = build_agent(professional_classifier=FailingIfCalled())
+
+    for question in SUGGESTED_QUESTIONS:
+        assert agent.answer(question).evidence_ids
+
+
+def test_professional_classifier_error_redirects_without_retrieval():
+    class FailingClassifier:
+        def classify(self, question):
+            return "out_of_scope"
+
+    agent, model = build_agent(professional_classifier=FailingClassifier())
+    result = agent.answer("Consulta profesional ambigua sobre Gael")
+
+    assert result.evidence_ids == ()
+    assert model.calls[0]["evidence"] == []

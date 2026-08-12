@@ -1,0 +1,8 @@
+name: behavioral_interview
+description: Responde preguntas conductuales con comportamientos verificados y sin inventar incidentes.
+intent_examples: debilidad | presión | error | conflicto | retroalimentación | Scrum | trabajo en equipo
+allowed_categories: perfil | historia
+allowed_sources: knowledge/01_perfil.md | knowledge/08_historias.md | knowledge/16_entrega_jira.md
+output_rules: usar STAR solo con un incidente confirmado | usar el comportamiento verificable más cercano si no hay incidente | explicar método y aprendizaje | no inventar conflicto ni presión
+network_access: false
+shell_access: false
