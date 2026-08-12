@@ -116,12 +116,14 @@ if [[ "$USAGE_METER_ENABLED" == "true" ]]; then
       --resource-group "$RESOURCE_GROUP" --location "$LOCATION" \
       --sku Standard_LRS --kind StorageV2 --output none
   fi
-  az resource create \
+  usage_storage_scope="$(az storage account show \
+    --name "$USAGE_STORAGE_ACCOUNT" \
     --resource-group "$RESOURCE_GROUP" \
-    --resource-type Microsoft.Storage/storageAccounts/tableServices/tables \
-    --name "$USAGE_STORAGE_ACCOUNT/default/$USAGE_STORAGE_TABLE" \
-    --api-version 2023-01-01 \
-    --properties '{}' \
+    --query id \
+    --output tsv)"
+  az rest --method put \
+    --url "https://management.azure.com${usage_storage_scope}/tableServices/default/tables/$USAGE_STORAGE_TABLE?api-version=2023-01-01" \
+    --body '{"properties":{}}' \
     --output none
   usage_secret_args+=(
     usage-total-budget="$USAGE_TOTAL_BUDGET"
