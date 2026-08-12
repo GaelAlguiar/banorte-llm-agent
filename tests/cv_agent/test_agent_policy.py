@@ -15,22 +15,51 @@ from cv_agent.security.privacy_intent import ScriptedPrivacyIntentClassifier
 from cv_agent.security.guardrails import SAFE_PRIVACY_RESPONSE
 from cv_agent.skills.registry import load_skills
 from cv_agent.web.suggestions import SUGGESTED_QUESTIONS
+from cv_agent.usage.meter import UsageMeter
+from cv_agent.usage.models import ModelGeneration, ModelRates, TokenUsage
+from cv_agent.usage.store import InMemoryUsageBudgetStore
+from decimal import Decimal
 
 
 class RecordingModel:
     def __init__(self):
         self.calls: list[dict] = []
 
-    def generate(self, **kwargs) -> str:
+    def generate(self, **kwargs) -> ModelGeneration:
         self.calls.append(kwargs)
         if kwargs["skill"].name == "privacy_guard":
-            return SAFE_PRIVACY_RESPONSE
-        return (
+            text = SAFE_PRIVACY_RESPONSE
+        else:
+            text = (
             "Gael abordaría el fine-tuning desde su experiencia en Python, "
             "RAG y evaluación: primero definiría un conjunto de casos y una "
             "línea base, después mediría calidad y revisaría errores antes "
             "de adoptar el ajuste como solución."
-        )
+            )
+        return ModelGeneration(text=text, usage=None)
+
+
+def test_generated_answer_adds_exact_per_response_usage_footer():
+    agent, model = build_agent()
+    model.generate = lambda **kwargs: ModelGeneration(
+        text="Respuesta profesional",
+        usage=TokenUsage(1_000, 0, 234, 100, 1_234),
+    )
+    agent.usage_meter = UsageMeter(
+        store=InMemoryUsageBudgetStore(
+            total_budget=Decimal("10"), initial_spent=Decimal("3.28"),
+        ),
+        rates=ModelRates(Decimal("0"), Decimal("0"), Decimal("0")),
+    )
+
+    answer = agent.answer(SUGGESTED_QUESTIONS[0])
+
+    assert answer.text == (
+        "Respuesta profesional\n\n1,234 tokens · 67.2% disponible"
+    )
+    assert answer.usage.total_tokens == 1_234
+    assert answer.usage.available_percent == 67.2
+    assert all(value not in answer.text for value in ("$", "USD", "10.00", "3.28"))
 
 
 def _expected_professional_redirect() -> str:

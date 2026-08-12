@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import ipaddress
+import uuid
 from typing import Protocol
 from urllib.parse import urlsplit
 
@@ -17,6 +18,8 @@ from cv_agent.security.privacy_intent import (
 )
 from cv_agent.skills.models import AgentSkill
 from cv_agent.retrieval.text import tokenize
+from cv_agent.usage.meter import UsageMeter, format_usage_footer
+from cv_agent.usage.models import ModelGeneration, PublicUsage
 
 
 class ModelClient(Protocol):
@@ -30,7 +33,7 @@ class ModelClient(Protocol):
         attachments: tuple[UserAttachment, ...] = (),
         reasoning_effort: str | None = None,
         max_output_tokens: int | None = None,
-    ) -> str:
+    ) -> ModelGeneration:
         ...
 
 
@@ -59,6 +62,7 @@ class AgentAnswer:
     attachment_count: int = 0
     attachment_kinds: tuple[str, ...] = ()
     safety_decision: str = "allowed"
+    usage: PublicUsage | None = None
 
 
 MAX_OUTPUT_TOKENS = 1_200
@@ -136,6 +140,7 @@ class CvAgentService:
         privacy_classifier: PrivacyIntentClassifier,
         professional_classifier: ProfessionalIntentClassifier | None = None,
         trusted_benign_questions: tuple[str, ...] = (),
+        usage_meter: UsageMeter | None = None,
     ):
         self.retrieval = retrieval
         self.skills = skills
@@ -145,6 +150,7 @@ class CvAgentService:
             professional_classifier or FailSafeProfessionalIntentClassifier()
         )
         self.trusted_benign_questions = frozenset(trusted_benign_questions)
+        self.usage_meter = usage_meter
         self.tools = ProfileTools(retrieval)
 
     def _select_skill(self, question: str) -> AgentSkill | None:
@@ -453,7 +459,7 @@ class CvAgentService:
             if max_output_tokens is None
             else min(MAX_OUTPUT_TOKENS, max_output_tokens)
         )
-        text = self.model.generate(
+        generation = self.model.generate(
             question=question,
             evidence=evidence,
             skill=skill,
@@ -465,7 +471,17 @@ class CvAgentService:
                 "low" if skill.name == "privacy_guard" else reasoning_effort
             ),
             max_output_tokens=effective_max_output_tokens,
-        ).strip()
+        )
+        text = generation.text.strip()
+        public_usage = None
+        if generation.usage is not None and self.usage_meter is not None:
+            public_usage = self.usage_meter.record(
+                event_id=uuid.uuid4().hex,
+                usage=generation.usage,
+            )
+            footer = format_usage_footer(public_usage)
+            if footer:
+                text = f"{text}\n\n{footer}"
         evidence_ids = tuple(dict.fromkeys(
             item["document_id"] for item in evidence
         ))
@@ -518,4 +534,5 @@ class CvAgentService:
             safety_decision=(
                 "blocked" if skill.name == "privacy_guard" else "allowed"
             ),
+            usage=public_usage,
         )

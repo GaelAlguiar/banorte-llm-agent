@@ -8,6 +8,7 @@ from cv_agent.main import create_app
 from cv_agent.retrieval.service import HybridCvRetrieval
 from cv_agent.security.guardrails import SAFE_PRIVACY_RESPONSE
 from cv_agent.skills.registry import load_skills
+from cv_agent.usage.models import ModelGeneration
 
 
 class StubAgent:
@@ -45,8 +46,8 @@ class PrivacyRecordingModel:
     def generate(self, **kwargs):
         self.calls.append(kwargs)
         if kwargs["skill"].name == "privacy_guard":
-            return SAFE_PRIVACY_RESPONSE
-        return "Respuesta profesional pública."
+            return ModelGeneration(text=SAFE_PRIVACY_RESPONSE, usage=None)
+        return ModelGeneration(text="Respuesta profesional pública.", usage=None)
 
 
 def secure_client() -> tuple[TestClient, StubAgent]:

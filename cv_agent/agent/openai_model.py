@@ -5,6 +5,38 @@ from openai import OpenAI
 
 from cv_agent.api.models import UserAttachment
 from cv_agent.skills.models import AgentSkill
+from cv_agent.usage.models import ModelGeneration, TokenUsage
+
+
+def _parse_usage(response) -> TokenUsage | None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    values = {
+        "input_tokens": getattr(usage, "input_tokens", None),
+        "output_tokens": getattr(usage, "output_tokens", None),
+        "total_tokens": getattr(usage, "total_tokens", None),
+        "cached_input_tokens": getattr(
+            getattr(usage, "input_tokens_details", None),
+            "cached_tokens", 0,
+        ),
+        "reasoning_tokens": getattr(
+            getattr(usage, "output_tokens_details", None),
+            "reasoning_tokens", 0,
+        ),
+    }
+    if any(
+        not isinstance(value, int) or isinstance(value, bool) or value < 0
+        for value in values.values()
+    ):
+        return None
+    if values["cached_input_tokens"] > values["input_tokens"]:
+        return None
+    if values["reasoning_tokens"] > values["output_tokens"]:
+        return None
+    if values["total_tokens"] != values["input_tokens"] + values["output_tokens"]:
+        return None
+    return TokenUsage(**values)
 
 
 class OpenAIResponsesModel:
@@ -22,7 +54,7 @@ class OpenAIResponsesModel:
         attachments: tuple[UserAttachment, ...] = (),
         reasoning_effort: str | None = None,
         max_output_tokens: int | None = None,
-    ) -> str:
+    ) -> ModelGeneration:
         evidence_payload = [
             {
                 "title": item["title"],
@@ -94,4 +126,7 @@ class OpenAIResponsesModel:
         response = self.client.responses.create(
             **request_options,
         )
-        return response.output_text
+        return ModelGeneration(
+            text=response.output_text,
+            usage=_parse_usage(response),
+        )

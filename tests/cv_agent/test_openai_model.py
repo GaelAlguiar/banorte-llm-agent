@@ -39,7 +39,8 @@ def test_model_sends_image_and_file_as_responses_content_parts():
         ),
     )
 
-    assert result == "Respuesta"
+    assert result.text == "Respuesta"
+    assert result.usage is None
     content = captured["input"][0]["content"]
     assert content[0]["type"] == "input_text"
     assert content[1] == {
@@ -150,6 +151,64 @@ def test_model_forwards_only_the_bounded_output_token_limit():
     assert captured["max_output_tokens"] == 900
 
 
+def test_model_returns_real_per_response_usage():
+    model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
+
+    def create(**kwargs):
+        return SimpleNamespace(
+            output_text="Respuesta",
+            usage=SimpleNamespace(
+                input_tokens=1_200,
+                output_tokens=234,
+                total_tokens=1_434,
+                input_tokens_details=SimpleNamespace(cached_tokens=200),
+                output_tokens_details=SimpleNamespace(reasoning_tokens=80),
+            ),
+        )
+
+    model.client.responses.create = create
+    result = model.generate(
+        question="Explica la arquitectura",
+        evidence=[],
+        skill=load_skills()[0],
+        instructions="Instrucciones",
+    )
+
+    assert result.text == "Respuesta"
+    assert result.usage.input_tokens == 1_200
+    assert result.usage.cached_input_tokens == 200
+    assert result.usage.output_tokens == 234
+    assert result.usage.reasoning_tokens == 80
+    assert result.usage.total_tokens == 1_434
+
+
+def test_model_omits_invalid_or_missing_usage():
+    model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
+    responses = iter([
+        SimpleNamespace(output_text="Sin uso"),
+        SimpleNamespace(
+            output_text="Uso inválido",
+            usage=SimpleNamespace(
+                input_tokens=-1,
+                output_tokens=2,
+                total_tokens=1,
+                input_tokens_details=SimpleNamespace(cached_tokens=0),
+                output_tokens_details=SimpleNamespace(reasoning_tokens=0),
+            ),
+        ),
+    ])
+    model.client.responses.create = lambda **kwargs: next(responses)
+    kwargs = dict(
+        question="Pregunta",
+        evidence=[],
+        skill=load_skills()[0],
+        instructions="Instrucciones",
+    )
+
+    assert model.generate(**kwargs).usage is None
+    assert model.generate(**kwargs).usage is None
+
+
 def test_real_png_fixture_drives_offline_multimodal_contract():
     fixture = Path("tests/fixtures/vacancy.png").read_bytes()
     with Image.open(io.BytesIO(fixture)) as image:
@@ -185,7 +244,7 @@ def test_real_png_fixture_drives_offline_multimodal_contract():
         ),),
     )
 
-    assert "evidencia directa" in result
+    assert "evidencia directa" in result.text
     assert captured["input"][0]["content"][1]["type"] == "input_image"
 
 
@@ -236,5 +295,5 @@ def test_real_pdf_fixture_drives_offline_multimodal_contract():
         ),),
     )
 
-    assert "experiencia relacionada" in result
+    assert "experiencia relacionada" in result.text
     assert captured["input"][0]["content"][1]["type"] == "input_file"
