@@ -54,26 +54,12 @@ class AgentAnswer:
     evidence: tuple[AnswerEvidence, ...] = ()
 
 
-_PUBLIC_EVIDENCE_DOMAINS = {
-    "enereylatam.com": True,
-    "apps.apple.com": False,
-    "globalfls.com": True,
-    "lugramx.com": True,
-    "github.com": False,
+_PUBLIC_EVIDENCE_URLS = {
+    "https://enereylatam.com/",
+    "https://apps.apple.com/mx/app/enerey/id6736633080",
+    "https://globalfls.com/",
+    "https://www.lugramx.com/",
 }
-
-
-def _authorized_public_hostname(hostname: str) -> bool:
-    try:
-        hostname.encode("ascii")
-    except UnicodeEncodeError:
-        return False
-    for domain, allow_subdomains in _PUBLIC_EVIDENCE_DOMAINS.items():
-        if hostname == domain:
-            return True
-        if allow_subdomains and hostname.endswith(f".{domain}"):
-            return True
-    return False
 
 
 def _public_source_url(source: str) -> str | None:
@@ -83,8 +69,6 @@ def _public_source_url(source: str) -> str | None:
         if parsed.scheme != "https" or not parsed.hostname:
             continue
         hostname = parsed.hostname.lower()
-        if not _authorized_public_hostname(hostname):
-            continue
         try:
             if ipaddress.ip_address(hostname).is_private:
                 continue
@@ -96,8 +80,15 @@ def _public_source_url(source: str) -> str | None:
             continue
         if parsed.username or parsed.password or port not in (None, 443):
             continue
-        # Query strings often carry signatures or other private capabilities.
-        return parsed._replace(query="", fragment="").geturl()
+        if parsed.query or parsed.fragment:
+            continue
+        path = parsed.path or "/"
+        canonical = parsed._replace(
+            scheme="https", netloc=hostname, path=path.rstrip("/") or "/",
+            query="", fragment="",
+        ).geturl()
+        if canonical in _PUBLIC_EVIDENCE_URLS:
+            return canonical
     return None
 
 

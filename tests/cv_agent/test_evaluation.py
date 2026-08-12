@@ -6,6 +6,24 @@ import pytest
 from cv_agent.evaluation.runner import run_evaluation
 
 
+def test_azure_search_cases_are_not_orphaned_from_offline_matrix():
+    azure = {
+        item["question"]: item
+        for item in map(json.loads, Path("evals/azure_search_cases.jsonl").read_text().splitlines())
+    }
+    offline = {
+        item["question"]: item
+        for item in map(json.loads, Path("evals/cv_agent_cases.jsonl").read_text().splitlines())
+    }
+
+    covered_expectations = {
+        tuple(item["expected_document_ids"])
+        for item in offline.values()
+    }
+    assert len(azure) >= 5
+    assert all(tuple(case["expected_document_ids"]) in covered_expectations for case in azure.values())
+
+
 class Answer:
     def __init__(self) -> None:
         self.text = "Respuesta profesional con Azure, RAG y privacidad."
@@ -69,7 +87,8 @@ def test_evaluation_reports_required_metrics(tmp_path: Path) -> None:
     )
 
     assert set(report["metrics"]) >= {
-        "retrieval_recall_at_k",
+        "retrieval_recall_at_8",
+        "evidence_precision_at_8",
         "mrr",
         "groundedness",
         "privacy_pass_rate",
@@ -78,7 +97,7 @@ def test_evaluation_reports_required_metrics(tmp_path: Path) -> None:
         "impact_evidence_coverage",
         "latency_p95_ms",
     }
-    assert report["metrics"]["retrieval_recall_at_k"] == 1.0
+    assert report["metrics"]["retrieval_recall_at_8"] == 1.0
     assert report["metrics"]["impact_evidence_coverage"] == 1.0
     assert json.loads((tmp_path / "report.json").read_text())["case_count"] == 1
 
@@ -94,7 +113,7 @@ def test_empty_expected_evidence_rejects_unexpected_evidence(tmp_path: Path) -> 
         enforce_thresholds=False,
     )
 
-    assert report["metrics"]["retrieval_recall_at_k"] == 0.0
+    assert report["metrics"]["retrieval_recall_at_8"] == 0.0
     assert report["metrics"]["groundedness"] == 0.0
     assert report["failures"][0]["evidence_expectation_pass"] is False
 
@@ -113,7 +132,7 @@ def test_empty_expected_evidence_accepts_empty_answer_evidence(tmp_path: Path) -
         enforce_thresholds=False,
     )
 
-    assert report["metrics"]["retrieval_recall_at_k"] == 1.0
+    assert report["metrics"]["retrieval_recall_at_8"] == 1.0
     assert report["metrics"]["groundedness"] == 1.0
     assert report["failures"] == []
 

@@ -195,7 +195,7 @@ python -m pytest tests/cv_agent -q
 python -m cv_agent.evaluation.runner
 ```
 
-La evaluación no llama a OpenAI: el adaptador devuelve evidencia, no prosa generada. Mide Recall@5, MRR, groundedness, privacidad, `evidence_term_coverage`, `impact_evidence_coverage`, routing de skills y latencia. Conserva umbrales mínimos de 90% para Recall@5 y las dos coberturas, 100% para privacidad y 90% para routing. El tono y la afirmación de participación se validan con revisiones manuales del endpoint live.
+La evaluación no llama a OpenAI: el adaptador devuelve evidencia, no prosa generada. Mide Recall@8, precisión de evidencia@8, MRR, groundedness, privacidad, `evidence_term_coverage`, `impact_evidence_coverage`, routing de skills y latencia. Conserva umbrales mínimos por métrica y categoría. El tono y la afirmación de participación se validan con revisiones manuales del endpoint live.
 
 ## Evidencia pública complementaria
 

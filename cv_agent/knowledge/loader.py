@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 import re
 import unicodedata
 
@@ -91,13 +92,18 @@ def _section_parts(text: str) -> list[tuple[str | None, str]]:
     introduction = text[:matches[0].start()].strip()
     if introduction:
         parts.append(("Introducción", introduction))
+    hierarchy: list[tuple[int, str]] = []
     for index, match in enumerate(matches):
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         body = text[match.end():end].strip()
         heading = match.group(2).strip().rstrip("#").strip()
+        level = len(match.group(1))
+        hierarchy = [item for item in hierarchy if item[0] < level]
+        hierarchy.append((level, heading))
+        breadcrumb = " › ".join(item[1] for item in hierarchy)
         # Include the heading in the embedded excerpt so lexical retrieval can
         # find concepts expressed primarily by section titles.
-        parts.append((heading, f"{match.group(1)} {heading}\n\n{body}".strip()))
+        parts.append((breadcrumb, f"{match.group(1)} {heading}\n\n{body}".strip()))
     return parts
 
 
@@ -119,25 +125,20 @@ def _chunks_for_document(
             }
         )]
     chunks: list[KnowledgeDocument] = []
-    seen_slugs: dict[str, int] = {}
     for section, text in parts:
         section_name = section or "Introducción"
         base_slug = _slug(section_name)
-        occurrence = seen_slugs.get(base_slug, 0) + 1
-        seen_slugs[base_slug] = occurrence
-        suffix = base_slug if occurrence == 1 else f"{base_slug}-{occurrence}"
         subchunks = _bounded_parts(text, max_chunk_chars, overlap_chars)
         for part_index, subchunk in enumerate(subchunks, start=1):
-            part_suffix = (
-                f"--part-{part_index:02d}" if len(subchunks) > 1 else ""
-            )
+            digest = hashlib.sha256(subchunk.encode("utf-8")).hexdigest()[:10]
+            part_suffix = f"--part-{part_index:02d}" if len(subchunks) > 1 else ""
             chunks.append(KnowledgeDocument(
                 **{
                     **document.__dict__,
                     "title": f"{document.title} — {section_name}",
                     "text": subchunk,
                     "document_id": document.id,
-                    "chunk_id": f"{document.id}--{suffix}{part_suffix}",
+                    "chunk_id": f"{document.id}--{base_slug}{part_suffix}--{digest}",
                     "section": section_name,
                 }
             ))

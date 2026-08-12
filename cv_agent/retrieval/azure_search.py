@@ -95,14 +95,19 @@ class AzureSearchRetrieval:
             select=RESULT_FIELDS,
             top=candidate_limit,
         )
+        candidates = list(results)
         hits: list[RetrievalHit] = []
-        for item in results:
+        candidate_count = len(candidates)
+        for rank, item in enumerate(candidates, start=1):
             if (
                 allowed_document_ids is not None
                 and item.get("document_id", item["id"]) not in allowed_document_ids
             ):
                 continue
-            score = float(item.get("@search.score", 0.0))
+            raw_score = float(item.get("@search.score", 0.0))
+            if raw_score <= 0:
+                continue
+            score = (candidate_count - rank + 1) / candidate_count
             if score < self.min_score:
                 continue
             hits.append(
@@ -127,11 +132,14 @@ class AzureSearchRetrieval:
             return hits[:limit]
         selected: list[RetrievalHit] = []
         per_parent: Counter[str] = Counter()
+        per_section: Counter[tuple[str, str | None]] = Counter()
         for hit in hits:
-            if per_parent[hit.document_id] >= 2:
+            key = (hit.document_id, hit.section)
+            if per_parent[hit.document_id] >= 2 or per_section[key] >= 1:
                 continue
             selected.append(hit)
             per_parent[hit.document_id] += 1
+            per_section[key] += 1
             if len(selected) == limit:
                 break
         return selected

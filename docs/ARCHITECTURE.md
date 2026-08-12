@@ -37,8 +37,10 @@ Azure Container Apps consulta el índice con identidad administrada y el rol
 ejecutan fuera del proceso web. No existe fallback local en producción: la
 sonda `/health/ready` informa si el índice no está disponible.
 
-`document_id` identifica una de las 17 fuentes; `chunk_id` es la clave estable
-del fragmento indexado. Una sección que supera el límite se divide por párrafos
+`document_id` identifica una de las 17 fuentes; `chunk_id` combina el breadcrumb
+de encabezados con un hash corto del contenido. Insertar otra sección no
+renumera las existentes; renombrar el encabezado o modificar el contenido
+cambia deliberadamente el ID afectado. Una sección que supera el límite se divide por párrafos
 con solapamiento semántico acotado; el ID añade `part-NN`. Ningún adaptador
 trunca silenciosamente el extracto después de recuperar. La sincronización
 carga el conjunto de chunks vigente y
@@ -48,6 +50,11 @@ La respuesta externa omite `source_path`, URLs no públicas y scores numéricos;
 las URLs requieren un dominio de evidencia explícitamente autorizado, sin DNS
 en runtime. `metadata.evidence_ids` permanece como string de hasta 512
 caracteres y la extensión superior `evidence` contiene el detalle seguro.
+
+Azure devuelve scores RRF pequeños cuyo valor absoluto no equivale al score
+local. El adaptador los calibra por rango dentro del conjunto candidato antes
+del umbral y del bucket de confianza. La diversidad permite una sola parte
+solapada por sección y hasta dos secciones por documento padre.
 
 Para mayor escala se añadirían caché distribuida, APIM, OpenTelemetry, colas
 para ingesta, versionado de índices y pruebas canary.

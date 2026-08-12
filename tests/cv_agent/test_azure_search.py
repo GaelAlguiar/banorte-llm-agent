@@ -51,7 +51,7 @@ def test_search_sends_text_vector_and_category_filter():
     assert hits[0].document_id == "terraform-banregio"
     assert hits[0].chunk_id == "terraform-banregio--infraestructura"
     assert hits[0].section == "Infraestructura"
-    assert hits[0].score == 0.91
+    assert hits[0].score == 1.0
     assert client.kwargs["search_text"] == "experiencia con Terraform"
     assert client.kwargs["top"] == 9
     assert client.kwargs["filter"] == "category eq 'infraestructura'"
@@ -113,15 +113,21 @@ def test_search_defensively_discards_a_result_outside_the_allowlist():
     assert hits == []
 
 
-def test_search_discards_results_below_threshold():
+def test_search_normalizes_realistic_rrf_scores_instead_of_raw_thresholding():
     retrieval = AzureSearchRetrieval(
         documents=[],
-        client=FakeSearchClient([result(score=0.02)]),
-        embeddings=FakeEmbeddings(),
-        min_score=0.03,
+        client=FakeSearchClient([
+            result(score=0.032, section="Primera"),
+            result(score=0.016, section="Segunda", document_id="otro"),
+            result(score=0.010, section="Tercera", document_id="tercero"),
+        ]),
+        embeddings=FakeEmbeddings(), min_score=0.20,
     )
 
-    assert retrieval.search("consulta") == []
+    hits = retrieval.search("consulta")
+
+    assert [round(hit.score, 2) for hit in hits] == [1.0, 0.67, 0.33]
+    assert all(0 <= hit.score <= 1 for hit in hits)
 
 
 def test_ready_uses_a_minimal_search_request():
@@ -165,6 +171,25 @@ def test_azure_search_limits_repeated_parent_but_keeps_distinct_sections():
 
     assert [hit.section for hit in hits] == ["Uno", "Dos", "Otro"]
     assert client.kwargs["top"] == 12
+
+
+def test_azure_diversity_prefers_distinct_sections_over_overlapping_parts():
+    items = [
+        {**result(0.032, section="Operación"), "chunk_id": "p--operacion--part-01"},
+        {**result(0.031, section="Operación"), "chunk_id": "p--operacion--part-02"},
+        {**result(0.030, section="Seguridad"), "chunk_id": "p--seguridad"},
+        result(0.029, section="Otro", document_id="otro"),
+    ]
+    hits = AzureSearchRetrieval(
+        documents=[], client=FakeSearchClient(items), embeddings=FakeEmbeddings(),
+        min_score=0.0,
+    ).search("IA general", top_k=4)
+
+    assert [(hit.document_id, hit.section) for hit in hits] == [
+        ("terraform-banregio", "Operación"),
+        ("terraform-banregio", "Seguridad"),
+        ("otro", "Otro"),
+    ]
 
 
 def test_azure_diversity_fetches_candidates_beyond_first_eight_chunks():

@@ -73,6 +73,10 @@ def test_chat_assets_support_local_history_accessibility_and_mobile() -> None:
     assert "event.shiftKey" in javascript.text
     assert "Authorization" not in javascript.text
     assert "AGENT_API_KEY" not in javascript.text
+    assert 'document.createElement("details")' in javascript.text
+    assert "items.slice(0, 3)" in javascript.text
+    assert "entry.textContent" in javascript.text
+    assert 'add("assistant", data.response, data.evidence)' in javascript.text
 
 
 def test_chat_message_uses_shared_agent() -> None:

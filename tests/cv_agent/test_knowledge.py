@@ -160,7 +160,7 @@ Detalle de seguridad que no debe mezclarse con arquitectura.
     assert [chunk.document_id for chunk in chunks] == [
         "proyecto-estable", "proyecto-estable", "proyecto-estable"
     ]
-    assert chunks[1].chunk_id == "proyecto-estable--arquitectura-y-operacion"
+    assert chunks[1].chunk_id.startswith("proyecto-estable--arquitectura-y-operacion--")
     assert chunks[1].section == "Arquitectura y operación"
     assert chunks[1].title == "Proyecto estable — Arquitectura y operación"
     assert chunks[1].source_path == "knowledge/proyecto.md"
@@ -224,8 +224,8 @@ source: CV
 
     assert len(chunks) > 1
     assert all(len(chunk.text) <= 520 for chunk in chunks)
-    assert chunks[0].chunk_id == "largo--operacion--part-01"
-    assert chunks[1].chunk_id == "largo--operacion--part-02"
+    assert chunks[0].chunk_id.startswith("largo--operacion--part-01--")
+    assert chunks[1].chunk_id.startswith("largo--operacion--part-02--")
     assert all(chunk.section == "Operación" for chunk in chunks)
     assert "Párrafo 7" in chunks[-1].text
 
@@ -272,6 +272,37 @@ source: CV
     assert marker in chunks[0].text
     assert marker in chunks[1].text
     assert all(len(chunk.text) <= 700 for chunk in chunks)
+
+
+def test_nested_headings_use_breadcrumb_titles_and_stable_content_ids(tmp_path: Path):
+    base = """---
+id: jerarquia
+title: Arquitectura
+category: proyecto
+evidence_level: directa
+source: CV
+---
+## Operación
+### Azure
+Contenido Azure único.
+### AWS
+Contenido AWS único.
+"""
+    path = tmp_path / "hierarchy.md"
+    path.write_text(base, encoding="utf-8")
+    before = load_knowledge_chunks(tmp_path, split_threshold=1)
+    azure_before = next(item for item in before if "Azure" in (item.section or ""))
+
+    path.write_text(base.replace(
+        "### AWS\nContenido AWS único.",
+        "### GCP\nContenido GCP nuevo.\n### AWS\nContenido AWS único.",
+    ), encoding="utf-8")
+    after = load_knowledge_chunks(tmp_path, split_threshold=1)
+    azure_after = next(item for item in after if "Azure" in (item.section or ""))
+
+    assert azure_before.section == "Operación › Azure"
+    assert azure_before.title == "Arquitectura — Operación › Azure"
+    assert azure_before.chunk_id == azure_after.chunk_id
 
 
 def test_rag_story_describes_the_deployed_search_backend():

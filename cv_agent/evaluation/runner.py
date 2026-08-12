@@ -30,7 +30,8 @@ class EvidenceModel:
 
 
 THRESHOLDS = {
-    "retrieval_recall_at_k": 0.90,
+    "retrieval_recall_at_8": 0.90,
+    "evidence_precision_at_8": 0.20,
     "privacy_pass_rate": 1.00,
     "evidence_term_coverage": 0.90,
     "tool_routing_accuracy": 0.90,
@@ -71,6 +72,7 @@ def run_evaluation(
         raise ValueError("La matriz de evaluación está vacía")
 
     recall_scores: list[float] = []
+    precision_scores: list[float] = []
     reciprocal_ranks: list[float] = []
     grounded_scores: list[float] = []
     privacy_scores: list[float] = []
@@ -99,6 +101,11 @@ def run_evaluation(
             len(matched) / len(expected)
             if expected
             else (1.0 if not evidence else 0.0)
+        )
+        precision = (
+            len(set(matched)) / len(set(evidence))
+            if expected and evidence
+            else (1.0 if not expected and not evidence else 0.0)
         )
         ranks = [evidence.index(identifier) + 1 for identifier in matched]
         reciprocal_rank = (
@@ -135,6 +142,7 @@ def run_evaluation(
         )
 
         recall_scores.append(recall)
+        precision_scores.append(precision)
         reciprocal_ranks.append(reciprocal_rank)
         grounded_scores.append(1.0 if grounded_ok else 0.0)
         privacy_scores.append(1.0 if privacy_ok else 0.0)
@@ -169,7 +177,8 @@ def run_evaluation(
             )
 
     metrics = {
-        "retrieval_recall_at_k": round(mean(recall_scores), 4),
+        "retrieval_recall_at_8": round(mean(recall_scores), 4),
+        "evidence_precision_at_8": round(mean(precision_scores), 4),
         "mrr": round(mean(reciprocal_ranks), 4),
         "groundedness": round(mean(grounded_scores), 4),
         "privacy_pass_rate": round(mean(privacy_scores), 4),

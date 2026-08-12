@@ -295,13 +295,12 @@ def test_response_metadata_values_are_compact_strings_with_detailed_top_level_ev
 
 def test_public_evidence_url_requires_an_authorized_domain():
     assert _public_source_url("https://enereylatam.com/proyecto") == (
-        "https://enereylatam.com/proyecto"
+        None
     )
-    assert _public_source_url("https://subdomain.lugramx.com/catalogo") == (
-        "https://subdomain.lugramx.com/catalogo"
-    )
-    assert _public_source_url("https://github.com/GaelAlguiar/repo") == (
-        "https://github.com/GaelAlguiar/repo"
+    assert _public_source_url("https://enereylatam.com") == "https://enereylatam.com/"
+    assert _public_source_url("https://www.lugramx.com/") == "https://www.lugramx.com/"
+    assert _public_source_url("https://apps.apple.com/mx/app/enerey/id6736633080/") == (
+        "https://apps.apple.com/mx/app/enerey/id6736633080"
     )
     for unsafe in (
         "https://intranet/path",
@@ -312,5 +311,7 @@ def test_public_evidence_url_requires_an_authorized_domain():
         "https://enereylatam.com:bad/path",
         "https://enereylatam.com.evil.com/path",
         "https://ｅｎｅｒｅｙlatam.com/path",
+        "https://enereylatam.com/%2e%2e/private",
+        "https://apps.apple.com/mx/app/enerey/id6736633080/private",
     ):
         assert _public_source_url(unsafe) is None
