@@ -156,3 +156,30 @@ def test_usage_meter_rejects_partial_or_invalid_configuration():
             usage_cached_input_rate=".5",
             usage_output_rate="30",
         )
+
+
+@pytest.mark.parametrize("account,table", [
+    ("Áccount", "table"), ("UPPER", "table"), ("ab", "table"),
+    ("account", "bad-table"), ("account", "a" * 64),
+])
+def test_usage_meter_rejects_invalid_azure_names(account, table):
+    with pytest.raises(ValueError, match="usage"):
+        Settings(
+            usage_meter_enabled=True,
+            usage_storage_account=account, usage_storage_table=table,
+            usage_total_budget="10", usage_initial_spent="3.28",
+            usage_input_rate="5", usage_cached_input_rate=".5",
+            usage_output_rate="30",
+        )
+
+
+@pytest.mark.parametrize("value", ["0", "NaN", "Infinity", "-1"])
+def test_usage_meter_rejects_nonpositive_or_nonfinite_rates(value):
+    with pytest.raises(ValueError, match="usage"):
+        Settings(
+            usage_meter_enabled=True,
+            usage_storage_account="account", usage_storage_table="table",
+            usage_total_budget="10", usage_initial_spent="3.28",
+            usage_input_rate=value, usage_cached_input_rate=".5",
+            usage_output_rate="30",
+        )

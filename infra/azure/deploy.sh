@@ -116,8 +116,13 @@ if [[ "$USAGE_METER_ENABLED" == "true" ]]; then
       --resource-group "$RESOURCE_GROUP" --location "$LOCATION" \
       --sku Standard_LRS --kind StorageV2 --output none
   fi
-  az storage table create --account-name "$USAGE_STORAGE_ACCOUNT" \
-    --name "$USAGE_STORAGE_TABLE" --auth-mode login --output none
+  az resource create \
+    --resource-group "$RESOURCE_GROUP" \
+    --resource-type Microsoft.Storage/storageAccounts/tableServices/tables \
+    --name "$USAGE_STORAGE_ACCOUNT/default/$USAGE_STORAGE_TABLE" \
+    --api-version 2023-01-01 \
+    --properties '{}' \
+    --output none
   usage_secret_args+=(
     usage-total-budget="$USAGE_TOTAL_BUDGET"
     usage-initial-spent="$USAGE_INITIAL_SPENT"
@@ -226,6 +231,33 @@ if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/
         --output none
     fi
   fi
+  if [[ "$USAGE_METER_ENABLED" != "true" ]]; then
+    az containerapp update \
+      --name "$APP_NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --remove-env-vars \
+        USAGE_STORAGE_ACCOUNT \
+        USAGE_STORAGE_TABLE \
+        USAGE_TOTAL_BUDGET \
+        USAGE_INITIAL_SPENT \
+        USAGE_INPUT_RATE \
+        USAGE_CACHED_INPUT_RATE \
+        USAGE_OUTPUT_RATE \
+      --output none
+    stale_usage_secrets="$(az containerapp secret list \
+      --name "$APP_NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --query "[?starts_with(name, 'usage-')].name" \
+      --output tsv)"
+    if [[ -n "$stale_usage_secrets" ]]; then
+      read -r -a stale_usage_secret_names <<< "$stale_usage_secrets"
+      az containerapp secret remove \
+        --name "$APP_NAME" \
+        --resource-group "$RESOURCE_GROUP" \
+        --secret-names "${stale_usage_secret_names[@]}" \
+        --output none
+    fi
+  fi
   az containerapp update \
     --name "$APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
@@ -259,7 +291,7 @@ else
     --registry-server "$ACR_NAME.azurecr.io" \
     --registry-identity system \
     --system-assigned \
-    --ingress external \
+    --ingress internal \
     --target-port 8000 \
     --transport auto \
     --secrets openai-api-key="$OPENAI_API_KEY" agent-api-key="$AGENT_API_KEY" \
@@ -343,7 +375,28 @@ az containerapp update \
   --yaml "$probe_file" \
   --output none
 
+az containerapp ingress enable \
+  --name "$APP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --type external \
+  --target-port 8000 \
+  --transport auto \
+  --output none
+
 fqdn="$(az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.configuration.ingress.fqdn --output tsv)"
+ready=0
+for _ in $(seq 1 30); do
+  if curl --fail --silent --show-error \
+    "https://$fqdn/health/ready" >/dev/null; then
+    ready=1
+    break
+  fi
+  sleep 10
+done
+if [[ "$ready" != "1" ]]; then
+  echo "La revisión no alcanzó readiness con sus dependencias." >&2
+  exit 7
+fi
 revision="$(az containerapp revision list --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" --query '[0].name' --output tsv)"
 echo "Endpoint: https://$fqdn/v1"
 echo "Revisión: $revision"

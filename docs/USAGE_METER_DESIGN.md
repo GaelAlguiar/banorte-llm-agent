@@ -52,6 +52,11 @@ los tokens de salida. La fórmula interna será:
 
 `costo = entrada × tarifa_entrada + cache × ajuste_cache + salida × tarifa_salida`
 
+El cálculo también contempla la escritura de caché a 1.25 veces la tarifa de
+entrada y el multiplicador vigente para solicitudes de GPT-5.6 que superan
+272,000 tokens de entrada: 2 veces entrada y 1.5 veces salida. Estos parámetros
+son internos, verificables y no aparecen en la respuesta.
+
 Los valores se expresarán por millón de tokens y se validarán al iniciar. El
 presupuesto y consumo inicial también serán secretos/configuración operativa,
 no campos controlados por el cliente.
@@ -108,6 +113,7 @@ una etiqueta comprensible para lectores de pantalla.
 - Extracción realista de `usage` del SDK, incluidos tokens de razonamiento.
 - Ausencia segura cuando `usage` falta o es inválido.
 - Cálculo de costo con entrada, cache y salida; redondeo y límites.
+- Escritura de caché y multiplicadores de contexto largo de GPT-5.6.
 - Actualización atómica e idempotente ante concurrencia y reintentos.
 - Paridad de `usage`, `budget` y pie visible en JSON, SSE y Flask, sin
   duplicación.
@@ -119,7 +125,8 @@ una etiqueta comprensible para lectores de pantalla.
 ## Operación
 
 El despliegue creará o reutilizará una tabla dedicada y asignará a Container
-Apps acceso mediante identidad administrada. Las variables no sensibles
+Apps acceso mediante identidad administrada. La revisión no se considera lista
+hasta poder leer o inicializar atómicamente el acumulado. Las variables no sensibles
 definirán el modelo; tarifas, presupuesto y consumo inicial se cargarán como
 configuración protegida. La migración inicial se ejecutará una sola vez con
 67.2% disponible. Los cambios futuros de tarifa serán explícitos y versionados

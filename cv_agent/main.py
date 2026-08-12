@@ -142,6 +142,10 @@ def create_app(
         ready = bool(
             active_agent
             and active_agent.retrieval.ready()
+            and (
+                getattr(active_agent, "usage_meter", None) is None
+                or active_agent.usage_meter.ready()
+            )
         )
         content = {
             "status": "ready" if ready else "unavailable",

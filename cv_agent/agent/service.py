@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import ipaddress
 import uuid
+import re
 from typing import Protocol
 from urllib.parse import urlsplit
 
@@ -81,6 +82,9 @@ _OBSERVABLE_SOURCE_KINDS = frozenset({"perfil", "laboral", "demostrativo"})
 _OUT_OF_SCOPE_REDIRECT = (
     "Puedo ayudarte con la experiencia profesional de Gael, sus proyectos "
     "de IA y cloud, o su ajuste a la posición Junior."
+)
+_USAGE_FOOTER_SUFFIX = re.compile(
+    r"(?:\n\n)?[\d,]+ tokens · \d+(?:\.\d)?% disponible\s*$"
 )
 
 
@@ -472,7 +476,7 @@ class CvAgentService:
             ),
             max_output_tokens=effective_max_output_tokens,
         )
-        text = generation.text.strip()
+        text = _USAGE_FOOTER_SUFFIX.sub("", generation.text.strip()).rstrip()
         public_usage = None
         if generation.usage is not None and self.usage_meter is not None:
             public_usage = self.usage_meter.record(

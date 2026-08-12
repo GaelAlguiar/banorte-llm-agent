@@ -18,6 +18,9 @@ class UsageBudgetStore(Protocol):
     def apply_once(self, event_id: str, cost: Decimal) -> Decimal:
         """Apply cost once and return remaining budget."""
 
+    def ready(self) -> bool:
+        """Validate that the persistent ledger is readable and writable."""
+
 
 class InMemoryUsageBudgetStore:
     def __init__(self, *, total_budget: Decimal, initial_spent: Decimal):
@@ -33,6 +36,9 @@ class InMemoryUsageBudgetStore:
                 self._events[event_id] = self._spent
             return max(Decimal("0"), self.total_budget - self._events[event_id])
 
+    def ready(self) -> bool:
+        return True
+
 
 class AzureTableUsageBudgetStore:
     def __init__(self, *, table_client, total_budget: Decimal,
@@ -40,6 +46,30 @@ class AzureTableUsageBudgetStore:
         self.table_client = table_client
         self.total_budget = total_budget
         self.initial_spent = initial_spent
+
+    def _ensure_aggregate(self):
+        try:
+            return self.table_client.get_entity("usage", "aggregate")
+        except ResourceNotFoundError:
+            try:
+                self.table_client.create_entity({
+                    "PartitionKey": "usage",
+                    "RowKey": "aggregate",
+                    "spent": str(self.initial_spent),
+                })
+            except ResourceExistsError:
+                pass
+            return self.table_client.get_entity("usage", "aggregate")
+        except HttpResponseError as error:
+            raise UsageStoreError("usage aggregate read failed") from error
+
+    def ready(self) -> bool:
+        try:
+            aggregate = self._ensure_aggregate()
+            Decimal(aggregate["spent"])
+            return True
+        except (HttpResponseError, KeyError, ValueError, ArithmeticError) as error:
+            raise UsageStoreError("usage aggregate readiness failed") from error
 
     def apply_once(self, event_id: str, cost: Decimal) -> Decimal:
         for _ in range(5):
@@ -55,18 +85,7 @@ class AzureTableUsageBudgetStore:
                 if getattr(error, "status_code", None) not in (404, None):
                     raise UsageStoreError("usage ledger read failed") from error
             try:
-                try:
-                    aggregate = self.table_client.get_entity("usage", "aggregate")
-                except ResourceNotFoundError:
-                    try:
-                        self.table_client.create_entity({
-                            "PartitionKey": "usage",
-                            "RowKey": "aggregate",
-                            "spent": str(self.initial_spent),
-                        })
-                    except ResourceExistsError:
-                        pass
-                    aggregate = self.table_client.get_entity("usage", "aggregate")
+                aggregate = self._ensure_aggregate()
                 spent_after = Decimal(aggregate["spent"]) + cost
                 self.table_client.submit_transaction([
                     (

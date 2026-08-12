@@ -6,6 +6,7 @@ from cv_agent.usage.models import ModelRates, TokenUsage
 from cv_agent.usage.store import InMemoryUsageBudgetStore
 from cv_agent.usage.store import AzureTableUsageBudgetStore
 from azure.core.exceptions import ResourceExistsError
+from azure.core.exceptions import ServiceRequestError
 
 
 def test_meter_calculates_cost_and_formats_public_result():
@@ -65,6 +66,56 @@ def test_meter_returns_tokens_without_percentage_when_store_fails():
     assert result.total_tokens == 2
     assert result.available_percent is None
     assert format_usage_footer(result) is None
+
+
+def test_meter_does_not_lose_answer_when_storage_network_fails():
+    class NetworkFailingStore:
+        total_budget = Decimal("10")
+
+        def apply_once(self, event_id, cost):
+            raise ServiceRequestError("dns timeout")
+
+    result = UsageMeter(
+        store=NetworkFailingStore(),
+        rates=ModelRates(Decimal("5"), Decimal("0.5"), Decimal("30")),
+    ).record(event_id="id", usage=TokenUsage(1, 0, 0, 0, 1))
+
+    assert result.total_tokens == 1
+    assert result.available_percent is None
+
+
+def test_meter_prices_cache_writes_and_long_context_multiplier():
+    class CapturingStore:
+        total_budget = Decimal("10")
+
+        def apply_once(self, event_id, cost):
+            self.cost = cost
+            return Decimal("5")
+
+        def ready(self):
+            return True
+
+    store = CapturingStore()
+    meter = UsageMeter(
+        store=store,
+        rates=ModelRates(Decimal("5"), Decimal("0.5"), Decimal("30")),
+    )
+
+    meter.record(
+        event_id="long",
+        usage=TokenUsage(
+            273_000, 10_000, 1_000, 100, 274_000,
+            cache_write_tokens=20_000,
+        ),
+    )
+
+    expected_input = (
+        Decimal(243_000) * Decimal("5")
+        + Decimal(10_000) * Decimal("0.5")
+        + Decimal(20_000) * Decimal("5") * Decimal("1.25")
+    ) * Decimal("2")
+    expected_output = Decimal(1_000) * Decimal("30") * Decimal("1.5")
+    assert store.cost == (expected_input + expected_output) / Decimal(1_000_000)
 
 
 def test_azure_store_uses_etag_transaction_and_reuses_ledger_event():

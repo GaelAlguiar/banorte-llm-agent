@@ -182,6 +182,27 @@ def test_model_returns_real_per_response_usage():
     assert result.usage.total_tokens == 1_434
 
 
+def test_model_captures_cache_write_tokens_when_reported():
+    model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
+    model.client.responses.create = lambda **kwargs: SimpleNamespace(
+        output_text="Respuesta",
+        usage=SimpleNamespace(
+            input_tokens=1_200, output_tokens=234, total_tokens=1_434,
+            input_tokens_details=SimpleNamespace(
+                cached_tokens=200, cache_write_tokens=100,
+            ),
+            output_tokens_details=SimpleNamespace(reasoning_tokens=80),
+        ),
+    )
+
+    result = model.generate(
+        question="Pregunta", evidence=[], skill=load_skills()[0],
+        instructions="Instrucciones",
+    )
+
+    assert result.usage.cache_write_tokens == 100
+
+
 def test_model_omits_invalid_or_missing_usage():
     model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
     responses = iter([

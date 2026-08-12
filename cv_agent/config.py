@@ -1,4 +1,5 @@
 import os
+import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
@@ -82,9 +83,12 @@ class Settings:
             )
             if not all(required):
                 raise ValueError("usage meter requiere configuración completa")
-            if not self.usage_storage_account.isalnum():
+            if not re.fullmatch(r"[a-z0-9]{3,24}", self.usage_storage_account):
                 raise ValueError("usage storage account inválida")
-            if not self.usage_storage_table.isalnum():
+            if not re.fullmatch(
+                r"[A-Za-z][A-Za-z0-9]{2,62}",
+                self.usage_storage_table,
+            ):
                 raise ValueError("usage storage table inválida")
             try:
                 total = Decimal(self.usage_total_budget)
@@ -96,7 +100,14 @@ class Settings:
                 ))
             except (InvalidOperation, TypeError) as error:
                 raise ValueError("usage configuration inválida") from error
-            if total <= 0 or spent < 0 or spent > total or any(rate < 0 for rate in rates):
+            decimals = (total, spent, *rates)
+            if (
+                not all(value.is_finite() for value in decimals)
+                or total <= 0
+                or spent < 0
+                or spent > total
+                or any(rate <= 0 for rate in rates)
+            ):
                 raise ValueError("usage configuration fuera de rango")
 
     @property

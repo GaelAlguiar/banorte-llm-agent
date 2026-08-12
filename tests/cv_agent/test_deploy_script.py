@@ -145,7 +145,8 @@ def test_deploy_script_provisions_private_usage_table_with_rbac():
         "USAGE_STORAGE_TABLE",
         "az storage account create",
         "Standard_LRS",
-        "az storage table create",
+        "Microsoft.Storage/storageAccounts/tableServices/tables",
+        "az resource create",
         "Storage Table Data Contributor",
         "USAGE_TOTAL_BUDGET=secretref:usage-total-budget",
         "USAGE_INITIAL_SPENT=secretref:usage-initial-spent",
@@ -155,3 +156,16 @@ def test_deploy_script_provisions_private_usage_table_with_rbac():
     ):
         assert marker in text
     assert "echo $USAGE_TOTAL_BUDGET" not in text
+
+
+def test_deploy_script_removes_disabled_usage_configuration_and_waits_ready():
+    text = SCRIPT.read_text(encoding="utf-8")
+
+    assert 'if [[ "$USAGE_METER_ENABLED" != "true" ]]' in text
+    assert "USAGE_TOTAL_BUDGET" in text.split("--remove-env-vars", 2)[-1]
+    assert "starts_with(name, 'usage-')" in text
+    assert "stale_usage_secret_names" in text
+    assert '"https://$fqdn/health/ready"' in text
+    assert 'if [[ "$ready" != "1" ]]' in text
+    assert "--ingress internal" in text
+    assert "az containerapp ingress enable" in text

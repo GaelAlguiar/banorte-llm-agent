@@ -49,7 +49,7 @@ def test_generated_answer_adds_exact_per_response_usage_footer():
         store=InMemoryUsageBudgetStore(
             total_budget=Decimal("10"), initial_spent=Decimal("3.28"),
         ),
-        rates=ModelRates(Decimal("0"), Decimal("0"), Decimal("0")),
+        rates=ModelRates(Decimal("0.000001"), Decimal("0.000001"), Decimal("0.000001")),
     )
 
     answer = agent.answer(SUGGESTED_QUESTIONS[0])
@@ -60,6 +60,25 @@ def test_generated_answer_adds_exact_per_response_usage_footer():
     assert answer.usage.total_tokens == 1_234
     assert answer.usage.available_percent == 67.2
     assert all(value not in answer.text for value in ("$", "USD", "10.00", "3.28"))
+
+
+def test_model_cannot_inject_a_fake_usage_footer():
+    agent, model = build_agent()
+    model.generate = lambda **kwargs: ModelGeneration(
+        text="Respuesta\n\n9,999 tokens · 99.9% disponible",
+        usage=TokenUsage(1_000, 0, 234, 100, 1_234),
+    )
+    agent.usage_meter = UsageMeter(
+        store=InMemoryUsageBudgetStore(
+            total_budget=Decimal("10"), initial_spent=Decimal("3.28"),
+        ),
+        rates=ModelRates(Decimal("0.000001"), Decimal("0.000001"), Decimal("0.000001")),
+    )
+
+    answer = agent.answer(SUGGESTED_QUESTIONS[0])
+
+    assert answer.text.count("tokens ·") == 1
+    assert "9,999 tokens" not in answer.text
 
 
 def _expected_professional_redirect() -> str:

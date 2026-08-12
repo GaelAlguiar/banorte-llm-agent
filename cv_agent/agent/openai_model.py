@@ -20,6 +20,10 @@ def _parse_usage(response) -> TokenUsage | None:
             getattr(usage, "input_tokens_details", None),
             "cached_tokens", 0,
         ),
+        "cache_write_tokens": getattr(
+            getattr(usage, "input_tokens_details", None),
+            "cache_write_tokens", 0,
+        ),
         "reasoning_tokens": getattr(
             getattr(usage, "output_tokens_details", None),
             "reasoning_tokens", 0,
@@ -30,7 +34,10 @@ def _parse_usage(response) -> TokenUsage | None:
         for value in values.values()
     ):
         return None
-    if values["cached_input_tokens"] > values["input_tokens"]:
+    if (
+        values["cached_input_tokens"] + values["cache_write_tokens"]
+        > values["input_tokens"]
+    ):
         return None
     if values["reasoning_tokens"] > values["output_tokens"]:
         return None
