@@ -218,6 +218,9 @@ def run_evaluation(
 
 def main() -> None:
     from cv_agent.agent.service import CvAgentService
+    from cv_agent.agent.professional_intent import (
+        DeterministicProfessionalIntentClassifier,
+    )
     from cv_agent.retrieval.service import HybridCvRetrieval
     from cv_agent.security.privacy_intent import DeterministicPrivacyIntentClassifier
     from cv_agent.skills.registry import load_skills
@@ -232,6 +235,7 @@ def main() -> None:
         skills=load_skills(),
         model=EvidenceModel(),
         privacy_classifier=DeterministicPrivacyIntentClassifier(),
+        professional_classifier=DeterministicProfessionalIntentClassifier(),
     )
     report = run_evaluation(
         cases_path,

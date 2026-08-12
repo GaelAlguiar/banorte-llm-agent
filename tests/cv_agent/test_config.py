@@ -29,3 +29,9 @@ def test_settings_read_azure_search_values(monkeypatch):
     assert settings.azure_search_index == "profile-test"
     assert settings.azure_search_min_score == 0.07
     assert settings.embedding_dimensions == 512
+
+
+def test_settings_read_professional_classifier_model(monkeypatch):
+    monkeypatch.setenv("OPENAI_PROFESSIONAL_CLASSIFIER_MODEL", "intent-model")
+
+    assert Settings.from_env().professional_classifier_model == "intent-model"

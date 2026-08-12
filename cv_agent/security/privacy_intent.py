@@ -113,6 +113,7 @@ class DeterministicPrivacyIntentClassifier:
         r"\b(?:tokens?|prompts?)\b.{0,80}\b(?:pasamelo|entregamelo|compartelo|devuelvelo|muestrame\s+el\s+tuyo|imprime\s+el\s+tuyo|devolverme\s+el\s+suyo)\b",
         r"\b(?:tokens?|prompts?)\b.{0,80}\b(?:necesito\s+obtenerlo|puedes\s+devolverme\s+el\s+suyo)\b",
         r"\b(?:mi|tu|tus|el|la)\s+(?:token|prompt)\b",
+        r"\b(?:dame|dime|muestra|muestrame|revela|comparte|entrega|pasa|devuelve)\b.{0,50}\bclave\s+secreta\s+de\s+openai\b",
     )
 
     def classify(self, question: str) -> PrivacyDecision:

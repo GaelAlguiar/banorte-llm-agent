@@ -4,6 +4,9 @@ from pathlib import Path
 import pytest
 
 from cv_agent.agent.prompts import build_instructions
+from cv_agent.agent.professional_intent import (
+    DeterministicProfessionalIntentClassifier,
+)
 from cv_agent.agent.service import CvAgentService
 from cv_agent.knowledge.loader import load_knowledge
 from cv_agent.retrieval.service import HybridCvRetrieval
@@ -31,6 +34,7 @@ class RecordingModel:
 
 def build_agent(
     privacy_classifier=None,
+    professional_classifier=None,
 ) -> tuple[CvAgentService, RecordingModel]:
     privacy_cases = {
         row["question"]: "sensitive"
@@ -59,6 +63,10 @@ def build_agent(
         privacy_classifier=(
             privacy_classifier
             or ScriptedPrivacyIntentClassifier(decisions=privacy_cases)
+        ),
+        professional_classifier=(
+            professional_classifier
+            or DeterministicProfessionalIntentClassifier()
         ),
         trusted_benign_questions=SUGGESTED_QUESTIONS,
     )
@@ -1221,3 +1229,60 @@ def test_scope_and_generic_technology_frames_do_not_collide_with_known_intents(
 ):
     agent, _ = build_agent()
     assert agent.answer(question).skill_name == expected_skill
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Cuál es el color favorito de Gael?",
+        "¿Gael tiene mascotas?",
+        "¿Qué libro prefiere Gael?",
+    ),
+)
+def test_semantic_fallback_redirects_unforeseen_personal_topics_without_evidence(
+    question
+):
+    agent, model = build_agent()
+    result = agent.answer(question)
+    assert result.skill_name == "profile_summary"
+    assert result.evidence_ids == ()
+    assert model.calls[0]["evidence"] == []
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_skill"),
+    (
+        ("¿Cómo sería trabajar con Gael?", "behavioral_interview"),
+        ("¿Cómo colabora Gael con un equipo?", "behavioral_interview"),
+        ("¿Qué hizo Gael en Enerey?", "project_story"),
+        ("¿Qué proyecto musical desarrolló Gael?", "project_story"),
+    ),
+)
+def test_semantic_fallback_does_not_steal_known_or_behavioral_routes(
+    question, expected_skill
+):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == expected_skill
+
+
+def test_known_routes_bypass_professional_semantic_classifier():
+    class FailingIfCalled:
+        def classify(self, question):
+            raise AssertionError("no debe llamarse")
+
+    agent, _ = build_agent(professional_classifier=FailingIfCalled())
+
+    for question in SUGGESTED_QUESTIONS:
+        assert agent.answer(question).evidence_ids
+
+
+def test_professional_classifier_error_redirects_without_retrieval():
+    class FailingClassifier:
+        def classify(self, question):
+            return "out_of_scope"
+
+    agent, model = build_agent(professional_classifier=FailingClassifier())
+    result = agent.answer("Consulta profesional ambigua sobre Gael")
+
+    assert result.evidence_ids == ()
+    assert model.calls[0]["evidence"] == []

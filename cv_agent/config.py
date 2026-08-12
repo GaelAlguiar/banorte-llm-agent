@@ -8,6 +8,7 @@ class Settings:
     agent_api_key: str | None = None
     model: str = "gpt-5.6"
     privacy_classifier_model: str | None = None
+    professional_classifier_model: str | None = None
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
     azure_search_endpoint: str | None = None
@@ -23,6 +24,9 @@ class Settings:
             model=os.getenv("OPENAI_MODEL", "gpt-5.6"),
             privacy_classifier_model=(
                 os.getenv("OPENAI_PRIVACY_CLASSIFIER_MODEL") or None
+            ),
+            professional_classifier_model=(
+                os.getenv("OPENAI_PROFESSIONAL_CLASSIFIER_MODEL") or None
             ),
             embedding_model=os.getenv(
                 "EMBEDDING_MODEL",

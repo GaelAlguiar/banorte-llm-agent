@@ -2,6 +2,10 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from cv_agent.agent.prompts import build_instructions
+from cv_agent.agent.professional_intent import (
+    FailSafeProfessionalIntentClassifier,
+    ProfessionalIntentClassifier,
+)
 from cv_agent.agent.tools import ProfileTools
 from cv_agent.api.models import UserAttachment
 from cv_agent.retrieval.base import RetrievalService
@@ -11,7 +15,6 @@ from cv_agent.security.privacy_intent import (
 )
 from cv_agent.skills.models import AgentSkill
 from cv_agent.retrieval.text import tokenize
-from cv_agent.retrieval.text import normalize_text
 
 
 class ModelClient(Protocol):
@@ -42,40 +45,20 @@ class CvAgentService:
         skills: list[AgentSkill],
         model: ModelClient,
         privacy_classifier: PrivacyIntentClassifier,
+        professional_classifier: ProfessionalIntentClassifier | None = None,
         trusted_benign_questions: tuple[str, ...] = (),
     ):
         self.retrieval = retrieval
         self.skills = skills
         self.model = model
         self.privacy_classifier = privacy_classifier
+        self.professional_classifier = (
+            professional_classifier or FailSafeProfessionalIntentClassifier()
+        )
         self.trusted_benign_questions = frozenset(trusted_benign_questions)
         self.tools = ProfileTools(retrieval)
 
-    @staticmethod
-    def _is_unrelated_personal_question(question: str) -> bool:
-        tokens = set(tokenize(question))
-        unrelated_topics = {
-            "comida", "platillo", "receta", "futbol", "deportivo",
-            "deporte", "partido", "pelicula", "musica", "vacaciones",
-        }
-        return bool(tokens & unrelated_topics)
-
-    @staticmethod
-    def _has_generic_technology_frame(question: str) -> bool:
-        normalized = normalize_text(question)
-        frames = (
-            "experiencia tiene gael con ",
-            "experiencia tiene con ",
-            "experiencia con ",
-            "podria trabajar con ",
-            "trabajar con ",
-            "fundamentos para trabajar con ",
-            "adoptaria una plataforma ",
-            "adoptaria un framework ",
-        )
-        return any(frame in normalized for frame in frames)
-
-    def _select_skill(self, question: str) -> AgentSkill:
+    def _select_skill(self, question: str) -> AgentSkill | None:
         question_tokens = set(tokenize(question))
         scores = {
             name: 0
@@ -112,6 +95,9 @@ class CvAgentService:
         if dual_use_terms:
             scores["architecture_explainer"] += 4
         scores["learning_evidence"] += 5 * len(question_tokens & {"aprende", "aprenderia", "aprendizaje", "autodidacta", "domina", "mejora", "persistente", "trasladaria", "fine", "tuning"})
+        scores["learning_evidence"] += 7 * len(
+            question_tokens & {"langchain", "agents", "sdk", "adk"}
+        )
         if dual_use_terms and question_tokens & {
             "experiencia", "usa", "uso", "trabajado", "proyectos", "tokenizacion",
         }:
@@ -160,6 +146,8 @@ class CvAgentService:
         )
         if enerey_experience_context:
             scores["project_story"] += 5
+        if "enerey" in question_tokens and "hizo" in question_tokens:
+            scores["project_story"] += 8
         if {"proyecto", "importante"} <= question_tokens:
             scores["project_story"] += 4
         freelance_site_context = bool(
@@ -200,26 +188,15 @@ class CvAgentService:
         best_name, best_score = max(scores.items(), key=lambda item: item[1])
         if best_score:
             return next(skill for skill in self.skills if skill.name == best_name)
-        scored: list[tuple[int, AgentSkill]] = []
-        for skill in self.skills:
-            examples = set(tokenize(" ".join(skill.intent_examples)))
-            scored.append((len(question_tokens & examples), skill))
-        score, selected = max(scored, key=lambda item: item[0])
         if (
-            self._has_generic_technology_frame(question)
-            and (score == 0 or selected.name == "profile_summary")
+            {"experiencia", "laboral"} <= question_tokens
+            and question_tokens & {"ia", "inteligencia", "artificial"}
         ):
             return next(
                 skill for skill in self.skills
-                if skill.name == "capability_advisor"
-            )
-        if score == 0:
-            return next(
-                skill
-                for skill in self.skills
                 if skill.name == "profile_summary"
             )
-        return selected
+        return None
 
     @staticmethod
     def _needs_safe_fallback(skill: AgentSkill, evidence: list[dict]) -> bool:
@@ -244,6 +221,7 @@ class CvAgentService:
     ) -> AgentAnswer:
         if not question.strip():
             raise ValueError("La pregunta no puede estar vacía")
+        professional_intent = None
         if question in self.trusted_benign_questions:
             privacy_decision = "benign"
         else:
@@ -257,16 +235,18 @@ class CvAgentService:
             )
         else:
             skill = self._select_skill(question)
+            if skill is None:
+                professional_intent = self.professional_classifier.classify(question)
+                skill_name = {
+                    "profile": "profile_summary",
+                    "capability": "capability_advisor",
+                    "behavioral": "behavioral_interview",
+                    "out_of_scope": "profile_summary",
+                }[professional_intent]
+                skill = next(item for item in self.skills if item.name == skill_name)
         evidence = []
-        unrelated = (
-            skill.name != "privacy_guard"
-            and self._is_unrelated_personal_question(question)
-        )
-        if unrelated:
-            skill = next(
-                item for item in self.skills if item.name == "profile_summary"
-            )
-        if skill.name != "privacy_guard" and not unrelated:
+        out_of_scope = professional_intent == "out_of_scope"
+        if skill.name != "privacy_guard" and not out_of_scope:
             allowed_document_ids = {
                 document.id
                 for document in self.retrieval.documents

@@ -14,8 +14,16 @@ confirmados. Sin un incidente verificable, muestran el comportamiento más
 cercano —depuración, feedback, aprendizaje u ownership— sin inventar anécdotas.
 
 `capability_advisor` y `behavioral_interview` tienen allowlists explícitas y
-estrechas. Su fallback elimina sólo el filtro de categoría y conserva la misma
-allowlist. `role_fit` puede usar evidencia laboral directa de Enerey y
+estrechas. Su fallback de recuperación elimina sólo el filtro de categoría y
+conserva la misma allowlist. Cuando ninguna ruta determinista conocida tiene
+una coincidencia confiable, un clasificador semántico separado recibe solamente
+la pregunta y decide entre perfil, capacidad adyacente, conducta o fuera de
+alcance. Usa salida estructurada estricta, razonamiento `none`, máximo 128 tokens,
+`store=false` y timeout corto. Las rutas conocidas y las ocho sugerencias lo
+evitan, reduciendo costo y latencia. Ante error clasifica fuera de alcance y no
+recupera evidencia: prefiere una redirección neutral a filtrar datos del CV o
+atribuir experiencia equivocada. La privacidad se clasifica antes y de forma
+independiente. `role_fit` puede usar evidencia laboral directa de Enerey y
 cotizaciones. Las ocho sugerencias permanecen byte por byte sin cambios.
 
 ## Objetivo

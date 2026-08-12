@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.wsgi import WSGIMiddleware
 
 from cv_agent.agent.openai_model import OpenAIResponsesModel
+from cv_agent.agent.professional_intent import OpenAIProfessionalIntentClassifier
 from cv_agent.agent.service import CvAgentService
 from cv_agent.api.responses import router as responses_router
 from cv_agent.config import Settings
@@ -33,6 +34,10 @@ def _build_agent(settings: Settings) -> CvAgentService | None:
         privacy_classifier=OpenAIPrivacyIntentClassifier(
             api_key=settings.openai_api_key,
             model=settings.privacy_classifier_model or settings.model,
+        ),
+        professional_classifier=OpenAIProfessionalIntentClassifier(
+            api_key=settings.openai_api_key,
+            model=settings.professional_classifier_model or settings.model,
         ),
         trusted_benign_questions=SUGGESTED_QUESTIONS,
     )
