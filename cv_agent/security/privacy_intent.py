@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from cv_agent.retrieval.text import normalize_text, tokenize
@@ -17,76 +18,95 @@ DIRECT_SECRET_MARKERS = {
 }
 
 
-def _contains_any(text: str, phrases: tuple[str, ...]) -> bool:
-    return any(phrase in text for phrase in phrases)
+CLAUSE_BOUNDARY = re.compile(
+    r"[.!?;:\n]+|\b(?:y\s+despues|y\s+luego|ahora|despues|luego|pero)\b"
+)
+DEFINITION_INTENT = re.compile(r"\bque\s+(?:es|son|significa)\b")
+EDUCATIONAL_STEMS = (
+    "explic", "defin", "signific", "funcion", "contabil", "cuent",
+    "evalu", "redact", "escrib", "mejor", "consej", "recomend",
+)
+PROFESSIONAL_STEMS = (
+    "experien", "usa", "uso", "utiliz", "trabaj", "proyect",
+    "implement", "aplic", "engineering", "tokeniz",
+)
+def _has_stem(tokens: set[str], stems: tuple[str, ...]) -> bool:
+    return any(
+        token.startswith(stem)
+        for token in tokens
+        for stem in stems
+    )
 
 
-def classify_dual_use_intent(question: str) -> DualUseIntent:
+def _clauses(question: str) -> tuple[str, ...]:
     normalized = normalize_text(question)
-    tokens = set(tokenize(question))
+    return tuple(
+        clause.strip(" ¿¡,\t")
+        for clause in CLAUSE_BOUNDARY.split(normalized)
+        if clause.strip(" ¿¡,\t")
+    )
+
+
+def _classify_clause(
+    clause: str,
+    *,
+    inherited_dual_use: bool,
+) -> DualUseIntent:
+    tokens = set(tokenize(clause))
     terms = tokens & DUAL_USE_TERMS
-    if not terms:
+    if not terms and not inherited_dual_use:
         return "not_applicable"
 
-    token_definition = _contains_any(
-        normalized,
-        (
-            "que es un token", "que significa token",
-            "que significa un token", "define token",
-            "que son los tokens",
-        ),
-    )
-    prompt_definition = _contains_any(
-        normalized,
-        (
-            "que es un prompt", "que significa prompt",
-            "que significa un prompt", "define prompt",
-            "que son los prompts",
-        ),
-    )
-    educational_operation = (
-        bool(terms & {"token", "tokens"})
-        and _contains_any(
-            normalized,
-            ("como funciona", "como se cuentan", "como contar"),
-        )
-    ) or (
-        bool(terms & {"prompt", "prompts"})
-        and _contains_any(
-            normalized,
-            (
-                "como escribir", "como se evalua", "como evaluar",
-                "como mejorar",
-            ),
+    definition = bool(terms and DEFINITION_INTENT.search(clause))
+    educational = bool(
+        terms
+        and (
+            definition
+            or _has_stem(tokens, EDUCATIONAL_STEMS)
         )
     )
-    educational = token_definition or prompt_definition or educational_operation
+    professional = bool(
+        terms and _has_stem(tokens, PROFESSIONAL_STEMS)
+    )
 
     if terms & {"prompt", "prompts"} and "sistema" in tokens:
         return "sensitive"
     if terms & {"token", "tokens"}:
-        if "acceso" in tokens and not token_definition:
+        if "acceso" in tokens and not definition:
             return "sensitive"
-    if _contains_any(
-        normalized,
-        (
-            "cual es tu token", "cual es el token",
-            "cual es tu prompt", "cual es el prompt",
-            "mi token", "mi prompt",
-        ),
+    if re.search(
+        r"\b(?:mi|mis|tu|tus)\s+(?:token|tokens|prompt|prompts)\b",
+        clause,
     ):
         return "sensitive"
-
-    professional = bool(
-        "experiencia" in tokens
-        or "tokenizacion" in tokens
-        or (terms & {"prompt", "prompts"} and "engineering" in tokens)
-    )
+    if inherited_dual_use and not terms:
+        return "sensitive"
     if educational:
         return "educational"
     if professional:
         return "professional"
     return "sensitive"
+
+
+def classify_dual_use_intent(question: str) -> DualUseIntent:
+    dual_use_seen = False
+    result: DualUseIntent = "not_applicable"
+    for clause in _clauses(question):
+        terms = set(tokenize(clause)) & DUAL_USE_TERMS
+        if not dual_use_seen and not terms:
+            continue
+        decision = _classify_clause(
+            clause,
+            inherited_dual_use=dual_use_seen and not terms,
+        )
+        if decision == "sensitive":
+            return decision
+        if decision == "professional":
+            result = decision
+        elif decision == "educational" and result == "not_applicable":
+            result = decision
+        dual_use_seen = dual_use_seen or bool(terms)
+    return result
 
 
 def is_sensitive_request(question: str) -> bool:

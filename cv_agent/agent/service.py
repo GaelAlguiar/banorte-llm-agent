@@ -62,7 +62,7 @@ class CvAgentService:
             scores["architecture_explainer"] += 4
         scores["learning_evidence"] += 5 * len(question_tokens & {"aprende", "aprenderia", "aprendizaje", "autodidacta", "domina", "mejora", "persistente", "trasladaria", "fine", "tuning"})
         if dual_use_intent == "professional":
-            scores["learning_evidence"] += 4
+            scores["learning_evidence"] += 6
         scores["project_story"] += 5 * len(question_tokens & {"proyecto", "proyectos"})
         scores["project_story"] += 3 * len(question_tokens & {"automatizacion", "automatizaciones", "cotizacion", "cotizaciones", "construyo", "impacto", "resolvio", "whatsapp", "jira", "chatbot", "github"})
         enerey_context = "enerey" in question_tokens
