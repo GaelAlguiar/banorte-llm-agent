@@ -88,9 +88,18 @@ def create_flask_app(agent_provider: Callable[[], Any]) -> Flask:
             attachment_kinds=list(answer.attachment_kinds),
             safety_decision=answer.safety_decision,
         )
+        usage = answer.usage
         return jsonify({
             "response": answer.text,
             "evidence": [asdict(item) for item in answer.evidence],
+            "usage": ({
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "total_tokens": usage.total_tokens,
+            } if usage else None),
+            "budget": ({
+                "available_percent": usage.available_percent,
+            } if usage and usage.available_percent is not None else None),
         })
 
     return app

@@ -2,3 +2,5 @@
 @media (max-width: 760px){.sidebar{position:fixed;inset:0 auto 0 0;transform:translateX(-105%);transition:transform .22s ease;box-shadow:var(--shadow)}.sidebar.open{transform:translateX(0)}.backdrop{display:block;position:fixed;inset:0;border:0;background:rgba(20,15,17,.36);z-index:10}.backdrop[hidden]{display:none}.menu-button{display:block}.topbar{padding:0 12px}.welcome{padding:46px 18px 22px}.welcome h1{font-size:29px}.suggestions{grid-template-columns:1fr;margin-top:28px}.messages{padding:25px 16px}.bubble{max-width:88%}.composer-area{padding:10px 12px 12px}.composer-area>p{padding:0 8px}.icon-button{min-height:44px}}
 .evidence{font-size:12px;color:var(--muted);margin-top:7px}.evidence summary{cursor:pointer;min-height:28px;display:flex;align-items:center}.evidence ul{margin:4px 0 2px;padding-left:18px}.evidence li{margin:3px 0}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+.message-usage{margin:10px 0 2px;color:var(--muted);font-size:12px;line-height:1.4}
