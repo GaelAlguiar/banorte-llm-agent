@@ -80,7 +80,7 @@ class AzureSearchRetrieval:
         allowed_document_ids: set[str] | None = None,
     ) -> list[RetrievalHit]:
         limit = max(1, min(top_k, 8))
-        candidate_limit = max(limit, min(8, limit * 3))
+        candidate_limit = limit * 3
         vector = self.embeddings.embed(query)
         vector_query = VectorizedQuery(
             vector=list(vector),

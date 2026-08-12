@@ -53,11 +53,11 @@ def test_search_sends_text_vector_and_category_filter():
     assert hits[0].section == "Infraestructura"
     assert hits[0].score == 0.91
     assert client.kwargs["search_text"] == "experiencia con Terraform"
-    assert client.kwargs["top"] == 8
+    assert client.kwargs["top"] == 9
     assert client.kwargs["filter"] == "category eq 'infraestructura'"
     vector_query = client.kwargs["vector_queries"][0]
     assert vector_query.fields == "content_vector"
-    assert vector_query.k_nearest_neighbors == 8
+    assert vector_query.k_nearest_neighbors == 9
     assert vector_query.vector == [0.1, 0.2, 0.3]
 
 
@@ -67,13 +67,14 @@ def test_search_escapes_filters_and_caps_top_k():
         documents=[], client=client, embeddings=FakeEmbeddings()
     )
 
-    retrieval.search(
+    hits = retrieval.search(
         "consulta",
         top_k=20,
         categories={"l'azure", "perfil"},
     )
 
-    assert client.kwargs["top"] == 8
+    assert client.kwargs["top"] == 24
+    assert len(hits) <= 8
     assert client.kwargs["filter"] == (
         "category eq 'l''azure' or category eq 'perfil'"
     )
@@ -163,4 +164,29 @@ def test_azure_search_limits_repeated_parent_but_keeps_distinct_sections():
     hits = retrieval.search("consulta compuesta", top_k=4)
 
     assert [hit.section for hit in hits] == ["Uno", "Dos", "Otro"]
-    assert client.kwargs["top"] == 8
+    assert client.kwargs["top"] == 12
+
+
+def test_azure_diversity_fetches_candidates_beyond_first_eight_chunks():
+    dominated = [
+        result(0.99 - index / 100, section=f"Sección {index}")
+        for index in range(8)
+    ]
+    later_sources = [
+        result(
+            0.80 - index / 100,
+            section=f"Fuente {index}",
+            document_id=f"proyecto-{index}",
+        )
+        for index in range(6)
+    ]
+    client = FakeSearchClient(dominated + later_sources)
+    retrieval = AzureSearchRetrieval(
+        documents=[], client=client, embeddings=FakeEmbeddings()
+    )
+
+    hits = retrieval.search("consulta compuesta", top_k=8)
+
+    assert client.kwargs["top"] == 24
+    assert len(hits) == 8
+    assert len({hit.document_id for hit in hits}) == 7
