@@ -48,8 +48,11 @@ Para la referencia opaca observada, el agente exige un resolver independiente:
 `PARLEY_FILE_BASE_URL` y `PARLEY_FILE_BEARER_TOKEN`. La referencia sólo admite
 el identificador alfanumérico esperado; no acepta rutas, queries, fragmentos ni
 espacios. El resolver consulta una única base HTTPS, no sigue redirecciones,
-realiza una comprobación DNS pública preventiva, limita la descarga a 10 MiB y valida el tipo
+fija la conexión a una IP pública validada con Host/SNI originales, limita el
+total descargado por solicitud a 10 MiB y valida el tipo
 de contenido antes de convertirlo en una entrada Base64 temporal para OpenAI.
+Además requiere `PARLEY_FILE_CAPABILITY_SCOPE=agent-files`; sólo debe declararse
+si el portal restringe la credencial a archivos asignados a este agente.
 
 La descarga del portal requiere una sesión o credencial que no se reenvía al
 endpoint del agente. La clave dedicada usada por la plataforma para invocar al

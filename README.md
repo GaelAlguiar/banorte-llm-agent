@@ -131,9 +131,13 @@ La interfaz del portal también puede representar cualquier carga —incluidos
 PDF— como `input_image` con una referencia opaca
 `parley-file:file_<identificador>`. El agente valida estrictamente ese formato y
 puede resolverlo mediante `PARLEY_FILE_BASE_URL` y una credencial de lectura
-dedicada `PARLEY_FILE_BEARER_TOKEN`. Nunca reutiliza `AGENT_API_KEY`. El resolver
-mantiene fijo el host y la ruta, hace una comprobación DNS pública preventiva,
-rechaza redirecciones, valida
+dedicada `PARLEY_FILE_BEARER_TOKEN`. Nunca reutiliza `AGENT_API_KEY` ni
+`OPENAI_API_KEY`. El resolver
+también exige `PARLEY_FILE_CAPABILITY_SCOPE=agent-files`, una confirmación
+operativa de que la credencial sólo puede leer los archivos asignados al agente.
+Si el portal entrega un bearer amplio, no debe habilitarse. El resolver
+mantiene fijo el host y la ruta, conecta a una IP pública previamente validada
+con el Host y SNI originales, rechaza redirecciones, valida
 MIME, firma binaria y tamaño, y entrega los bytes temporalmente al proveedor
 como Base64. Si falta la credencial o la plataforma no la reconoce, la
 solicitud falla cerrada sin exponer el identificador ni detalles internos.
@@ -155,7 +159,8 @@ Los adjuntos son contexto temporal, no se escriben en disco, no se persisten y
 no se incorporan automáticamente a la base vectorial. Las URLs HTTPS se
 recuperan directamente por el proveedor. Las referencias opacas, cuando existe
 una credencial dedicada, se descargan en memoria con un máximo de 10 MiB y se
-descartan al terminar la solicitud. Sus
+descartan al terminar la solicitud. Todas las descargas de una solicitud
+comparten el mismo presupuesto máximo de 10 MiB. Sus
 instrucciones se consideran contenido no confiable para impedir prompt
 injection; las afirmaciones sobre Gael siguen requiriendo evidencia autorizada.
 La skill `attachment_analysis` hace una sola llamada generativa con el adjunto

@@ -21,6 +21,7 @@ command -v jq >/dev/null || { echo "jq no está instalado." >&2; exit 1; }
 : "${MAX_REQUEST_BODY_BYTES:=1048576}"
 : "${PARLEY_FILE_BASE_URL:=}"
 : "${PARLEY_FILE_BEARER_TOKEN:=}"
+: "${PARLEY_FILE_CAPABILITY_SCOPE:=}"
 : "${PARLEY_FILE_MAX_BYTES:=10485760}"
 if ! [[ "$MAX_ATTACHMENTS" =~ ^[0-4]$ ]]; then
   echo "MAX_ATTACHMENTS debe ser un entero entre 0 y 4." >&2
@@ -50,9 +51,19 @@ if [[ "$bool_resolver_base" != "$bool_resolver_token" ]]; then
   echo "Configura juntos PARLEY_FILE_BASE_URL y PARLEY_FILE_BEARER_TOKEN." >&2
   exit 6
 fi
+if [[ "$bool_resolver_base" == "1" \
+  && "$PARLEY_FILE_CAPABILITY_SCOPE" != "agent-files" ]]; then
+  echo "Confirma PARLEY_FILE_CAPABILITY_SCOPE=agent-files sólo para una capacidad acotada." >&2
+  exit 6
+fi
+if [[ "$bool_resolver_base" == "0" && -n "$PARLEY_FILE_CAPABILITY_SCOPE" ]]; then
+  echo "PARLEY_FILE_CAPABILITY_SCOPE requiere un resolver configurado." >&2
+  exit 6
+fi
 if [[ -n "$PARLEY_FILE_BEARER_TOKEN" \
-  && "$PARLEY_FILE_BEARER_TOKEN" == "$AGENT_API_KEY" ]]; then
-  echo "La credencial de archivos debe ser distinta de AGENT_API_KEY." >&2
+  && ( "$PARLEY_FILE_BEARER_TOKEN" == "$AGENT_API_KEY" \
+    || "$PARLEY_FILE_BEARER_TOKEN" == "$OPENAI_API_KEY" ) ]]; then
+  echo "La credencial de archivos debe ser distinta de las demás claves." >&2
   exit 6
 fi
 resolver_secret_args=()
@@ -62,6 +73,7 @@ if [[ "$bool_resolver_base" == "1" ]]; then
   resolver_env_args+=(
     PARLEY_FILE_BASE_URL="$PARLEY_FILE_BASE_URL"
     PARLEY_FILE_BEARER_TOKEN=secretref:parley-file-token
+    PARLEY_FILE_CAPABILITY_SCOPE="$PARLEY_FILE_CAPABILITY_SCOPE"
     PARLEY_FILE_MAX_BYTES="$PARLEY_FILE_MAX_BYTES"
   )
 fi
@@ -157,6 +169,7 @@ if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/
       --remove-env-vars \
         PARLEY_FILE_BASE_URL \
         PARLEY_FILE_BEARER_TOKEN \
+        PARLEY_FILE_CAPABILITY_SCOPE \
         PARLEY_FILE_MAX_BYTES \
       --output none
     stale_resolver_secret="$(az containerapp secret list \

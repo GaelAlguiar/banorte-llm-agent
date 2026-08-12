@@ -108,9 +108,11 @@ def test_deploy_script_wires_optional_resolver_with_a_separate_secret() -> None:
 
     assert ': "${PARLEY_FILE_BASE_URL:=}"' in text
     assert ': "${PARLEY_FILE_BEARER_TOKEN:=}"' in text
+    assert ': "${PARLEY_FILE_CAPABILITY_SCOPE:=}"' in text
     assert ': "${PARLEY_FILE_MAX_BYTES:=10485760}"' in text
     assert "parley-file-token" in text
     assert "PARLEY_FILE_BEARER_TOKEN=secretref:parley-file-token" in text
+    assert 'PARLEY_FILE_CAPABILITY_SCOPE="$PARLEY_FILE_CAPABILITY_SCOPE"' in text
     assert "PARLEY_FILE_BEARER_TOKEN=secretref:agent-api-key" not in text
     assert "resolver_secret_args" in text
     assert "resolver_env_args" in text
@@ -129,5 +131,6 @@ def test_deploy_script_rejects_agent_key_reuse_and_removes_stale_secret() -> Non
     text = SCRIPT.read_text(encoding="utf-8")
 
     assert '"$PARLEY_FILE_BEARER_TOKEN" == "$AGENT_API_KEY"' in text
+    assert '"$PARLEY_FILE_BEARER_TOKEN" == "$OPENAI_API_KEY"' in text
     assert "az containerapp secret remove" in text
     assert "--secret-names parley-file-token" in text

@@ -64,13 +64,29 @@ _FILE_MIME_TYPES = frozenset({
     "text/markdown",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 })
+_MIME_EXTENSIONS = {
+    "image/png": frozenset({".png"}),
+    "image/jpeg": frozenset({".jpg", ".jpeg"}),
+    "image/webp": frozenset({".webp"}),
+    "image/gif": frozenset({".gif"}),
+    "application/pdf": frozenset({".pdf"}),
+    "text/plain": frozenset({".txt"}),
+    "text/markdown": frozenset({".md"}),
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": (
+        frozenset({".docx"})
+    ),
+}
 _PARLEY_FILE_REFERENCE = re.compile(
     r"^parley-file:(file_[a-z0-9]{8,64})$"
 )
 
 
 class AttachmentResolver(Protocol):
-    def resolve(self, file_id: str) -> Mapping[str, Any]: ...
+    max_file_bytes: int
+
+    def resolve(
+        self, file_id: str, *, max_bytes: int | None = None,
+    ) -> Mapping[str, Any]: ...
 
 
 @dataclass(frozen=True)
@@ -188,6 +204,16 @@ def _validate_attachment_type(
         for hint in supplied_mime_hints
     ):
         raise ValueError("El MIME declarado del adjunto no está permitido")
+    normalized_mimes = tuple(
+        hint.strip().lower() for hint in supplied_mime_hints
+        if isinstance(hint, str)
+    )
+    if extensions and any(
+        extension not in _MIME_EXTENSIONS[mime]
+        for mime in normalized_mimes
+        for extension in extensions
+    ):
+        raise ValueError("El MIME y la extensión del adjunto no coinciden")
     if not extensions and not supplied_mime_hints:
         raise ValueError("El tipo o extensión del adjunto no está permitido")
 
@@ -197,6 +223,7 @@ def _resolved_attachment(
     *,
     policy: AttachmentPolicy,
     resolver: AttachmentResolver | None,
+    remaining_bytes: int | None = None,
 ) -> UserAttachment | None:
     if not isinstance(value, str) or not value.startswith("parley-file:"):
         return None
@@ -208,7 +235,7 @@ def _resolved_attachment(
             "No hay un resolver seguro configurado para archivos del portal"
         )
     try:
-        result = resolver.resolve(match.group(1))
+        result = resolver.resolve(match.group(1), max_bytes=remaining_bytes)
     except Exception as error:
         raise ValueError(
             "El archivo del portal no pudo resolverse de forma segura"
@@ -289,6 +316,9 @@ def extract_user_input(
                 and isinstance(part.get("text"), str)
             ]
             attachments: list[UserAttachment] = []
+            resolver_budget = (
+                resolver.max_file_bytes if resolver is not None else 0
+            )
             attachment_part_count = sum(
                 1
                 for part in content
@@ -313,9 +343,11 @@ def extract_user_input(
                         part.get("image_url"),
                         policy=active_policy,
                         resolver=resolver,
+                        remaining_bytes=resolver_budget,
                     )
                     if resolved is not None:
                         attachments.append(resolved)
+                        resolver_budget -= len(resolved.data or b"")
                         continue
                     url = _validated_https_url(part.get("image_url"), active_policy)
                     _validate_attachment_type(
@@ -334,9 +366,11 @@ def extract_user_input(
                         part.get("file_url"),
                         policy=active_policy,
                         resolver=resolver,
+                        remaining_bytes=resolver_budget,
                     )
                     if resolved is not None:
                         attachments.append(resolved)
+                        resolver_budget -= len(resolved.data or b"")
                         continue
                     filename = _validated_filename(part.get("filename"))
                     url = _validated_https_url(part.get("file_url"), active_policy)
@@ -366,5 +400,33 @@ def extract_user_input(
 
 
 def extract_user_text(value: str | list[dict[str, Any]]) -> str:
-    """Compatibilidad con consumidores internos que solo necesitan texto."""
-    return extract_user_input(value).text
+    """Extrae sólo texto sin validar ni resolver referencias de adjuntos."""
+    if isinstance(value, str):
+        text = value.strip()
+        if text:
+            return text
+        raise ValueError("input no puede estar vacío")
+    for item in reversed(value):
+        if item.get("role") != "user":
+            continue
+        content = item.get("content", "")
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+        if isinstance(content, list):
+            parts = [
+                part.get("text", "").strip()
+                for part in content
+                if isinstance(part, dict)
+                and part.get("type") in {"input_text", "text"}
+                and isinstance(part.get("text"), str)
+                and part.get("text", "").strip()
+            ]
+            if parts:
+                return "\n".join(parts)
+            if any(
+                isinstance(part, dict)
+                and part.get("type") in {"input_image", "input_file"}
+                for part in content
+            ):
+                return DEFAULT_ATTACHMENT_QUESTION
+    raise ValueError("No se encontró un mensaje de usuario en input")

@@ -58,18 +58,21 @@ contenido se escribe en logs, respuestas, RAG ni almacenamiento de la aplicació
 
 Las referencias opacas `parley-file:` siguen otra frontera. Permanecen
 deshabilitadas salvo que existan una base HTTPS fija y un bearer dedicado
-distinto de `AGENT_API_KEY`. El identificador sólo admite caracteres
+distinto de `AGENT_API_KEY` y `OPENAI_API_KEY`. El identificador sólo admite caracteres
 alfanuméricos minúsculos dentro de una longitud acotada. Antes de descargar, el
-resolver hace una comprobación DNS preventiva y rechaza la operación si observa
-una dirección no pública. El host es fijo, configurado por operación y debe usar
-DNS estable; esa comprobación no sustituye controles de red de salida contra un
-cambio de resolución entre validación y conexión. No acepta redirecciones,
+resolver selecciona una dirección pública validada y conecta directamente a
+ella conservando el Host y SNI del FQDN fijo. Así la conexión autenticada no
+vuelve a resolver el nombre entre la validación y el GET. No acepta redirecciones,
 credenciales en URL, puertos alternativos ni destinos elegidos por el usuario.
-Durante la descarga limita bytes declarados y
+Durante la descarga solicita codificación `identity`, rechaza contenido
+comprimido y limita bytes declarados, reales y acumulados por solicitud
 reales, valida MIME y firma de PNG, JPEG, GIF, WebP o PDF —o estructura básica
-para texto y DOCX— y conserva el contenido sólo en memoria durante la llamada.
+para texto— y conserva el contenido sólo en memoria durante la llamada. Las
+referencias opacas no admiten DOCX porque un contenedor OOXML requiere
+inspección antivirus y límites de descompresión adicionales.
 
-Una solicitud sensible se bloquea antes de recuperación y el adjunto ni siquiera
+Una solicitud sensible se clasifica sólo con su texto antes de recuperar la
+referencia opaca y el adjunto ni siquiera
 se reenvía al proveedor. Para una comparación permitida, el modelo recibe el
 adjunto como dato temporal no confiable junto con evidencia autorizada acotada;
 las instrucciones embebidas nunca sustituyen la política del sistema.

@@ -30,10 +30,13 @@ def test_resolver_downloads_exact_file_with_dedicated_bearer():
 
     def handler(request):
         assert str(request.url) == (
-            "https://portal.example.com/reto-ia/api/files/"
+            "https://93.184.216.34/reto-ia/api/files/"
             "file_abcdefghijk123456789mnopq"
         )
+        assert request.headers["host"] == "portal.example.com"
+        assert request.extensions["sni_hostname"] == "portal.example.com"
         assert request.headers["authorization"] == "Bearer portal-file-secret"
+        assert request.headers["accept-encoding"] == "identity"
         return httpx.Response(
             200,
             headers={
@@ -168,4 +171,18 @@ def test_resolver_rejects_spoofed_or_unsupported_content(mime_type, content):
     ))
 
     with pytest.raises(ValueError, match="tipo|contenido"):
+        resolver.resolve("file_abcdefgh12345678")
+
+
+def test_resolver_rejects_unexpected_content_encoding():
+    resolver = _resolver(lambda request: httpx.Response(
+        200,
+        headers={
+            "content-type": "text/plain",
+            "content-encoding": "gzip",
+        },
+        content=b"compressed",
+    ))
+
+    with pytest.raises(ValueError, match="codificación|no pudo resolverse"):
         resolver.resolve("file_abcdefgh12345678")

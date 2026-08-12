@@ -60,12 +60,14 @@ def test_parley_resolver_reads_dedicated_optional_secret(monkeypatch):
         "https://portal.example.com/reto-ia/api/files",
     )
     monkeypatch.setenv("PARLEY_FILE_BEARER_TOKEN", "separate-secret")
+    monkeypatch.setenv("PARLEY_FILE_CAPABILITY_SCOPE", "agent-files")
     monkeypatch.setenv("PARLEY_FILE_MAX_BYTES", "10485760")
 
     settings = Settings.from_env()
 
     assert settings.parley_file_base_url.endswith("/api/files")
     assert settings.parley_file_bearer_token == "separate-secret"
+    assert settings.parley_file_capability_scope == "agent-files"
     assert settings.parley_file_max_bytes == 10_485_760
 
 
@@ -80,6 +82,25 @@ def test_parley_resolver_rejects_reusing_the_agent_api_key():
             agent_api_key="shared-secret",
             parley_file_base_url="https://portal.example.com/api/files",
             parley_file_bearer_token="shared-secret",
+            parley_file_capability_scope="agent-files",
+        )
+
+
+def test_parley_resolver_rejects_reusing_the_openai_api_key():
+    with pytest.raises(ValueError, match="distinta"):
+        Settings(
+            openai_api_key="shared-secret",
+            parley_file_base_url="https://portal.example.com/api/files",
+            parley_file_bearer_token="shared-secret",
+            parley_file_capability_scope="agent-files",
+        )
+
+
+def test_parley_resolver_requires_an_explicit_agent_file_capability_scope():
+    with pytest.raises(ValueError, match="capability_scope"):
+        Settings(
+            parley_file_base_url="https://portal.example.com/api/files",
+            parley_file_bearer_token="dedicated-secret",
         )
 
 

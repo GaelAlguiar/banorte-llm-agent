@@ -25,6 +25,7 @@ class Settings:
     max_request_body_bytes: int = DEFAULT_MAX_REQUEST_BODY_BYTES
     parley_file_base_url: str | None = None
     parley_file_bearer_token: str | None = None
+    parley_file_capability_scope: str | None = None
     parley_file_max_bytes: int = 10_485_760
 
     def __post_init__(self) -> None:
@@ -41,13 +42,23 @@ class Settings:
             raise ValueError(
                 "parley_file_base_url y parley_file_bearer_token deben configurarse juntos"
             )
+        if self.parley_file_base_url and self.parley_file_capability_scope != "agent-files":
+            raise ValueError(
+                "parley_file_capability_scope debe ser agent-files"
+            )
+        if not self.parley_file_base_url and self.parley_file_capability_scope:
+            raise ValueError(
+                "parley_file_capability_scope requiere un resolver configurado"
+            )
         if (
-            self.agent_api_key
-            and self.parley_file_bearer_token
-            and self.agent_api_key == self.parley_file_bearer_token
+            self.parley_file_bearer_token
+            and self.parley_file_bearer_token in {
+                self.agent_api_key,
+                self.openai_api_key,
+            }
         ):
             raise ValueError(
-                "parley_file_bearer_token debe ser distinta de agent_api_key"
+                "parley_file_bearer_token debe ser distinta de las demás claves"
             )
         if not 1 <= self.parley_file_max_bytes <= 10_485_760:
             raise ValueError(
@@ -99,6 +110,9 @@ class Settings:
             parley_file_base_url=os.getenv("PARLEY_FILE_BASE_URL") or None,
             parley_file_bearer_token=(
                 os.getenv("PARLEY_FILE_BEARER_TOKEN") or None
+            ),
+            parley_file_capability_scope=(
+                os.getenv("PARLEY_FILE_CAPABILITY_SCOPE") or None
             ),
             parley_file_max_bytes=int(os.getenv(
                 "PARLEY_FILE_MAX_BYTES",

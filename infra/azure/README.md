@@ -28,12 +28,14 @@ ambas variables tanto al crear como al actualizar la Container App y se detiene
 antes de tocar Azure si se habilitan adjuntos sin hosts autorizados.
 
 Si la plataforma entrega referencias opacas en lugar de URLs firmadas, utiliza
-una credencial de lectura independiente. No reutilices `AGENT_API_KEY`:
+una credencial de lectura independiente. No reutilices `AGENT_API_KEY` ni
+`OPENAI_API_KEY`, y sólo confirma el alcance si el portal lo aplica realmente:
 
 ```bash
 export MAX_ATTACHMENTS=2
 export PARLEY_FILE_BASE_URL="https://portal.example.com/ruta/api/files"
 export PARLEY_FILE_BEARER_TOKEN
+export PARLEY_FILE_CAPABILITY_SCOPE="agent-files"
 export PARLEY_FILE_MAX_BYTES=10485760
 CONFIRM_AZURE_CONTEXT=YES bash infra/azure/deploy.sh
 ```

@@ -19,7 +19,6 @@ _ALLOWED_MIME_TYPES = frozenset({
     "application/pdf",
     "text/plain",
     "text/markdown",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 })
 MAX_PARLEY_FILE_BYTES = 10_485_760
 
@@ -75,7 +74,6 @@ def _filename(headers: httpx.Headers, mime_type: str) -> str:
         "application/pdf": ".pdf",
         "text/plain": ".txt",
         "text/markdown": ".md",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
     }[mime_type]
     return f"adjunto{extension}"
 
@@ -99,8 +97,6 @@ def content_matches_declared_type(mime_type: str, data: bytes) -> bool:
         except UnicodeDecodeError:
             return False
         return b"\x00" not in data
-    if mime_type.endswith("wordprocessingml.document"):
-        return data.startswith(b"PK\x03\x04")
     return False
 
 
@@ -117,6 +113,7 @@ class ParleyFileResolver:
         resolve_addresses: Callable[[str, int], list[Any]] | None = None,
     ) -> None:
         self.base_url, self.hostname = _public_base_url(base_url)
+        self.base_path = urlsplit(self.base_url).path
         if (
             not isinstance(bearer_token, str)
             or not bearer_token.strip()
@@ -133,10 +130,11 @@ class ParleyFileResolver:
         self.client = client or httpx.Client(
             timeout=httpx.Timeout(15.0, connect=5.0),
             follow_redirects=False,
+            trust_env=False,
         )
         self.resolve_addresses = resolve_addresses or socket.getaddrinfo
 
-    def _validate_dns(self) -> None:
+    def _validated_addresses(self) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
         try:
             addresses = self.resolve_addresses(self.hostname, 443)
         except OSError as error:
@@ -149,12 +147,26 @@ class ParleyFileResolver:
             raise ValueError("El host del resolver no pudo validarse") from error
         if any(not address.is_global for address in ips):
             raise ValueError("El host del resolver debe resolver a una IP pública")
+        return ips
 
-    def resolve(self, file_id: str) -> dict[str, Any]:
+    def resolve(
+        self, file_id: str, *, max_bytes: int | None = None,
+    ) -> dict[str, Any]:
         if not isinstance(file_id, str) or not _FILE_ID.fullmatch(file_id):
             raise ValueError("La referencia del archivo del portal es inválida")
-        self._validate_dns()
-        url = f"{self.base_url}/{file_id}"
+        effective_max_bytes = self.max_file_bytes
+        if max_bytes is not None:
+            if max_bytes < 1:
+                raise ValueError("El tamaño total de adjuntos excede el límite")
+            effective_max_bytes = min(effective_max_bytes, max_bytes)
+        addresses = self._validated_addresses()
+        selected_address = addresses[0]
+        address_literal = (
+            f"[{selected_address.compressed}]"
+            if selected_address.version == 6
+            else selected_address.compressed
+        )
+        url = f"https://{address_literal}{self.base_path}/{file_id}"
         try:
             with self.client.stream(
                 "GET",
@@ -162,11 +174,19 @@ class ParleyFileResolver:
                 headers={
                     "Authorization": f"Bearer {self.bearer_token}",
                     "Accept": ", ".join(sorted(_ALLOWED_MIME_TYPES)),
+                    "Accept-Encoding": "identity",
+                    "Host": self.hostname,
                 },
+                extensions={"sni_hostname": self.hostname},
             ) as response:
                 if response.status_code != 200:
                     raise ValueError(
                         "El archivo del portal no pudo resolverse de forma segura"
+                    )
+                content_encoding = response.headers.get("content-encoding", "identity")
+                if content_encoding.lower().strip() not in {"", "identity"}:
+                    raise ValueError(
+                        "La codificación del archivo del portal no está permitida"
                     )
                 raw_content_type = response.headers.get("content-type", "")
                 mime_type = raw_content_type.split(";", 1)[0].strip().lower()
@@ -180,17 +200,17 @@ class ParleyFileResolver:
                         raise ValueError(
                             "El tamaño del archivo del portal es inválido"
                         ) from error
-                    if declared_length < 0 or declared_length > self.max_file_bytes:
+                    if declared_length < 0 or declared_length > effective_max_bytes:
                         raise ValueError(
                             "El tamaño del archivo del portal excede el límite"
                         )
                 body = bytearray()
                 for chunk in response.iter_bytes():
-                    body.extend(chunk)
-                    if len(body) > self.max_file_bytes:
+                    if len(body) + len(chunk) > effective_max_bytes:
                         raise ValueError(
                             "El tamaño del archivo del portal excede el límite"
                         )
+                    body.extend(chunk)
         except ValueError:
             raise
         except httpx.HTTPError as error:
