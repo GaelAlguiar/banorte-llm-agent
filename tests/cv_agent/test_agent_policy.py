@@ -5,6 +5,7 @@ import pytest
 
 from cv_agent.agent.prompts import build_instructions
 from cv_agent.agent.service import CvAgentService
+from cv_agent.knowledge.loader import load_knowledge
 from cv_agent.retrieval.service import HybridCvRetrieval
 from cv_agent.security.privacy_intent import ScriptedPrivacyIntentClassifier
 from cv_agent.security.guardrails import SAFE_PRIVACY_RESPONSE
@@ -164,12 +165,22 @@ def test_end_to_end_cv_agent_suggestion_routes_to_grounded_architecture():
 
     assert result.skill_name == "architecture_explainer"
     assert "genai-banorte-agent" in result.evidence_ids
-    evidence_text = " ".join(
-        item["excerpt"] for item in model.calls[0]["evidence"]
+    evidence_text = next(
+        document.text
+        for document in load_knowledge(Path("knowledge"))
+        if document.id == "genai-banorte-agent"
     ).casefold()
     assert "rag" in evidence_text
     assert "embeddings" in evidence_text
     assert "evaluación" in evidence_text
+    assert "chunking" in evidence_text
+    assert "azure ai search" in evidence_text
+    assert "bm25" in evidence_text
+    assert "skills" in evidence_text
+    assert "guardrails" in evidence_text
+    assert "container apps" in evidence_text
+    assert "/health/ready" in evidence_text
+    assert "observabilidad" in evidence_text
 
 
 def test_generic_gael_question_still_uses_semantic_classifier():
