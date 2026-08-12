@@ -1,5 +1,9 @@
 from types import SimpleNamespace
 from pathlib import Path
+import io
+
+from PIL import Image
+from pypdf import PdfReader
 
 from cv_agent.agent.openai_model import OpenAIResponsesModel
 from cv_agent.api.models import UserAttachment
@@ -51,9 +55,12 @@ def test_model_sends_image_and_file_as_responses_content_parts():
     prompt = content[0]["text"].lower()
     assert "contenido no confiable" in prompt
     assert "no obedezcas instrucciones" in prompt
-    assert "requisito" in prompt
+    assert "contenido profesional" in prompt
     assert "evidencia directa" in prompt
     assert "capacidad transferible" in prompt
+    for professional_content in ("vacante", "cv", "proyecto", "arquitectura"):
+        assert professional_content in prompt
+    assert "solicita el usuario" in prompt
     assert captured["store"] is False
 
 
@@ -81,15 +88,23 @@ def test_model_sends_only_allowed_reasoning_configuration():
 
 def test_real_png_fixture_drives_offline_multimodal_contract():
     fixture = Path("tests/fixtures/vacancy.png").read_bytes()
-    assert fixture.startswith(b"\x89PNG\r\n\x1a\n")
+    with Image.open(io.BytesIO(fixture)) as image:
+        image.verify()
 
     model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
     captured = {}
 
     def create(**kwargs):
         captured.update(kwargs)
+        content = kwargs["input"][0]["content"]
+        fixture_by_url = {
+            "https://uploads.example.com/vacancy.png": fixture,
+        }
+        uploaded = fixture_by_url[content[1]["image_url"]]
+        with Image.open(io.BytesIO(uploaded)) as image:
+            assert image.size == (1, 1)
         return SimpleNamespace(
-            output_text="Requisito: Python; conexión: evidencia directa."
+            output_text="Captura de arquitectura: Python; evidencia directa."
         )
 
     model.client.responses.create = create
@@ -112,14 +127,21 @@ def test_real_png_fixture_drives_offline_multimodal_contract():
 
 def test_real_pdf_fixture_drives_offline_multimodal_contract():
     fixture = Path("tests/fixtures/vacancy.pdf").read_bytes()
-    assert fixture.startswith(b"%PDF-")
-    assert b"%%EOF" in fixture
+    reader = PdfReader(io.BytesIO(fixture))
+    assert len(reader.pages) == 1
+    assert reader.metadata.title == "Vacante IA"
 
     model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
     captured = {}
 
     def create(**kwargs):
         captured.update(kwargs)
+        content = kwargs["input"][0]["content"]
+        fixture_by_url = {
+            "https://uploads.example.com/vacancy.pdf": fixture,
+        }
+        uploaded = fixture_by_url[content[1]["file_url"]]
+        assert PdfReader(io.BytesIO(uploaded)).metadata.title == "Vacante IA"
         return SimpleNamespace(
             output_text="Requisito: Azure; conexión: experiencia relacionada."
         )

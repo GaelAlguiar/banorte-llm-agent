@@ -143,7 +143,7 @@ transferible, además de señalar fortalezas, brechas honestas y un siguiente
 paso de aprendizaje.
 
 Las pruebas automatizadas incluyen fixtures PNG y PDF reales para verificar
-cabeceras, construcción del payload multimodal y comportamiento del proveedor
+su estructura con Pillow y pypdf, la construcción del payload multimodal y el comportamiento del proveedor
 simulado sin gastar tokens. No realizan una recuperación real del archivo por
 OpenAI: esa prueba end-to-end queda reservada para el despliegue final mediante
 la carga de un adjunto desde la plataforma y un host explícitamente autorizado.

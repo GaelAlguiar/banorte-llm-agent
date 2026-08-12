@@ -12,6 +12,21 @@ export EXPECTED_SUBSCRIPTION
 CONFIRM_AZURE_CONTEXT=YES bash infra/azure/deploy.sh
 ```
 
+El despliegue conserva los adjuntos deshabilitados por omisión
+(`MAX_ATTACHMENTS=0`). Para habilitarlos después de confirmar el dominio de
+cargas de la plataforma, exporta un límite entre 1 y 4 y una allowlist de FQDN
+públicos separada por comas:
+
+```bash
+export MAX_ATTACHMENTS=2
+export ATTACHMENT_TRUSTED_HOSTS="<dominio-publico-de-cargas>"
+CONFIRM_AZURE_CONTEXT=YES bash infra/azure/deploy.sh
+```
+
+No documentes aquí el valor operativo real si es privado. El script transmite
+ambas variables tanto al crear como al actualizar la Container App y se detiene
+antes de tocar Azure si se habilitan adjuntos sin hosts autorizados.
+
 Antes de crear recursos, el script muestra tenant y suscripción y se detiene salvo que la confirmación sea explícita. Las claves se registran como secretos de Container Apps y la aplicación sólo recibe referencias. El endpoint público y la revisión se muestran al finalizar, pero las claves nunca se imprimen.
 
 El script se detiene si la suscripción ya utiliza su servicio Search Free; no

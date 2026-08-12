@@ -1055,10 +1055,33 @@ def test_vacancy_image_routes_to_attachment_skill_without_second_model_call():
     assert result.skill_name == "attachment_analysis"
     assert len(model.calls) == 1
     rules = " ".join(model.calls[0]["skill"].output_rules).lower()
-    assert "requisito" in rules
+    assert "contenido profesional" in rules
     assert "directa" in rules
     assert "transferible" in rules
     assert "instrucciones" in rules
+
+
+@pytest.mark.parametrize("question", [
+    "Resume el CV adjunto y compáralo con la experiencia de Gael",
+    "Explica el proyecto descrito en este documento y relaciónalo con Gael",
+    "Analiza la arquitectura mostrada en la captura y mapea la experiencia de Gael",
+])
+def test_attachment_skill_supports_requested_professional_analysis(question):
+    agent, model = build_agent()
+
+    result = agent.answer(question, attachments=(UserAttachment(
+        kind="file",
+        url="https://files.example.com/contexto.pdf",
+        filename="contexto.pdf",
+    ),))
+
+    assert result.skill_name in {
+        "attachment_analysis", "project_story", "architecture_explainer",
+    }
+    protocol = model.calls[0]["instructions"].lower()
+    # The global prompt and model adapter both apply this protocol to every
+    # attachment, including when a strong text intent keeps a specialized skill.
+    assert "contenido adjunto" in protocol
 
 
 def test_strong_text_intent_keeps_specialized_skill_with_attachment_safety():
