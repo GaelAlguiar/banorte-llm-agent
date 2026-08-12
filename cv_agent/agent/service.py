@@ -41,11 +41,13 @@ class CvAgentService:
         skills: list[AgentSkill],
         model: ModelClient,
         privacy_classifier: PrivacyIntentClassifier,
+        trusted_benign_questions: tuple[str, ...] = (),
     ):
         self.retrieval = retrieval
         self.skills = skills
         self.model = model
         self.privacy_classifier = privacy_classifier
+        self.trusted_benign_questions = frozenset(trusted_benign_questions)
         self.tools = ProfileTools(retrieval)
 
     def _select_skill(self, question: str) -> AgentSkill:
@@ -153,9 +155,12 @@ class CvAgentService:
     ) -> AgentAnswer:
         if not question.strip():
             raise ValueError("La pregunta no puede estar vacía")
-        privacy_decision = direct_privacy_decision(question)
-        if privacy_decision is None:
-            privacy_decision = self.privacy_classifier.classify(question)
+        if question in self.trusted_benign_questions:
+            privacy_decision = "benign"
+        else:
+            privacy_decision = direct_privacy_decision(question)
+            if privacy_decision is None:
+                privacy_decision = self.privacy_classifier.classify(question)
         if privacy_decision == "sensitive":
             skill = next(
                 skill for skill in self.skills

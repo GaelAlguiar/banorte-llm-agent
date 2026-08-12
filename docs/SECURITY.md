@@ -30,3 +30,7 @@ un modelo que pudiera no estar disponible.
 La decisión se ejecuta únicamente en el servicio compartido. FastAPI y Flask
 no mantienen listas de bloqueo independientes, evitando resultados distintos
 entre el endpoint registrado y la interfaz de demostración.
+
+El fast-path no declara benignas entradas arbitrarias: sólo bloquea patrones
+sensibles inequívocos. La única excepción sin llamada semántica son las ocho
+preguntas sugeridas exactas, definidas y controladas por la propia aplicación.

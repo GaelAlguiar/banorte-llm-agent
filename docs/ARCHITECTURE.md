@@ -22,6 +22,11 @@ instancia de `CvAgentService`. Los transportes validan su contrato, pero no
 repiten decisiones de privacidad; por ello cada consulta se clasifica una sola
 vez y tiene el mismo comportamiento antes de recuperar evidencia.
 
+Las ocho preguntas sugeridas son constantes controladas por la aplicación y se
+preclasifican como benignas para evitar una llamada adicional. Cualquier otra
+entrada, incluso una consulta profesional sobre Gael, pasa por el clasificador
+semántico salvo que el fast-path detecte una solicitud sensible inequívoca.
+
 ## Implementación productiva
 
 Azure Container Apps consulta el índice con identidad administrada y el rol
