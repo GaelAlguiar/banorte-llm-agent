@@ -108,10 +108,16 @@ costo de la configuración más alta a todas las preguntas.
 
 ### Imágenes y archivos
 
-El endpoint acepta hasta cuatro adjuntos en el último mensaje del usuario. Las
+El endpoint acepta hasta cuatro adjuntos en el último mensaje del usuario (el
+límite puede reducirse con `MAX_ATTACHMENTS`). Las
 imágenes se envían como `input_image.image_url` y los documentos como
-`input_file.file_url`; ambos enlaces deben usar HTTPS. Se recomiendan PNG, JPG
-y WebP para imágenes, y PDF, TXT, Markdown o DOCX para documentos.
+`input_file.file_url`; ambos enlaces deben usar HTTPS. Sólo se permiten PNG,
+JPG/JPEG, WebP o GIF para imágenes, y PDF, TXT, Markdown o DOCX para documentos.
+El nombre de archivo tiene un máximo de 128 caracteres. Si la plataforma usa
+dominios fijos para sus URLs firmadas, debe configurar
+`ATTACHMENT_TRUSTED_HOSTS` mediante una lista separada por comas. Sin esta
+allowlist, las solicitudes con adjuntos se rechazan de forma segura. Cada host
+autoriza el dominio exacto y sus subdominios, pero nunca una coincidencia parcial.
 
 ```json
 {
@@ -130,6 +136,17 @@ Los adjuntos son contexto temporal y no se descargan en el contenedor, no se
 persisten y no se incorporan automáticamente a la base vectorial. Sus
 instrucciones se consideran contenido no confiable para impedir prompt
 injection; las afirmaciones sobre Gael siguen requiriendo evidencia autorizada.
+La skill `attachment_analysis` hace una sola llamada generativa con el adjunto
+y un paquete compacto de evidencia profesional permitido. Extrae requisitos y
+los mapea como evidencia directa, experiencia relacionada o capacidad
+transferible, además de señalar fortalezas, brechas honestas y un siguiente
+paso de aprendizaje.
+
+Las pruebas automatizadas incluyen fixtures PNG y PDF reales para verificar
+su estructura con Pillow y pypdf, la construcción del payload multimodal y el comportamiento del proveedor
+simulado sin gastar tokens. No realizan una recuperación real del archivo por
+OpenAI: esa prueba end-to-end queda reservada para el despliegue final mediante
+la carga de un adjunto desde la plataforma y un host explícitamente autorizado.
 
 ## Demostración de la solución
 

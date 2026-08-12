@@ -11,6 +11,7 @@ from cv_agent.agent.openai_model import OpenAIResponsesModel
 from cv_agent.agent.professional_intent import OpenAIProfessionalIntentClassifier
 from cv_agent.agent.service import CvAgentService
 from cv_agent.api.responses import router as responses_router
+from cv_agent.api.models import AttachmentPolicy
 from cv_agent.config import Settings
 from cv_agent.observability.logging import log_event
 from cv_agent.retrieval.factory import build_retrieval
@@ -52,6 +53,10 @@ def create_app(
     app.state.settings = active_settings
     app.state.agent = agent if agent is not None else _build_agent(active_settings)
     app.state.rate_limiter = SlidingWindowLimiter()
+    app.state.attachment_policy = AttachmentPolicy(
+        max_attachments=active_settings.max_attachments,
+        trusted_hosts=active_settings.trusted_attachment_hosts,
+    )
     app.include_router(responses_router)
 
     @app.middleware("http")
@@ -132,6 +137,15 @@ async def _apply_request_controls(request: Request, call_next):
         return _error(400, "Content-Length inválido.", "invalid_content_length")
     if content_length > 65_536:
         return _error(413, "El cuerpo excede 64 KiB.", "request_too_large")
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > 65_536:
+            return _error(413, "El cuerpo excede 64 KiB.", "request_too_large")
+    # Starlette's cached request replays `_body` to the downstream JSON parser.
+    # We retain at most the accepted 64 KiB and stop consuming at the first
+    # over-limit chunk, independent of Content-Length.
+    request._body = bytes(body)
     identity = request.client.host if request.client else "unknown"
     if not request.app.state.rate_limiter.allow(identity):
         return _error(429, "Límite de 30 solicitudes por minuto excedido.", "rate_limit_exceeded")

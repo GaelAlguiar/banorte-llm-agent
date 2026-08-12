@@ -35,3 +35,18 @@ def test_settings_read_professional_classifier_model(monkeypatch):
     monkeypatch.setenv("OPENAI_PROFESSIONAL_CLASSIFIER_MODEL", "intent-model")
 
     assert Settings.from_env().professional_classifier_model == "intent-model"
+
+
+def test_attachment_policy_reads_environment(monkeypatch):
+    monkeypatch.setenv("MAX_ATTACHMENTS", "2")
+    monkeypatch.setenv(
+        "ATTACHMENT_TRUSTED_HOSTS",
+        "uploads.example.com, signed.example.net",
+    )
+
+    settings = Settings.from_env()
+
+    assert settings.max_attachments == 2
+    assert settings.trusted_attachment_hosts == (
+        "uploads.example.com", "signed.example.net",
+    )

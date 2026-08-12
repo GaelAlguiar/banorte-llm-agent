@@ -78,3 +78,22 @@ def test_deploy_script_stops_if_another_free_search_exists() -> None:
     assert "Microsoft.Search/searchServices" in text
     assert "existing_free_search" in text
     assert "exit 5" in text
+
+
+def test_deploy_script_passes_attachment_policy_on_create_and_update() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+
+    assert ': "${MAX_ATTACHMENTS:=0}"' in text
+    assert "ATTACHMENT_TRUSTED_HOSTS" in text
+    assert text.count('MAX_ATTACHMENTS="$MAX_ATTACHMENTS"') == 2
+    assert text.count(
+        'ATTACHMENT_TRUSTED_HOSTS="$ATTACHMENT_TRUSTED_HOSTS"'
+    ) == 2
+
+
+def test_deploy_script_fails_if_multimodal_enabled_without_trusted_hosts() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+
+    assert 'if [[ "$MAX_ATTACHMENTS" -gt 0' in text
+    assert '-z "$ATTACHMENT_TRUSTED_HOSTS"' in text
+    assert "no habilites adjuntos sin hosts autorizados" in text.lower()

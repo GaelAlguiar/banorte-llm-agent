@@ -16,6 +16,16 @@ command -v az >/dev/null || { echo "Azure CLI no está instalado." >&2; exit 1; 
 command -v jq >/dev/null || { echo "jq no está instalado." >&2; exit 1; }
 : "${OPENAI_API_KEY:?Exporta OPENAI_API_KEY antes de desplegar.}"
 : "${AGENT_API_KEY:?Exporta AGENT_API_KEY antes de desplegar.}"
+: "${MAX_ATTACHMENTS:=0}"
+: "${ATTACHMENT_TRUSTED_HOSTS:=}"
+if ! [[ "$MAX_ATTACHMENTS" =~ ^[0-4]$ ]]; then
+  echo "MAX_ATTACHMENTS debe ser un entero entre 0 y 4." >&2
+  exit 6
+fi
+if [[ "$MAX_ATTACHMENTS" -gt 0 && -z "$ATTACHMENT_TRUSTED_HOSTS" ]]; then
+  echo "No habilites adjuntos sin hosts autorizados en ATTACHMENT_TRUSTED_HOSTS." >&2
+  exit 6
+fi
 
 echo "Contexto de Azure que recibirá los recursos:"
 az account show --query '{subscription:name,state:state}' --output table
@@ -113,6 +123,8 @@ if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/
       AZURE_SEARCH_ENDPOINT="$AZURE_SEARCH_ENDPOINT" \
       AZURE_SEARCH_INDEX="$AZURE_SEARCH_INDEX" \
       AZURE_SEARCH_MIN_SCORE=0.03 \
+      MAX_ATTACHMENTS="$MAX_ATTACHMENTS" \
+      ATTACHMENT_TRUSTED_HOSTS="$ATTACHMENT_TRUSTED_HOSTS" \
       APP_ENV=production \
     --min-replicas 1 \
     --max-replicas 3 \
@@ -141,6 +153,8 @@ else
       AZURE_SEARCH_ENDPOINT="$AZURE_SEARCH_ENDPOINT" \
       AZURE_SEARCH_INDEX="$AZURE_SEARCH_INDEX" \
       AZURE_SEARCH_MIN_SCORE=0.03 \
+      MAX_ATTACHMENTS="$MAX_ATTACHMENTS" \
+      ATTACHMENT_TRUSTED_HOSTS="$ATTACHMENT_TRUSTED_HOSTS" \
       APP_ENV=production \
     --min-replicas 1 \
     --max-replicas 3 \
