@@ -3,7 +3,11 @@ from threading import Lock
 from typing import Protocol
 
 from azure.core import MatchConditions
-from azure.core.exceptions import HttpResponseError, ResourceExistsError
+from azure.core.exceptions import (
+    HttpResponseError,
+    ResourceExistsError,
+    ResourceNotFoundError,
+)
 
 
 class UsageStoreError(RuntimeError):
@@ -36,16 +40,6 @@ class AzureTableUsageBudgetStore:
         self.table_client = table_client
         self.total_budget = total_budget
         self.initial_spent = initial_spent
-        try:
-            self.table_client.create_entity({
-                "PartitionKey": "usage",
-                "RowKey": "aggregate",
-                "spent": str(initial_spent),
-            })
-        except ResourceExistsError:
-            pass
-        except HttpResponseError as error:
-            raise UsageStoreError("usage store initialization failed") from error
 
     def apply_once(self, event_id: str, cost: Decimal) -> Decimal:
         for _ in range(5):
@@ -55,11 +49,24 @@ class AzureTableUsageBudgetStore:
                     Decimal("0"),
                     self.total_budget - Decimal(existing["spent_after"]),
                 )
+            except ResourceNotFoundError:
+                pass
             except HttpResponseError as error:
                 if getattr(error, "status_code", None) not in (404, None):
                     raise UsageStoreError("usage ledger read failed") from error
             try:
-                aggregate = self.table_client.get_entity("usage", "aggregate")
+                try:
+                    aggregate = self.table_client.get_entity("usage", "aggregate")
+                except ResourceNotFoundError:
+                    try:
+                        self.table_client.create_entity({
+                            "PartitionKey": "usage",
+                            "RowKey": "aggregate",
+                            "spent": str(self.initial_spent),
+                        })
+                    except ResourceExistsError:
+                        pass
+                    aggregate = self.table_client.get_entity("usage", "aggregate")
                 spent_after = Decimal(aggregate["spent"]) + cost
                 self.table_client.submit_transaction([
                     (

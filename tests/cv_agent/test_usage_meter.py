@@ -105,3 +105,21 @@ def test_azure_store_uses_etag_transaction_and_reuses_ledger_event():
     assert table.transaction[0][0] == "update"
     assert table.transaction[0][2]["etag"] == "etag-1"
     assert table.transaction[1][0] == "create"
+
+
+def test_azure_store_does_not_access_network_during_app_startup():
+    class Table:
+        calls = 0
+
+        def create_entity(self, entity):
+            self.calls += 1
+
+    table = Table()
+
+    AzureTableUsageBudgetStore(
+        table_client=table,
+        total_budget=Decimal("10"),
+        initial_spent=Decimal("3.28"),
+    )
+
+    assert table.calls == 0
