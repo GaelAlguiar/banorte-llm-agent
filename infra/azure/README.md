@@ -44,6 +44,26 @@ El token se registra como un secreto separado de Container Apps. Si falta la
 base o el token, el despliegue se detiene; si ambos se omiten, elimina variables
 antiguas del resolver y mantiene el flujo deshabilitado.
 
+## Medición por respuesta
+
+El medidor permanece deshabilitado salvo configuración explícita. Cuando está
+habilitado, muestra únicamente tokens de la generación final y porcentaje
+disponible; los importes y tarifas se conservan como secretos. Azure Table
+Storage mantiene el acumulado entre réplicas mediante identidad administrada.
+
+```bash
+export USAGE_METER_ENABLED=true
+export USAGE_STORAGE_ACCOUNT="<cuenta-storage-globalmente-unica>"
+export USAGE_STORAGE_TABLE="agentusage"
+export USAGE_TOTAL_BUDGET
+export USAGE_INITIAL_SPENT
+export USAGE_INPUT_RATE
+export USAGE_CACHED_INPUT_RATE
+export USAGE_OUTPUT_RATE
+```
+
+No escribas valores monetarios en archivos, respuestas o logs.
+
 Antes de crear recursos, el script muestra tenant y suscripción y se detiene salvo que la confirmación sea explícita. Las claves se registran como secretos de Container Apps y la aplicación sólo recibe referencias. El endpoint público y la revisión se muestran al finalizar, pero las claves nunca se imprimen.
 
 El script se detiene si la suscripción ya utiliza su servicio Search Free; no

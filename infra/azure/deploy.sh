@@ -9,6 +9,8 @@ APP_NAME="ca-prueba-b-gael-ai"
 IMAGE_NAME="prueba-b-gael-ai"
 SEARCH_NAME="srch-prueba-b-gael-ai"
 SEARCH_INDEX="cv-profile-v1"
+: "${USAGE_STORAGE_ACCOUNT:=}"
+: "${USAGE_STORAGE_TABLE:=agentusage}"
 IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD)}"
 : "${EXPECTED_SUBSCRIPTION:?Exporta EXPECTED_SUBSCRIPTION antes de desplegar.}"
 
@@ -23,6 +25,15 @@ command -v jq >/dev/null || { echo "jq no está instalado." >&2; exit 1; }
 : "${PARLEY_FILE_BEARER_TOKEN:=}"
 : "${PARLEY_FILE_CAPABILITY_SCOPE:=}"
 : "${PARLEY_FILE_MAX_BYTES:=10485760}"
+: "${USAGE_METER_ENABLED:=false}"
+if [[ "$USAGE_METER_ENABLED" == "true" ]]; then
+  : "${USAGE_STORAGE_ACCOUNT:?Configura USAGE_STORAGE_ACCOUNT.}"
+  : "${USAGE_TOTAL_BUDGET:?Configura USAGE_TOTAL_BUDGET.}"
+  : "${USAGE_INITIAL_SPENT:?Configura USAGE_INITIAL_SPENT.}"
+  : "${USAGE_INPUT_RATE:?Configura USAGE_INPUT_RATE.}"
+  : "${USAGE_CACHED_INPUT_RATE:?Configura USAGE_CACHED_INPUT_RATE.}"
+  : "${USAGE_OUTPUT_RATE:?Configura USAGE_OUTPUT_RATE.}"
+fi
 if ! [[ "$MAX_ATTACHMENTS" =~ ^[0-4]$ ]]; then
   echo "MAX_ATTACHMENTS debe ser un entero entre 0 y 4." >&2
   exit 6
@@ -93,7 +104,37 @@ fi
 az provider register --namespace Microsoft.App --wait
 az provider register --namespace Microsoft.OperationalInsights --wait
 az provider register --namespace Microsoft.Search --wait
+az provider register --namespace Microsoft.Storage --wait
 az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
+
+usage_secret_args=()
+usage_env_args=(USAGE_METER_ENABLED="$USAGE_METER_ENABLED")
+if [[ "$USAGE_METER_ENABLED" == "true" ]]; then
+  if ! az storage account show --name "$USAGE_STORAGE_ACCOUNT" \
+    --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+    az storage account create --name "$USAGE_STORAGE_ACCOUNT" \
+      --resource-group "$RESOURCE_GROUP" --location "$LOCATION" \
+      --sku Standard_LRS --kind StorageV2 --output none
+  fi
+  az storage table create --account-name "$USAGE_STORAGE_ACCOUNT" \
+    --name "$USAGE_STORAGE_TABLE" --auth-mode login --output none
+  usage_secret_args+=(
+    usage-total-budget="$USAGE_TOTAL_BUDGET"
+    usage-initial-spent="$USAGE_INITIAL_SPENT"
+    usage-input-rate="$USAGE_INPUT_RATE"
+    usage-cached-input-rate="$USAGE_CACHED_INPUT_RATE"
+    usage-output-rate="$USAGE_OUTPUT_RATE"
+  )
+  usage_env_args+=(
+    USAGE_STORAGE_ACCOUNT="$USAGE_STORAGE_ACCOUNT"
+    USAGE_STORAGE_TABLE="$USAGE_STORAGE_TABLE"
+    USAGE_TOTAL_BUDGET=secretref:usage-total-budget
+    USAGE_INITIAL_SPENT=secretref:usage-initial-spent
+    USAGE_INPUT_RATE=secretref:usage-input-rate
+    USAGE_CACHED_INPUT_RATE=secretref:usage-cached-input-rate
+    USAGE_OUTPUT_RATE=secretref:usage-output-rate
+  )
+fi
 
 if ! az search service show --name "$SEARCH_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
   existing_free_search="$(az resource list \
@@ -160,7 +201,7 @@ if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/
     --name "$APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --secrets openai-api-key="$OPENAI_API_KEY" agent-api-key="$AGENT_API_KEY" \
-      "${resolver_secret_args[@]}" \
+      "${resolver_secret_args[@]}" "${usage_secret_args[@]}" \
     --output none
   if [[ "$bool_resolver_base" == "0" ]]; then
     az containerapp update \
@@ -202,6 +243,7 @@ if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/
       ATTACHMENT_TRUSTED_HOSTS="$ATTACHMENT_TRUSTED_HOSTS" \
       MAX_REQUEST_BODY_BYTES="$MAX_REQUEST_BODY_BYTES" \
       "${resolver_env_args[@]}" \
+      "${usage_env_args[@]}" \
       APP_ENV=production \
     --min-replicas 1 \
     --max-replicas 3 \
@@ -221,7 +263,7 @@ else
     --target-port 8000 \
     --transport auto \
     --secrets openai-api-key="$OPENAI_API_KEY" agent-api-key="$AGENT_API_KEY" \
-      "${resolver_secret_args[@]}" \
+      "${resolver_secret_args[@]}" "${usage_secret_args[@]}" \
     --env-vars \
       OPENAI_API_KEY=secretref:openai-api-key \
       AGENT_API_KEY=secretref:agent-api-key \
@@ -235,6 +277,7 @@ else
       ATTACHMENT_TRUSTED_HOSTS="$ATTACHMENT_TRUSTED_HOSTS" \
       MAX_REQUEST_BODY_BYTES="$MAX_REQUEST_BODY_BYTES" \
       "${resolver_env_args[@]}" \
+      "${usage_env_args[@]}" \
       APP_ENV=production \
     --min-replicas 1 \
     --max-replicas 3 \
@@ -270,6 +313,18 @@ if ! az role assignment list \
     --role "Search Index Data Reader" \
     --scope "$search_scope" \
     --output none
+fi
+if [[ "$USAGE_METER_ENABLED" == "true" ]]; then
+  storage_scope="$(az storage account show --name "$USAGE_STORAGE_ACCOUNT" \
+    --resource-group "$RESOURCE_GROUP" --query id --output tsv)"
+  if ! az role assignment list --assignee-object-id "$principal_id" \
+    --scope "$storage_scope" --role "Storage Table Data Contributor" \
+    --query '[0].id' --output tsv | grep -q .; then
+    az role assignment create --assignee-object-id "$principal_id" \
+      --assignee-principal-type ServicePrincipal \
+      --role "Storage Table Data Contributor" --scope "$storage_scope" \
+      --output none
+  fi
 fi
 
 probe_file="$(mktemp)"

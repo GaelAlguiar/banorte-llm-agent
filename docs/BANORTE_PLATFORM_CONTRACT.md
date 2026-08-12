@@ -32,6 +32,11 @@ y capacidades, y 900 para arquitectura, proyectos, ajuste al rol y adjuntos.
 Estos límites mantienen respuestas profesionales suficientemente detalladas sin
 permitir salidas accidentalmente extensas.
 
+Si el medidor está habilitado, el texto termina con dos saltos de línea y un pie
+como `1,234 tokens · 67.2% disponible`, compatible con clientes que ignoran
+extensiones JSON. `usage` contiene los tokens reales de esa generación y
+`budget.available_percent` replica el porcentaje sin revelar dinero.
+
 El servicio es deliberadamente sin estado y llama al proveedor con `store: false`.
 Por ello, `previous_response_id` no está soportado: un valor no nulo recibe un
 error 400 `unsupported_previous_response_id`; `null` y la omisión conservan el

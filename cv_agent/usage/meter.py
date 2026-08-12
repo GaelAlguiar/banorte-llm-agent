@@ -8,9 +8,11 @@ _MILLION = Decimal("1000000")
 
 
 class UsageMeter:
-    def __init__(self, *, store: UsageBudgetStore, rates: ModelRates):
+    def __init__(self, *, store: UsageBudgetStore, rates: ModelRates,
+                 total_budget: Decimal | None = None):
         self.store = store
         self.rates = rates
+        self.total_budget = total_budget or getattr(store, "total_budget", None)
 
     def record(self, *, event_id: str, usage: TokenUsage) -> PublicUsage:
         uncached = usage.input_tokens - usage.cached_input_tokens
@@ -21,10 +23,9 @@ class UsageMeter:
         ) / _MILLION
         try:
             remaining = self.store.apply_once(event_id, cost)
-            total_budget = getattr(self.store, "_total_budget", None)
-            if not total_budget:
+            if not self.total_budget:
                 raise UsageStoreError("missing total budget")
-            percent = (remaining / total_budget * Decimal("100")).quantize(
+            percent = (remaining / self.total_budget * Decimal("100")).quantize(
                 Decimal("0.1"), rounding=ROUND_HALF_UP,
             )
             available = float(min(Decimal("100"), max(Decimal("0"), percent)))

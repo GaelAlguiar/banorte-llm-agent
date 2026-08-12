@@ -49,6 +49,12 @@ evento final de SSE. Sólo contiene identificadores estables, etiquetas profesio
 un rango de confianza y URLs HTTPS públicas autorizadas; nunca rutas locales,
 URLs privadas ni scores internos precisos.
 
+Cuando el medidor de demostración está habilitado, cada generación final añade
+un único pie como `1,234 tokens · 67.2% disponible`. Los tokens corresponden a
+esa respuesta; el porcentaje es un contador interno persistente y no representa
+el saldo oficial de facturación de OpenAI. Nunca se muestran importes, tarifas
+ni credenciales.
+
 ## Uso local
 
 Requiere Python 3.12.

@@ -134,3 +134,24 @@ def test_deploy_script_rejects_agent_key_reuse_and_removes_stale_secret() -> Non
     assert '"$PARLEY_FILE_BEARER_TOKEN" == "$OPENAI_API_KEY"' in text
     assert "az containerapp secret remove" in text
     assert "--secret-names parley-file-token" in text
+
+
+def test_deploy_script_provisions_private_usage_table_with_rbac():
+    text = SCRIPT.read_text(encoding="utf-8")
+
+    for marker in (
+        "Microsoft.Storage",
+        "USAGE_STORAGE_ACCOUNT",
+        "USAGE_STORAGE_TABLE",
+        "az storage account create",
+        "Standard_LRS",
+        "az storage table create",
+        "Storage Table Data Contributor",
+        "USAGE_TOTAL_BUDGET=secretref:usage-total-budget",
+        "USAGE_INITIAL_SPENT=secretref:usage-initial-spent",
+        "USAGE_INPUT_RATE=secretref:usage-input-rate",
+        "USAGE_CACHED_INPUT_RATE=secretref:usage-cached-input-rate",
+        "USAGE_OUTPUT_RATE=secretref:usage-output-rate",
+    ):
+        assert marker in text
+    assert "echo $USAGE_TOTAL_BUDGET" not in text

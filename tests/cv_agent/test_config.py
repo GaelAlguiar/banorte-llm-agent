@@ -120,3 +120,39 @@ def test_request_body_limit_reads_environment(monkeypatch):
 def test_request_body_limit_is_bounded(value):
     with pytest.raises(ValueError, match="max_request_body_bytes"):
         Settings(max_request_body_bytes=value)
+
+
+def test_usage_meter_reads_complete_private_configuration(monkeypatch):
+    values = {
+        "USAGE_METER_ENABLED": "true",
+        "USAGE_STORAGE_ACCOUNT": "usageaccount",
+        "USAGE_STORAGE_TABLE": "agentusage",
+        "USAGE_TOTAL_BUDGET": "10",
+        "USAGE_INITIAL_SPENT": "3.28",
+        "USAGE_INPUT_RATE": "5",
+        "USAGE_CACHED_INPUT_RATE": "0.5",
+        "USAGE_OUTPUT_RATE": "30",
+    }
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+
+    settings = Settings.from_env()
+
+    assert settings.usage_meter_enabled is True
+    assert settings.usage_initial_available_percent == 67.2
+
+
+def test_usage_meter_rejects_partial_or_invalid_configuration():
+    with pytest.raises(ValueError, match="usage"):
+        Settings(usage_meter_enabled=True)
+    with pytest.raises(ValueError, match="usage"):
+        Settings(
+            usage_meter_enabled=True,
+            usage_storage_account="account",
+            usage_storage_table="table",
+            usage_total_budget="10",
+            usage_initial_spent="11",
+            usage_input_rate="5",
+            usage_cached_input_rate=".5",
+            usage_output_rate="30",
+        )

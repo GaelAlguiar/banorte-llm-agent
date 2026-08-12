@@ -57,6 +57,11 @@ las URLs requieren un dominio de evidencia explícitamente autorizado, sin DNS
 en runtime. `metadata.evidence_ids` permanece como string de hasta 512
 caracteres y la extensión superior `evidence` contiene el detalle seguro.
 
+La generación final puede devolver uso real del proveedor. Un medidor opcional
+calcula internamente el costo con tarifas protegidas, aplica el evento una sola
+vez en Azure Table Storage y añade `N tokens · P% disponible` al texto. JSON y
+SSE conservan contadores estándar y sólo exponen el porcentaje.
+
 Azure devuelve scores RRF pequeños cuyo valor absoluto no equivale al score
 local. El adaptador los calibra por rango dentro del conjunto candidato antes
 del umbral y del bucket de confianza. La diversidad permite una sola parte
