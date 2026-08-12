@@ -430,3 +430,37 @@ def extract_user_text(value: str | list[dict[str, Any]]) -> str:
             ):
                 return DEFAULT_ATTACHMENT_QUESTION
     raise ValueError("No se encontró un mensaje de usuario en input")
+
+
+def validate_attachment_envelope(
+    value: str | list[dict[str, Any]], policy: AttachmentPolicy,
+) -> None:
+    """Valida cantidad y forma opaca sin red ni clasificación semántica."""
+    if isinstance(value, str):
+        return
+    for item in reversed(value):
+        if item.get("role") != "user":
+            continue
+        content = item.get("content", "")
+        if not isinstance(content, list):
+            return
+        parts = [
+            part for part in content
+            if isinstance(part, dict)
+            and part.get("type") in {"input_image", "input_file"}
+        ]
+        if len(parts) > policy.max_attachments:
+            noun = "adjunto" if policy.max_attachments == 1 else "adjuntos"
+            raise ValueError(
+                f"Se permiten como máximo {policy.max_attachments} {noun} por solicitud"
+            )
+        for part in parts:
+            key = "image_url" if part.get("type") == "input_image" else "file_url"
+            reference = part.get(key)
+            if (
+                isinstance(reference, str)
+                and reference.startswith("parley-file:")
+                and not _PARLEY_FILE_REFERENCE.fullmatch(reference)
+            ):
+                raise ValueError("La referencia del archivo del portal es inválida")
+        return

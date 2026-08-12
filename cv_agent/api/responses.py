@@ -13,6 +13,7 @@ from cv_agent.api.models import (
     UserInput,
     extract_user_input,
     extract_user_text,
+    validate_attachment_envelope,
 )
 from cv_agent.observability.logging import log_event
 from cv_agent.security.auth import valid_bearer
@@ -157,6 +158,20 @@ def create_response(body: CreateResponseRequest, request: Request):
             and callable(getattr(agent, "privacy_decision", None))
         ):
             question = extract_user_text(body.input)
+            if len(question) > 8_000:
+                return JSONResponse(
+                    status_code=413,
+                    content={"error": {
+                        "message": "El input excede 8000 caracteres.",
+                        "type": "invalid_request_error",
+                        "code": "input_too_large",
+                        "param": "input",
+                    }},
+                )
+            validate_attachment_envelope(
+                body.input,
+                request.app.state.attachment_policy,
+            )
             privacy_decision = agent.privacy_decision(question)
             user_input = (
                 UserInput(text=question)

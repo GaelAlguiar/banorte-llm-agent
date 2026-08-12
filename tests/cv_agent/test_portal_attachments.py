@@ -433,3 +433,87 @@ def test_sensitive_text_is_blocked_before_portal_resolution():
 
     assert response.status_code == 200
     assert resolver.references == []
+
+
+def test_oversized_text_is_rejected_before_classifier_or_portal_resolution():
+    class PrivacyAwareAgent(RecordingAgent):
+        privacy_calls = 0
+
+        def privacy_decision(self, question):
+            self.privacy_calls += 1
+            return "benign"
+
+    agent = PrivacyAwareAgent()
+    resolver = StaticPortalResolver({
+        "data": b"safe",
+        "filename": "nota.txt",
+        "mime_type": "text/plain",
+    })
+    response = TestClient(create_app(
+        settings=_settings(),
+        agent=agent,
+        attachment_resolver=resolver,
+    )).post(
+        "/v1/responses",
+        json={"input": [{
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": "x" * 8_001},
+                {
+                    "type": "input_image",
+                    "image_url": "parley-file:file_abcdefgh12345678",
+                },
+            ],
+        }]},
+    )
+
+    assert response.status_code == 413
+    assert agent.privacy_calls == 0
+    assert resolver.references == []
+
+
+@pytest.mark.parametrize("content", [
+    [
+        {"type": "input_text", "text": "Analiza los adjuntos"},
+        *[
+            {
+                "type": "input_image",
+                "image_url": f"parley-file:file_abcdefgh1234567{index}",
+            }
+            for index in range(3)
+        ],
+    ],
+    [
+        {"type": "input_text", "text": "Analiza el adjunto"},
+        {
+            "type": "input_image",
+            "image_url": "parley-file:file_abcdefgh/../../secret",
+        },
+    ],
+])
+def test_invalid_attachment_envelope_is_rejected_before_classifier(content):
+    class PrivacyAwareAgent(RecordingAgent):
+        privacy_calls = 0
+
+        def privacy_decision(self, question):
+            self.privacy_calls += 1
+            return "benign"
+
+    agent = PrivacyAwareAgent()
+    resolver = StaticPortalResolver({
+        "data": b"safe",
+        "filename": "nota.txt",
+        "mime_type": "text/plain",
+    })
+    response = TestClient(create_app(
+        settings=_settings(max_attachments=2),
+        agent=agent,
+        attachment_resolver=resolver,
+    )).post(
+        "/v1/responses",
+        json={"input": [{"role": "user", "content": content}]},
+    )
+
+    assert response.status_code == 400
+    assert agent.privacy_calls == 0
+    assert resolver.references == []
