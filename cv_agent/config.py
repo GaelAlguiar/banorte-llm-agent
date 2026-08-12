@@ -51,7 +51,9 @@ class Settings:
             max_attachments=int(os.getenv("MAX_ATTACHMENTS", "4")),
             trusted_attachment_hosts=tuple(
                 host.strip()
-                for host in os.getenv("TRUSTED_ATTACHMENT_HOSTS", "").split(",")
+                for host in os.getenv(
+                    "ATTACHMENT_TRUSTED_HOSTS", ""
+                ).split(",")
                 if host.strip()
             ),
         )

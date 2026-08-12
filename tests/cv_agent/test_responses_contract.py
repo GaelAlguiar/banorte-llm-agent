@@ -96,7 +96,10 @@ def test_message_item_input_uses_last_user_text():
 
 def test_image_url_is_forwarded_as_an_attachment():
     agent = StubAgent()
-    client = TestClient(create_app(agent=agent))
+    client = TestClient(create_app(
+        settings=Settings(trusted_attachment_hosts=("example.com",)),
+        agent=agent,
+    ))
 
     response = client.post(
         "/v1/responses",
@@ -123,7 +126,10 @@ def test_image_url_is_forwarded_as_an_attachment():
 
 def test_file_url_is_forwarded_with_filename():
     agent = StubAgent()
-    client = TestClient(create_app(agent=agent))
+    client = TestClient(create_app(
+        settings=Settings(trusted_attachment_hosts=("example.com",)),
+        agent=agent,
+    ))
 
     response = client.post(
         "/v1/responses",
@@ -167,7 +173,10 @@ def test_non_https_attachment_url_is_rejected():
 
 
 def test_more_than_four_attachments_is_rejected():
-    client = TestClient(create_app(agent=StubAgent()))
+    client = TestClient(create_app(
+        settings=Settings(trusted_attachment_hosts=("example.com",)),
+        agent=StubAgent(),
+    ))
     content = [
         {
             "type": "input_image",
@@ -198,6 +207,12 @@ def test_more_than_four_attachments_is_rejected():
     "https://224.0.0.1/vacante.png",
     "https://240.0.0.1/vacante.png",
     "https://8.8.8.8/vacante.png",
+    "https://127.1/vacante.png",
+    "https://0177.0.0.1/vacante.png",
+    "https://0x7f.0.0.1/vacante.png",
+    "https://0x7f000001/vacante.png",
+    "https://2130706433/vacante.png",
+    "https://127.0x0.0.1/vacante.png",
     "https://[::1]/vacante.png",
     "https://[fc00::1]/vacante.png",
     "https://[fe80::1]/vacante.png",
@@ -210,7 +225,10 @@ def test_more_than_four_attachments_is_rejected():
     "https://files.example.com./vacante.png",
 ])
 def test_unsafe_attachment_urls_are_rejected(url):
-    response = TestClient(create_app(agent=StubAgent())).post(
+    response = TestClient(create_app(
+        settings=Settings(trusted_attachment_hosts=("example.com",)),
+        agent=StubAgent(),
+    )).post(
         "/v1/responses",
         json={"input": [{"role": "user", "content": [{
             "type": "input_image", "image_url": url,
@@ -220,9 +238,15 @@ def test_unsafe_attachment_urls_are_rejected(url):
     assert response.status_code == 400
 
 
-def test_attachment_host_allowlist_is_enforced_when_configured():
+def test_attachment_host_allowlist_is_required_and_allows_subdomains():
+    no_allowlist = TestClient(create_app(agent=StubAgent())).post(
+        "/v1/responses", json={"input": [{"role": "user", "content": [{
+            "type": "input_image",
+            "image_url": "https://uploads.banorte.example/vacante.png",
+        }]}]},
+    )
     settings = Settings(
-        trusted_attachment_hosts=("uploads.banorte.example",),
+        trusted_attachment_hosts=("banorte.example",),
     )
     client = TestClient(create_app(settings=settings, agent=StubAgent()))
 
@@ -239,12 +263,16 @@ def test_attachment_host_allowlist_is_enforced_when_configured():
         }],
     }]})
 
+    assert no_allowlist.status_code == 400
     assert denied.status_code == 400
     assert allowed.status_code == 200
 
 
 def test_configured_attachment_limit_is_enforced():
-    settings = Settings(max_attachments=1)
+    settings = Settings(
+        max_attachments=1,
+        trusted_attachment_hosts=("example.com",),
+    )
     client = TestClient(create_app(settings=settings, agent=StubAgent()))
     content = [
         {"type": "input_image", "image_url": f"https://files.example.com/{index}.png"}
@@ -298,7 +326,10 @@ def test_attachment_validation_never_resolves_dns(monkeypatch):
 
     monkeypatch.setattr(socket, "getaddrinfo", unexpected_dns)
 
-    response = TestClient(create_app(agent=StubAgent())).post(
+    response = TestClient(create_app(
+        settings=Settings(trusted_attachment_hosts=("example.com",)),
+        agent=StubAgent(),
+    )).post(
         "/v1/responses",
         json={"input": [{"role": "user", "content": [{
             "type": "input_image",
@@ -337,7 +368,10 @@ def test_attachment_url_is_not_persisted_in_logs_or_response(caplog):
     caplog.set_level("INFO", logger="gael_cv_agent")
     sensitive_url = "https://files.example.com/vacante.png?sig=do-not-log"
 
-    response = TestClient(create_app(agent=StubAgent())).post(
+    response = TestClient(create_app(
+        settings=Settings(trusted_attachment_hosts=("example.com",)),
+        agent=StubAgent(),
+    )).post(
         "/v1/responses",
         json={"input": [{"role": "user", "content": [{
             "type": "input_image", "image_url": sensitive_url,
@@ -347,6 +381,31 @@ def test_attachment_url_is_not_persisted_in_logs_or_response(caplog):
     assert response.status_code == 200
     assert sensitive_url not in response.text
     assert "do-not-log" not in caplog.text
+
+
+def test_streamed_body_over_limit_is_rejected_without_content_length():
+    client = TestClient(create_app(agent=StubAgent()))
+
+    response = client.post(
+        "/v1/responses",
+        content=iter((b'{"input":"', b"a" * 65_536, b'"}')),
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "request_too_large"
+
+
+def test_streamed_body_under_limit_is_replayed_to_json_parser():
+    client = TestClient(create_app(agent=StubAgent()))
+
+    response = client.post(
+        "/v1/responses",
+        content=iter((b'{"input":"', "¿Quién es Gael?".encode(), b'"}')),
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 200
 
 
 def test_reasoning_effort_is_forwarded_to_agent():

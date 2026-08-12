@@ -114,8 +114,10 @@ imágenes se envían como `input_image.image_url` y los documentos como
 `input_file.file_url`; ambos enlaces deben usar HTTPS. Sólo se permiten PNG,
 JPG/JPEG, WebP o GIF para imágenes, y PDF, TXT, Markdown o DOCX para documentos.
 El nombre de archivo tiene un máximo de 128 caracteres. Si la plataforma usa
-dominios fijos para sus URLs firmadas, `TRUSTED_ATTACHMENT_HOSTS` permite
-restringirlos mediante una lista separada por comas.
+dominios fijos para sus URLs firmadas, debe configurar
+`ATTACHMENT_TRUSTED_HOSTS` mediante una lista separada por comas. Sin esta
+allowlist, las solicitudes con adjuntos se rechazan de forma segura. Cada host
+autoriza el dominio exacto y sus subdominios, pero nunca una coincidencia parcial.
 
 ```json
 {
@@ -139,6 +141,12 @@ y un paquete compacto de evidencia profesional permitido. Extrae requisitos y
 los mapea como evidencia directa, experiencia relacionada o capacidad
 transferible, además de señalar fortalezas, brechas honestas y un siguiente
 paso de aprendizaje.
+
+Las pruebas automatizadas incluyen fixtures PNG y PDF reales para verificar
+cabeceras, construcción del payload multimodal y comportamiento del proveedor
+simulado sin gastar tokens. No realizan una recuperación real del archivo por
+OpenAI: esa prueba end-to-end queda reservada para el despliegue final mediante
+la carga de un adjunto desde la plataforma y un host explícitamente autorizado.
 
 ## Demostración de la solución
 

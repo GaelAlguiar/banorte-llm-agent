@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import ipaddress
 from pathlib import PurePosixPath
 import re
+import socket
 from typing import Any, Literal
 from urllib.parse import unquote, urlsplit
 
@@ -111,13 +112,25 @@ def _validated_https_url(value: Any, policy: AttachmentPolicy) -> str:
         raise ValueError("La URL HTTPS del adjunto solo puede usar el puerto 443")
     normalized_host = hostname.lower()
     try:
+        socket.inet_aton(normalized_host)
+    except OSError:
+        pass
+    else:
+        raise ValueError("La URL del adjunto debe usar un FQDN público, no una IP")
+    try:
         ipaddress.ip_address(normalized_host)
     except ValueError:
         if not _is_public_fqdn(normalized_host):
             raise ValueError("El host del adjunto debe ser un FQDN público")
     else:
         raise ValueError("La URL del adjunto debe usar un FQDN público, no una IP")
-    if policy.trusted_hosts and normalized_host not in policy.trusted_hosts:
+    if not policy.trusted_hosts:
+        raise ValueError("No hay hosts de adjuntos autorizados en la configuración")
+    if not any(
+        normalized_host == trusted_host
+        or normalized_host.endswith(f".{trusted_host}")
+        for trusted_host in policy.trusted_hosts
+    ):
         raise ValueError("El host del adjunto no está autorizado")
     return url
 

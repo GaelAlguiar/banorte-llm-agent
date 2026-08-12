@@ -40,7 +40,7 @@ def test_settings_read_professional_classifier_model(monkeypatch):
 def test_attachment_policy_reads_environment(monkeypatch):
     monkeypatch.setenv("MAX_ATTACHMENTS", "2")
     monkeypatch.setenv(
-        "TRUSTED_ATTACHMENT_HOSTS",
+        "ATTACHMENT_TRUSTED_HOSTS",
         "uploads.example.com, signed.example.net",
     )
 

@@ -25,6 +25,12 @@ archivo `.zip`: el endpoint debe rechazarla antes de recuperar evidencia o
 invocar al modelo. Una petición que solicite secretos junto con un adjunto debe
 responder con el guardrail sin reenviar ese adjunto al proveedor.
 
+Antes de esta demostración se debe observar el dominio HTTPS que usa la
+plataforma para sus cargas, incorporarlo a `ATTACHMENT_TRUSTED_HOSTS` y desplegar
+una nueva revisión. Las pruebas locales con fixtures PNG/PDF comprueban el
+payload y la política con un proveedor falso; no sustituyen esta prueba real de
+recuperación remota ni afirman que validan redirecciones del proveedor.
+
 ## 3. Evidencia técnica
 
 Mostrar el endpoint Open Responses, un stream SSE, la matriz de casos, la sonda

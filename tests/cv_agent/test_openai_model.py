@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from pathlib import Path
 
 from cv_agent.agent.openai_model import OpenAIResponsesModel
 from cv_agent.api.models import UserAttachment
@@ -76,3 +77,68 @@ def test_model_sends_only_allowed_reasoning_configuration():
 
     assert captured["reasoning"] == {"effort": "medium"}
     assert "temperature" not in captured
+
+
+def test_real_png_fixture_drives_offline_multimodal_contract():
+    fixture = Path("tests/fixtures/vacancy.png").read_bytes()
+    assert fixture.startswith(b"\x89PNG\r\n\x1a\n")
+
+    model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
+    captured = {}
+
+    def create(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            output_text="Requisito: Python; conexión: evidencia directa."
+        )
+
+    model.client.responses.create = create
+    result = model.generate(
+        question="Compara esta vacante con Gael",
+        evidence=[],
+        skill=next(
+            skill for skill in load_skills()
+            if skill.name == "attachment_analysis"
+        ),
+        instructions="Instrucciones",
+        attachments=(UserAttachment(
+            kind="image", url="https://uploads.example.com/vacancy.png",
+        ),),
+    )
+
+    assert "evidencia directa" in result
+    assert captured["input"][0]["content"][1]["type"] == "input_image"
+
+
+def test_real_pdf_fixture_drives_offline_multimodal_contract():
+    fixture = Path("tests/fixtures/vacancy.pdf").read_bytes()
+    assert fixture.startswith(b"%PDF-")
+    assert b"%%EOF" in fixture
+
+    model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
+    captured = {}
+
+    def create(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            output_text="Requisito: Azure; conexión: experiencia relacionada."
+        )
+
+    model.client.responses.create = create
+    result = model.generate(
+        question="Compara este documento con Gael",
+        evidence=[],
+        skill=next(
+            skill for skill in load_skills()
+            if skill.name == "attachment_analysis"
+        ),
+        instructions="Instrucciones",
+        attachments=(UserAttachment(
+            kind="file",
+            url="https://uploads.example.com/vacancy.pdf",
+            filename="vacancy.pdf",
+        ),),
+    )
+
+    assert "experiencia relacionada" in result
+    assert captured["input"][0]["content"][1]["type"] == "input_file"
