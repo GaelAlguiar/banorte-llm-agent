@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
 from typing import Protocol
+from cv_agent.usage.models import ModelGeneration
 
 
 class EvaluationAgent(Protocol):
@@ -15,18 +16,18 @@ class EvaluationAgent(Protocol):
 class EvidenceModel:
     """Offline response adapter used to evaluate routing and retrieval."""
 
-    def generate(self, *, evidence: list[dict], skill, **kwargs) -> str:
+    def generate(self, *, evidence: list[dict], skill, **kwargs) -> ModelGeneration:
         if skill.name == "privacy_guard":
-            return (
+            return ModelGeneration(text=(
                 "Protejo la privacidad: puedo compartir experiencia y "
                 "proyectos públicos, pero no información sensible."
-            )
+            ), usage=None)
         # Mirror the factual payload available to the production model: titles
         # carry essential section context in addition to localized excerpts.
-        return "\n".join(
+        return ModelGeneration(text="\n".join(
             f"{item.get('title', '')}\n{item['excerpt']}"
             for item in evidence
-        )
+        ), usage=None)
 
 
 THRESHOLDS = {

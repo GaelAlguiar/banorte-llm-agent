@@ -1,5 +1,7 @@
 import os
+import re
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 
 
 MIN_REQUEST_BODY_BYTES = 65_536
@@ -27,6 +29,14 @@ class Settings:
     parley_file_bearer_token: str | None = None
     parley_file_capability_scope: str | None = None
     parley_file_max_bytes: int = 10_485_760
+    usage_meter_enabled: bool = False
+    usage_storage_account: str | None = None
+    usage_storage_table: str | None = None
+    usage_total_budget: str | None = None
+    usage_initial_spent: str | None = None
+    usage_input_rate: str | None = None
+    usage_cached_input_rate: str | None = None
+    usage_output_rate: str | None = None
 
     def __post_init__(self) -> None:
         if not (
@@ -64,6 +74,49 @@ class Settings:
             raise ValueError(
                 "parley_file_max_bytes debe estar entre 1 y 10485760"
             )
+        if self.usage_meter_enabled:
+            required = (
+                self.usage_storage_account, self.usage_storage_table,
+                self.usage_total_budget, self.usage_initial_spent,
+                self.usage_input_rate, self.usage_cached_input_rate,
+                self.usage_output_rate,
+            )
+            if not all(required):
+                raise ValueError("usage meter requiere configuración completa")
+            if not re.fullmatch(r"[a-z0-9]{3,24}", self.usage_storage_account):
+                raise ValueError("usage storage account inválida")
+            if not re.fullmatch(
+                r"[A-Za-z][A-Za-z0-9]{2,62}",
+                self.usage_storage_table,
+            ):
+                raise ValueError("usage storage table inválida")
+            try:
+                total = Decimal(self.usage_total_budget)
+                spent = Decimal(self.usage_initial_spent)
+                rates = tuple(Decimal(value) for value in (
+                    self.usage_input_rate,
+                    self.usage_cached_input_rate,
+                    self.usage_output_rate,
+                ))
+            except (InvalidOperation, TypeError) as error:
+                raise ValueError("usage configuration inválida") from error
+            decimals = (total, spent, *rates)
+            if (
+                not all(value.is_finite() for value in decimals)
+                or total <= 0
+                or spent < 0
+                or spent > total
+                or any(rate <= 0 for rate in rates)
+            ):
+                raise ValueError("usage configuration fuera de rango")
+
+    @property
+    def usage_initial_available_percent(self) -> float | None:
+        if not self.usage_meter_enabled:
+            return None
+        total = Decimal(self.usage_total_budget)
+        spent = Decimal(self.usage_initial_spent)
+        return float((total - spent) / total * Decimal("100"))
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -118,4 +171,14 @@ class Settings:
                 "PARLEY_FILE_MAX_BYTES",
                 "10485760",
             )),
+            usage_meter_enabled=(
+                os.getenv("USAGE_METER_ENABLED", "false").lower() == "true"
+            ),
+            usage_storage_account=os.getenv("USAGE_STORAGE_ACCOUNT") or None,
+            usage_storage_table=os.getenv("USAGE_STORAGE_TABLE") or None,
+            usage_total_budget=os.getenv("USAGE_TOTAL_BUDGET") or None,
+            usage_initial_spent=os.getenv("USAGE_INITIAL_SPENT") or None,
+            usage_input_rate=os.getenv("USAGE_INPUT_RATE") or None,
+            usage_cached_input_rate=os.getenv("USAGE_CACHED_INPUT_RATE") or None,
+            usage_output_rate=os.getenv("USAGE_OUTPUT_RATE") or None,
         )

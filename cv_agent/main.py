@@ -22,6 +22,38 @@ from cv_agent.security.privacy_intent import OpenAIPrivacyIntentClassifier
 from cv_agent.skills.registry import load_skills
 from cv_agent.web.app import create_flask_app
 from cv_agent.web.suggestions import SUGGESTED_QUESTIONS
+from azure.data.tables import TableServiceClient
+from azure.identity import DefaultAzureCredential
+from decimal import Decimal
+from cv_agent.usage.meter import UsageMeter
+from cv_agent.usage.models import ModelRates
+from cv_agent.usage.store import AzureTableUsageBudgetStore
+
+
+def _build_usage_meter(settings: Settings) -> UsageMeter | None:
+    if not settings.usage_meter_enabled:
+        return None
+    total_budget = Decimal(settings.usage_total_budget)
+    service = TableServiceClient(
+        endpoint=(
+            f"https://{settings.usage_storage_account}.table.core.windows.net"
+        ),
+        credential=DefaultAzureCredential(),
+    )
+    table_client = service.get_table_client(settings.usage_storage_table)
+    return UsageMeter(
+        store=AzureTableUsageBudgetStore(
+            table_client=table_client,
+            total_budget=total_budget,
+            initial_spent=Decimal(settings.usage_initial_spent),
+        ),
+        rates=ModelRates(
+            input_per_million=Decimal(settings.usage_input_rate),
+            cached_input_per_million=Decimal(settings.usage_cached_input_rate),
+            output_per_million=Decimal(settings.usage_output_rate),
+        ),
+        total_budget=total_budget,
+    )
 
 
 def _build_agent(settings: Settings) -> CvAgentService | None:
@@ -43,6 +75,7 @@ def _build_agent(settings: Settings) -> CvAgentService | None:
             model=settings.professional_classifier_model or settings.model,
         ),
         trusted_benign_questions=SUGGESTED_QUESTIONS,
+        usage_meter=_build_usage_meter(settings),
     )
 
 
@@ -109,6 +142,10 @@ def create_app(
         ready = bool(
             active_agent
             and active_agent.retrieval.ready()
+            and (
+                getattr(active_agent, "usage_meter", None) is None
+                or active_agent.usage_meter.ready()
+            )
         )
         content = {
             "status": "ready" if ready else "unavailable",

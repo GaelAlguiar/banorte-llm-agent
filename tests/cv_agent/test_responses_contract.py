@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from cv_agent.agent.service import AgentAnswer, AnswerEvidence, _public_source_url
 from cv_agent.config import Settings
 from cv_agent.main import create_app
+from cv_agent.usage.models import PublicUsage
 
 
 class StubAgent:
@@ -39,6 +40,12 @@ class StubAgent:
                 impact_type="confirmado",
                 confidence="alta",
             ),),
+            usage=PublicUsage(
+                input_tokens=1_000,
+                output_tokens=234,
+                total_tokens=1_234,
+                available_percent=67.2,
+            ),
         )
 
 
@@ -62,6 +69,12 @@ def test_create_response_returns_typed_output():
     assert body["output"][0]["type"] == "message"
     assert body["output"][0]["content"][0]["type"] == "output_text"
     assert "AI Engineer" in body["output"][0]["content"][0]["text"]
+    assert body["usage"] == {
+        "input_tokens": 1_000,
+        "output_tokens": 234,
+        "total_tokens": 1_234,
+    }
+    assert body["budget"] == {"available_percent": 67.2}
     evidence = body["evidence"]
     assert evidence[0] == {
         "document_id": "perfil-gael",
@@ -500,6 +513,12 @@ def test_streaming_response_matches_reference_event_sequence():
     assert completed["evidence"][0]["chunk_id"] == (
         "perfil-gael--resumen"
     )
+    assert completed["usage"] == {
+        "input_tokens": 1_000,
+        "output_tokens": 234,
+        "total_tokens": 1_234,
+    }
+    assert completed["budget"] == {"available_percent": 67.2}
 
 
 @pytest.mark.parametrize("stream", [False, True])

@@ -6,7 +6,7 @@ from typing import Any
 
 LOGGER = logging.getLogger("gael_cv_agent")
 
-_EVENTS = frozenset({"http_request", "agent_response"})
+_EVENTS = frozenset({"http_request", "agent_response", "usage_meter"})
 _SKILLS = frozenset({
     "architecture_explainer", "attachment_analysis", "behavioral_interview",
     "capability_advisor", "learning_evidence", "privacy_guard",
@@ -17,7 +17,7 @@ _ENUMS = {
     "status": frozenset({"success", "error"}),
     "skill_name": _SKILLS,
     "safety_decision": frozenset({"allowed", "blocked"}),
-    "error_type": frozenset({"agent_error"}),
+    "error_type": frozenset({"agent_error", "usage_store_error"}),
 }
 _LIST_ENUMS = {
     "source_kind_mix": frozenset({"perfil", "laboral", "demostrativo"}),
