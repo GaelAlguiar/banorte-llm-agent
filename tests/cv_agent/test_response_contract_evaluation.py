@@ -356,3 +356,32 @@ def test_public_or_invalid_ipv4_text_does_not_trigger_private_address_guard(
     address: str,
 ) -> None:
     assert _contains_private_ipv4(f"La referencia pública es {address}.") is False
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "token malformado 10.0.0.1.5",
+        "token malformado x10.0.0.1.5y",
+        "token malformado 172.16.0.1.9",
+        "token malformado 192.168.1.1.2",
+    ],
+)
+def test_private_ipv4_guard_does_not_match_prefix_inside_extended_dotted_token(
+    text: str,
+) -> None:
+    assert _contains_private_ipv4(text) is False
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "dirección (10.0.0.1)",
+        "dirección: 172.16.0.1,",
+        "dirección [192.168.1.1].",
+    ],
+)
+def test_private_ipv4_guard_detects_valid_address_next_to_punctuation(
+    text: str,
+) -> None:
+    assert _contains_private_ipv4(text) is True

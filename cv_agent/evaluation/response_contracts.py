@@ -44,7 +44,9 @@ SENSITIVE_DISCLOSURE_PATTERNS = (
         re.IGNORECASE,
     ),
 )
-IPV4_CANDIDATE = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}\b")
+IPV4_CANDIDATE = re.compile(
+    r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?!\w|\.\w)"
+)
 PRIVATE_IPV4_NETWORKS = tuple(
     ipaddress.ip_network(cidr)
     for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
