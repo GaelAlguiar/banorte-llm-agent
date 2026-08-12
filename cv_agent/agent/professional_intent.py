@@ -82,6 +82,23 @@ class DeterministicProfessionalIntentClassifier:
     def classify(self, question: str) -> ProfessionalIntent:
         normalized = normalize_text(question)
         tokens = set(tokenize(question))
+        nonprofessional_frames = (
+            r"\b(?:cual|dime|indica)\b.{0,20}\bcapital\s+de\b",
+            r"\b(?:clima|pronostico|temperatura)\b",
+            r"\b(?:precio|cotizacion|cuanto\s+cuesta)\b.{0,30}\b(?:hoy|actual|ahora)\b",
+            r"\b(?:receta|ingredientes|cocinar|cenar)\b",
+            r"\b(?:marcador|partido|torneo|campeonato)\b",
+        )
+        professional_anchors = {
+            "experiencia", "profesional", "proyecto", "proyectos",
+            "habilidad", "habilidades", "vacante", "puesto", "rol",
+            "trayectoria", "contratar", "candidato",
+        }
+        if (
+            not tokens & professional_anchors
+            and any(re.search(pattern, normalized) for pattern in nonprofessional_frames)
+        ):
+            return "out_of_scope"
         if tokens & {
             "color", "mascota", "mascotas", "libro", "comida", "platillo",
             "receta", "futbol", "deportivo", "deporte", "partido",

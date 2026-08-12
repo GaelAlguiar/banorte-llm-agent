@@ -74,6 +74,10 @@ _OUTPUT_TOKEN_DEFAULTS = {
     "role_fit": 900,
 }
 _OBSERVABLE_SOURCE_KINDS = frozenset({"perfil", "laboral", "demostrativo"})
+_OUT_OF_SCOPE_REDIRECT = (
+    "Puedo ayudarte con la experiencia profesional de Gael, sus proyectos "
+    "de IA y cloud, o su ajuste a la posición Junior."
+)
 
 
 _PUBLIC_EVIDENCE_URLS = {
@@ -380,6 +384,13 @@ class CvAgentService:
                 skill = next(item for item in self.skills if item.name == skill_name)
         evidence = []
         out_of_scope = professional_intent == "out_of_scope"
+        if out_of_scope:
+            return AgentAnswer(
+                text=_OUT_OF_SCOPE_REDIRECT,
+                skill_name=skill.name,
+                evidence_ids=(),
+                safety_decision="allowed",
+            )
         if skill.name != "privacy_guard" and not out_of_scope:
             allowed_document_ids = {
                 document.id

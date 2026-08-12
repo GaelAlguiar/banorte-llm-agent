@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from cv_agent.agent.service import AgentAnswer
 from cv_agent.main import create_app
-from cv_agent.observability.logging import log_event
+from cv_agent.observability.logging import LOGGER, configure_logging, log_event
 
 
 class OperationalStubAgent:
@@ -138,3 +138,91 @@ def test_logger_rejects_unallowlisted_values_as_well_as_fields(caplog):
         "status": "success",
         "retrieval_hit_count": 8,
     }
+
+
+def test_production_logger_emits_info_json_once_without_root_configuration():
+    class BufferHandler(logging.Handler):
+        def __init__(self):
+            super().__init__()
+            self.messages = []
+
+        def emit(self, record):
+            self.messages.append(self.format(record))
+
+    handler = BufferHandler()
+    previous_handlers = list(LOGGER.handlers)
+    previous_level = LOGGER.level
+    previous_propagate = LOGGER.propagate
+    try:
+        LOGGER.handlers.clear()
+        logging.getLogger().setLevel(logging.WARNING)
+        configure_logging(handler=handler)
+        configure_logging(handler=handler)
+        log_event(
+            "http_request", method="POST", status=200, latency_ms=4.2,
+            prompt="private prompt", answer="private answer",
+            url="https://private.example", request_id="private-id",
+            secret="sk-private-value",
+        )
+
+        assert len(handler.messages) == 1
+        assert json.loads(handler.messages[0]) == {
+            "event": "http_request",
+            "method": "POST",
+            "status": 200,
+            "latency_ms": 4.2,
+        }
+    finally:
+        LOGGER.handlers[:] = previous_handlers
+        LOGGER.setLevel(previous_level)
+        LOGGER.propagate = previous_propagate
+
+
+def test_flask_success_path_emits_same_allowlisted_agent_response_event(caplog):
+    caplog.set_level(logging.INFO, logger="gael_cv_agent")
+    client = TestClient(create_app(agent=OperationalStubAgent()))
+
+    response = client.post(
+        "/chat/api/messages",
+        json={"message": "prompt privado con https://secret.example/path"},
+    )
+
+    assert response.status_code == 200
+    event = next(item for item in _events(caplog)
+                 if item["event"] == "agent_response")
+    assert event["status"] == "success"
+    assert event["skill_name"] == "architecture_explainer"
+    assert event["retrieval_hit_count"] == 3
+    serialized = "\n".join(record.message for record in caplog.records)
+    for forbidden in (
+        "prompt privado", "Respuesta privada", "https://", "documento-secreto",
+    ):
+        assert forbidden not in serialized
+
+
+def test_flask_failure_emits_content_free_latency_and_no_attachment_parity(caplog):
+    class FailingAgent:
+        def answer(self, question):
+            raise RuntimeError("secret-value https://private.example")
+
+    caplog.set_level(logging.INFO, logger="gael_cv_agent")
+    client = TestClient(create_app(agent=FailingAgent()))
+
+    response = client.post(
+        "/chat/api/messages",
+        json={"message": "private prompt"},
+    )
+
+    assert response.status_code == 502
+    event = next(item for item in _events(caplog)
+                 if item["event"] == "agent_response")
+    assert event["status"] == "error"
+    assert event["error_type"] == "agent_error"
+    assert isinstance(event["latency_ms"], float)
+    assert event["attachment_count"] == 0
+    assert event["attachment_kinds"] == []
+    serialized = "\n".join(record.message for record in caplog.records)
+    for forbidden in (
+        "private prompt", "secret-value", "https://", "private.example",
+    ):
+        assert forbidden not in serialized

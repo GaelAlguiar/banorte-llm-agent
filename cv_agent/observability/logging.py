@@ -26,6 +26,21 @@ _LIST_ENUMS = {
 }
 
 
+def configure_logging(handler: logging.Handler | None = None) -> None:
+    """Enable allowlisted operational events without changing global logging."""
+    LOGGER.setLevel(logging.INFO)
+    if handler is not None and handler not in LOGGER.handlers:
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        LOGGER.addHandler(handler)
+    elif handler is None and not LOGGER.handlers and not logging.getLogger().handlers:
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(logging.INFO)
+        stream_handler.setFormatter(logging.Formatter("%(message)s"))
+        LOGGER.addHandler(stream_handler)
+    LOGGER.propagate = not bool(LOGGER.handlers)
+
+
 def _safe_field(key: str, value: Any) -> Any | None:
     if key == "status" and isinstance(value, int) and 100 <= value <= 599:
         return value

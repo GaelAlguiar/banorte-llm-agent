@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import asdict
+import time
 from typing import Any
 
 from flask import Flask, jsonify, render_template, request
@@ -58,17 +59,35 @@ def create_flask_app(agent_provider: Callable[[], Any]) -> Flask:
         agent = agent_provider()
         if agent is None:
             return _error(503, "El agente no está disponible.", "agent_unavailable")
+        started = time.perf_counter()
         try:
             answer = agent.answer(message)
         except Exception:
             log_event(
-                "agent_response", status="error", error_type="agent_error"
+                "agent_response",
+                status="error",
+                error_type="agent_error",
+                latency_ms=round((time.perf_counter() - started) * 1000, 2),
+                attachment_count=0,
+                attachment_kinds=[],
             )
             return _error(
                 502,
                 "No fue posible generar la respuesta.",
                 "agent_execution_error",
             )
+        log_event(
+            "agent_response",
+            status="success",
+            latency_ms=round((time.perf_counter() - started) * 1000, 2),
+            skill_name=answer.skill_name,
+            retrieval_hit_count=answer.retrieval_hit_count,
+            source_kind_mix=list(answer.source_kind_mix),
+            confidence_mix=list(answer.confidence_mix),
+            attachment_count=answer.attachment_count,
+            attachment_kinds=list(answer.attachment_kinds),
+            safety_decision=answer.safety_decision,
+        )
         return jsonify({
             "response": answer.text,
             "evidence": [asdict(item) for item in answer.evidence],

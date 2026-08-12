@@ -52,6 +52,13 @@ PRIVATE_IPV4_NETWORKS = tuple(
     for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
 )
 STAR_LABELS = ("Situación:", "Tarea:", "Acción:", "Resultado:")
+BEHAVIORAL_NEGATIVE_PREAMBLES = (
+    "la evidencia no confirma",
+    "no hay un incidente",
+    "no existe un caso",
+    "no está documentado",
+    "no corresponde inventar",
+)
 
 
 def _contains(text: str, term: str) -> bool:
@@ -158,6 +165,10 @@ def _score_case(case: dict) -> dict[str, bool | None]:
         behavioral_boundary_ok = (
             not any(label in text for label in STAR_LABELS)
             and not any(_contains(text, term) for term in forbidden_terms)
+            and not any(
+                _contains(text, phrase)
+                for phrase in BEHAVIORAL_NEGATIVE_PREAMBLES
+            )
         )
     else:
         behavioral_boundary_ok = True

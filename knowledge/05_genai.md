@@ -40,11 +40,11 @@ los documentos pequeños permanecen completos para no perder contexto. Así la
 generación recibe el pasaje localizado que respondió a la consulta, incluso si
 aparece al final de la fuente, en vez de truncar siempre el inicio del archivo.
 
-La solución desplegada usa Azure AI Search Free como índice real. Una ingesta
-controlada genera embeddings con OpenAI, sincroniza únicamente los documentos
-autorizados y elimina chunks obsoletos. Cada pregunta combina búsqueda
-textual BM25 y búsqueda vectorial; Azure fusiona ambos rankings y el agente
-aplica filtros por categoría y un umbral de relevancia.
+La solución desplegada usa Azure AI Search Free con 53 chunks dinámicos por
+sección en esta entrega. La ingesta calcula los fragmentos desde el contenido
+versionado, genera embeddings con OpenAI, sincroniza sólo fuentes autorizadas y
+elimina chunks obsoletos; la cifra no es una constante operativa. Cada consulta
+combina BM25 y búsqueda vectorial, filtros por categoría y relevancia.
 
 Azure Container Apps consulta el índice mediante identidad administrada y el
 rol mínimo `Search Index Data Reader`. La sonda `/health/ready` comprueba que el

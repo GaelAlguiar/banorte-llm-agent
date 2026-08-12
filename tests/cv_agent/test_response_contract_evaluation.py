@@ -124,6 +124,20 @@ def test_behavioral_matrix_covers_confirmed_and_unconfirmed_star_boundaries() ->
     )
 
 
+def test_production_regression_fixtures_cover_scope_behavior_and_deployment() -> None:
+    cases = [
+        json.loads(line)
+        for line in FIXTURES.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+    assert {
+        "out-scope-capital-regression",
+        "behavior-unconfirmed-02",
+        "architecture-deployed-regression",
+    } <= {case["id"] for case in cases}
+
+
 def test_unconfirmed_behavioral_case_rejects_star_and_invented_anecdote(
     tmp_path: Path,
 ) -> None:
@@ -149,6 +163,26 @@ def test_unconfirmed_behavioral_case_rejects_star_and_invented_anecdote(
     assert "behavioral_evidence_boundary" in report["failures"][0][
         "failed_contracts"
     ]
+
+
+def test_unconfirmed_behavioral_fixture_is_positive_without_missing_evidence_preamble() -> None:
+    cases = [
+        json.loads(line)
+        for line in FIXTURES.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    case = next(item for item in cases if item["id"] == "behavior-unconfirmed-02")
+    response = case["response"].casefold()
+
+    assert "comportamiento más cercano" in response
+    for forbidden in (
+        "no hay un incidente",
+        "no existe un caso",
+        "la evidencia no confirma",
+        "no está documentado",
+        "no corresponde inventar",
+    ):
+        assert forbidden not in response
 
 
 @pytest.mark.parametrize(
@@ -188,6 +222,28 @@ def test_core_contract_failures_are_reported(
 
     assert report["metrics"]["core_failure_count"] == 1
     assert failed_contract in report["failures"][0]["failed_contracts"]
+
+
+def test_unconfirmed_behavioral_negative_preamble_is_rejected(tmp_path: Path) -> None:
+    cases = tmp_path / "cases.jsonl"
+    _write_case(
+        cases,
+        category="behavioral_confirmed_only",
+        response="La evidencia no confirma un incidente documentado de Proyecto Uno.",
+        star_allowed=False,
+        forbidden_terms=[],
+        min_words=1,
+    )
+
+    report = run_response_contract_evaluation(
+        cases,
+        tmp_path / "report.json",
+        enforce_thresholds=False,
+    )
+
+    assert "behavioral_evidence_boundary" in report["failures"][0][
+        "failed_contracts"
+    ]
 
 
 def test_reviewed_unsupported_claim_sentinel_rejects_invented_prize(

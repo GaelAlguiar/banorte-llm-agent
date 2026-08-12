@@ -2,6 +2,11 @@
 
 El endpoint usa una clave dedicada distinta de la clave del proveedor LLM. Los secretos se cargan en runtime y Azure Container Apps los referencia sin incorporarlos a la imagen.
 
+El logger propio se configura explícitamente en nivel `INFO` al crear la
+aplicación. Tanto FastAPI como Flask emiten los mismos eventos JSON allowlistados
+en solicitudes exitosas y fallidas; la configuración no depende del nivel del
+logger raíz ni añade handlers duplicados.
+
 Controles implementados:
 
 - autenticación Bearer con comparación en tiempo constante;
