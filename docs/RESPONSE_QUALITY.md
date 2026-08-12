@@ -155,7 +155,7 @@ profesional, no solamente conocimientos aislados:
 
 1. ¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para un equipo de IA Generativa?
 2. ¿Qué proyecto demuestra mejor la experiencia laboral de Gael con inteligencia artificial y qué impacto tuvo?
-3. ¿Cómo construyó Gael este agente de CV y qué decisiones técnicas tomó para llevar su arquitectura RAG a producción?
+3. ¿Cómo construyó Gael este agente de CV, qué decisiones tomó en su arquitectura y dónde puedo consultar el código?
 4. ¿Cómo participó Gael en el chatbot, el análisis de documentos con IA, el despliegue en AKS y el uso de Vertex AI en HeyTech?
 5. ¿Cómo diseñó Gael una fachada segura entre clientes, Azure Functions y APIM?
 6. ¿Qué experiencia tiene Gael con Terraform y conectividad multicloud entre Azure, AWS y Google Cloud?

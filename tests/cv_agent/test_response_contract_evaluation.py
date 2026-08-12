@@ -143,8 +143,8 @@ def test_production_regression_fixtures_cover_scope_behavior_and_deployment() ->
         if case["id"] == "architecture-canonical-deployed-regression"
     )
     assert canonical["question"] == (
-        "¿Cómo construyó Gael este agente de CV y qué decisiones técnicas tomó "
-        "para llevar su arquitectura RAG a producción?"
+        "¿Cómo construyó Gael este agente de CV, qué decisiones tomó en su "
+        "arquitectura y dónde puedo consultar el código?"
     )
     assert {
         "Azure Container Apps", "Azure AI Search", "health", "readiness"

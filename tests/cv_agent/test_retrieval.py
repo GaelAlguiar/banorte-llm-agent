@@ -19,6 +19,24 @@ def test_retrieval_prioritizes_genai_for_rag_question():
     assert hits[0].score >= 0.20
 
 
+def test_retrieval_prioritizes_public_project_presentation():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "¿Cómo construyó Gael el agente, cuáles son sus decisiones y dónde está el código?",
+        top_k=5,
+        allowed_document_ids={"genai-banorte-agent"},
+    )
+
+    assert hits
+    assert hits[0].document_id == "genai-banorte-agent"
+    assert "github.com/gaelalguiar/banorte-llm-agent" in " ".join(
+        hit.excerpt.casefold() for hit in hits
+    )
+
+
 def test_retrieval_returns_no_evidence_below_threshold():
     retrieval = HybridCvRetrieval.from_directory(
         Path("knowledge"),

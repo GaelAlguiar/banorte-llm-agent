@@ -1277,6 +1277,46 @@ def test_canonical_rag_payload_is_scoped_to_current_deployed_agent():
     assert "el agente de cv actual está desplegado" in instructions
 
 
+def test_project_presentation_payload_covers_delivery_and_public_repository():
+    agent, model = build_agent()
+
+    result = agent.answer(SUGGESTED_QUESTIONS[2])
+
+    assert result.skill_name == "architecture_explainer"
+    payload = " ".join(
+        item["excerpt"] for item in model.calls[0]["evidence"]
+    ).casefold()
+    for required in (
+        "demostración clara",
+        "diseño e integración",
+        "construcción, despliegue y operación",
+        "decisiones técnicas",
+        "límites y mejoras",
+        "https://github.com/gaelalguiar/banorte-llm-agent",
+    ):
+        assert required in payload
+    instructions = " ".join(
+        model.calls[0]["instructions"].split()
+    ).casefold()
+    assert "termina la respuesta con el enlace del repositorio" in instructions
+    assert "api key" in instructions and "nunca" in instructions
+
+
+def test_other_agent_architecture_keeps_authorized_project_sources():
+    agent, model = build_agent()
+
+    result = agent.answer("¿Cuál es la arquitectura de este agente de HeyTech?")
+
+    assert result.skill_name == "architecture_explainer"
+    assert any(
+        item["document_id"].startswith("heytech-")
+        for item in model.calls[0]["evidence"]
+    )
+    assert {
+        item["document_id"] for item in model.calls[0]["evidence"]
+    } != {"genai-banorte-agent"}
+
+
 def test_low_relevance_capability_search_falls_back_within_explicit_allowlist(monkeypatch):
     agent, model = build_agent()
     calls = []
@@ -1331,7 +1371,7 @@ def test_suggested_questions_are_byte_identical_to_release_baseline():
     expected = (
         "¿Por qué la experiencia laboral de Gael lo convierte en un candidato valioso para un equipo de IA Generativa?",
         "¿Qué proyecto demuestra mejor la experiencia laboral de Gael con inteligencia artificial y qué impacto tuvo?",
-        "¿Cómo construyó Gael este agente de CV y qué decisiones técnicas tomó para llevar su arquitectura RAG a producción?",
+        "¿Cómo construyó Gael este agente de CV, qué decisiones tomó en su arquitectura y dónde puedo consultar el código?",
         "¿Cómo participó Gael en el chatbot, el análisis de documentos con IA, el despliegue en AKS y el uso de Vertex AI en HeyTech?",
         "¿Cómo diseñó Gael una fachada segura entre clientes, Azure Functions y APIM?",
         "¿Qué experiencia tiene Gael con Terraform y conectividad multicloud entre Azure, AWS y Google Cloud?",

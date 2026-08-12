@@ -16,6 +16,25 @@ Azure AI Search como índice híbrido. Expone `/health` para salud del proceso y
 `/health/ready` para comprobar acceso efectivo al índice antes de atenderse
 como listo.
 
+## Presentación y repositorio público
+
+La demostración clara usa escenarios sobre experiencia, proyectos, arquitectura
+y adjuntos para mostrar cómo responde, qué contexto autorizado utiliza y cómo
+maneja preguntas distintas. El diseño e integración separan la API Open
+Responses, routing por skills, recuperación RAG, modelo y políticas de
+seguridad. La construcción, despliegue y operación se demuestran con código,
+pruebas, CI, Azure Container Apps, Azure AI Search, health, readiness y
+telemetría sin contenido sensible. Las decisiones técnicas priorizan chunking
+temático, embeddings, retrieval híbrido, ranking, generación aumentada,
+allowlists, guardrails y evaluación reproducible.
+
+Entre los límites y mejoras están mantener la compatibilidad segura con los
+formatos de adjuntos del portal, ampliar evaluaciones de respuestas generadas y
+reforzar observabilidad y recuperación conforme crezcan el corpus y el tráfico.
+El código, la arquitectura, las instrucciones de ejecución y la evidencia de
+evaluación están disponibles en el repositorio público:
+https://github.com/GaelAlguiar/banorte-llm-agent
+
 ## Problema
 
 Construir un agente capaz de conversar con naturalidad sobre la trayectoria de Gael y, al mismo tiempo, demostrar ingeniería GenAI más allá de una interfaz atractiva.
@@ -44,7 +63,7 @@ los documentos pequeños permanecen completos para no perder contexto. Así la
 generación recibe el pasaje localizado que respondió a la consulta, incluso si
 aparece al final de la fuente, en vez de truncar siempre el inicio del archivo.
 
-La solución desplegada usa Azure AI Search Free con 53 chunks dinámicos por
+La solución desplegada usa Azure AI Search Free con 54 chunks dinámicos por
 sección en esta entrega. La ingesta calcula los fragmentos desde el contenido
 versionado, genera embeddings con OpenAI, sincroniza sólo fuentes autorizadas y
 elimina chunks obsoletos; la cifra no es una constante operativa. Cada consulta

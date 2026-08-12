@@ -19,8 +19,8 @@ def test_authorized_architecture_evidence_describes_current_deployed_state():
 
     assert "Azure Container Apps" in text
     assert "Azure AI Search" in text
-    assert "53 chunks" in text
-    assert len(load_knowledge_chunks(Path("knowledge"))) == 53
+    assert "54 chunks" in text
+    assert len(load_knowledge_chunks(Path("knowledge"))) == 54
     assert "/health" in text
     assert "/health/ready" in text
     for stale in (
@@ -29,6 +29,20 @@ def test_authorized_architecture_evidence_describes_current_deployed_state():
         "aún no está en producción",
     ):
         assert stale not in text.casefold()
+
+
+def test_authorized_architecture_evidence_contains_complete_project_presentation():
+    text = Path("knowledge/05_genai.md").read_text(encoding="utf-8").casefold()
+
+    for required in (
+        "demostración clara",
+        "diseño e integración",
+        "construcción, despliegue y operación",
+        "decisiones técnicas",
+        "límites y mejoras",
+        "https://github.com/gaelalguiar/banorte-llm-agent",
+    ):
+        assert required in text
 
 
 def test_response_quality_documents_the_exact_eight_suggested_questions():
