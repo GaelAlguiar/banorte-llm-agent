@@ -8,7 +8,13 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from cv_agent.api.models import CreateResponseRequest, extract_user_input
+from cv_agent.api.models import (
+    CreateResponseRequest,
+    UserInput,
+    extract_user_input,
+    extract_user_text,
+    validate_attachment_envelope,
+)
 from cv_agent.observability.logging import log_event
 from cv_agent.security.auth import valid_bearer
 
@@ -144,10 +150,62 @@ def create_response(body: CreateResponseRequest, request: Request):
             }},
         )
     try:
-        user_input = extract_user_input(
-            body.input,
-            policy=request.app.state.attachment_policy,
-        )
+        agent = request.app.state.agent
+        privacy_decision = None
+        if (
+            request.app.state.attachment_resolver is not None
+            and agent is not None
+            and callable(getattr(agent, "privacy_decision", None))
+        ):
+            question = extract_user_text(body.input)
+            if len(question) > 8_000:
+                return JSONResponse(
+                    status_code=413,
+                    content={"error": {
+                        "message": "El input excede 8000 caracteres.",
+                        "type": "invalid_request_error",
+                        "code": "input_too_large",
+                        "param": "input",
+                    }},
+                )
+            validate_attachment_envelope(
+                body.input,
+                request.app.state.attachment_policy,
+            )
+            try:
+                privacy_decision = agent.privacy_decision(question)
+            except Exception:
+                log_event(
+                    "agent_response",
+                    status="error",
+                    error_type="privacy_classifier_error",
+                    attachment_count=0,
+                    attachment_kinds=[],
+                )
+                return JSONResponse(
+                    status_code=502,
+                    content={"error": {
+                        "message": "No fue posible procesar la solicitud.",
+                        "type": "api_error",
+                        "code": "agent_error",
+                        "param": None,
+                    }},
+                )
+            user_input = (
+                UserInput(text=question)
+                if privacy_decision == "sensitive"
+                else extract_user_input(
+                    body.input,
+                    policy=request.app.state.attachment_policy,
+                    resolver=request.app.state.attachment_resolver,
+                )
+            )
+        else:
+            user_input = extract_user_input(
+                body.input,
+                policy=request.app.state.attachment_policy,
+                resolver=request.app.state.attachment_resolver,
+            )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     question = user_input.text
@@ -171,13 +229,18 @@ def create_response(body: CreateResponseRequest, request: Request):
         )
     started = time.perf_counter()
     try:
-        answer = agent.answer(
-            question,
-            attachments=user_input.attachments,
-            reasoning_effort=(
+        answer_options = {
+            "attachments": user_input.attachments,
+            "reasoning_effort": (
                 body.reasoning.effort if body.reasoning else None
             ),
-            max_output_tokens=body.max_output_tokens,
+            "max_output_tokens": body.max_output_tokens,
+        }
+        if privacy_decision is not None:
+            answer_options["privacy_decision"] = privacy_decision
+        answer = agent.answer(
+            question,
+            **answer_options,
         )
     except Exception:
         log_event(

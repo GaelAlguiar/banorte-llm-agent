@@ -362,22 +362,27 @@ class CvAgentService:
             allowed_document_ids=allowed_document_ids,
         )
 
+    def privacy_decision(self, question: str) -> str:
+        """Autoriza adjuntos antes de cualquier recuperación remota."""
+        if question in self.trusted_benign_questions:
+            return "benign"
+        decision = direct_privacy_decision(question)
+        if decision is not None:
+            return decision
+        return self.privacy_classifier.classify(question)
+
     def answer(
         self,
         question: str,
         attachments: tuple[UserAttachment, ...] = (),
         reasoning_effort: str | None = None,
         max_output_tokens: int | None = None,
+        privacy_decision: str | None = None,
     ) -> AgentAnswer:
         if not question.strip():
             raise ValueError("La pregunta no puede estar vacía")
         professional_intent = None
-        if question in self.trusted_benign_questions:
-            privacy_decision = "benign"
-        else:
-            privacy_decision = direct_privacy_decision(question)
-            if privacy_decision is None:
-                privacy_decision = self.privacy_classifier.classify(question)
+        privacy_decision = privacy_decision or self.privacy_decision(question)
         if privacy_decision == "sensitive":
             skill = next(
                 skill for skill in self.skills

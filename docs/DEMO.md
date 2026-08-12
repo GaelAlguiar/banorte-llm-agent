@@ -25,11 +25,11 @@ archivo `.zip`: el endpoint debe rechazarla antes de recuperar evidencia o
 invocar al modelo. Una petición que solicite secretos junto con un adjunto debe
 responder con el guardrail sin reenviar ese adjunto al proveedor.
 
-Antes de esta demostración se debe observar el dominio HTTPS que usa la
-plataforma para sus cargas, incorporarlo a `ATTACHMENT_TRUSTED_HOSTS` y desplegar
-una nueva revisión. Las pruebas locales con fixtures PNG/PDF comprueban el
-payload y la política con un proveedor falso; no sustituyen esta prueba real de
-recuperación remota ni afirman que validan redirecciones del proveedor.
+La prueba multimodal desde el portal sólo se realiza cuando su operador entrega
+una credencial de lectura dedicada o una URL HTTPS firmada. El identificador
+opaco que llega al agente no es descargable con la clave del endpoint. Mientras
+esa precondición no exista, mostrar la negativa segura y las pruebas con
+fixtures PNG/PDF es más correcto que simular una integración inexistente.
 
 ## 3. Evidencia técnica
 

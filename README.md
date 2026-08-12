@@ -23,6 +23,7 @@ Plataforma Banorte
           -> fast-path determinista para secretos inequívocos
           -> clasificación semántica para entradas no preclasificadas
       -> selección de skill
+      -> resolución opcional de adjuntos opacos, con credencial independiente
       -> Azure AI Search
           -> búsqueda textual BM25
           -> búsqueda vectorial con embeddings
@@ -116,15 +117,30 @@ costo de la configuración más alta a todas las preguntas.
 ### Imágenes y archivos
 
 El endpoint acepta hasta cuatro adjuntos en el último mensaje del usuario (el
-límite puede reducirse con `MAX_ATTACHMENTS`). Las
-imágenes se envían como `input_image.image_url` y los documentos como
-`input_file.file_url`; ambos enlaces deben usar HTTPS. Sólo se permiten PNG,
+límite puede reducirse con `MAX_ATTACHMENTS`). Las imágenes se envían como
+`input_image.image_url` y los documentos como `input_file.file_url`. Los
+enlaces normales deben usar HTTPS. Sólo se permiten PNG,
 JPG/JPEG, WebP o GIF para imágenes, y PDF, TXT, Markdown o DOCX para documentos.
 El nombre de archivo tiene un máximo de 128 caracteres. Si la plataforma usa
 dominios fijos para sus URLs firmadas, debe configurar
 `ATTACHMENT_TRUSTED_HOSTS` mediante una lista separada por comas. Sin esta
 allowlist, las solicitudes con adjuntos se rechazan de forma segura. Cada host
 autoriza el dominio exacto y sus subdominios, pero nunca una coincidencia parcial.
+
+La interfaz del portal también puede representar cualquier carga —incluidos
+PDF— como `input_image` con una referencia opaca
+`parley-file:file_<identificador>`. El agente valida estrictamente ese formato y
+puede resolverlo mediante `PARLEY_FILE_BASE_URL` y una credencial de lectura
+dedicada `PARLEY_FILE_BEARER_TOKEN`. Nunca reutiliza `AGENT_API_KEY` ni
+`OPENAI_API_KEY`. El resolver
+también exige `PARLEY_FILE_CAPABILITY_SCOPE=agent-files`, una confirmación
+operativa de que la credencial sólo puede leer los archivos asignados al agente.
+Si el portal entrega un bearer amplio, no debe habilitarse. El resolver
+mantiene fijo el host y la ruta, conecta a una IP pública previamente validada
+con el Host y SNI originales, rechaza redirecciones, valida
+MIME, firma binaria y tamaño, y entrega los bytes temporalmente al proveedor
+como Base64. Si falta la credencial o la plataforma no la reconoce, la
+solicitud falla cerrada sin exponer el identificador ni detalles internos.
 
 ```json
 {
@@ -139,8 +155,12 @@ autoriza el dominio exacto y sus subdominios, pero nunca una coincidencia parcia
 }
 ```
 
-Los adjuntos son contexto temporal y no se descargan en el contenedor, no se
-persisten y no se incorporan automáticamente a la base vectorial. Sus
+Los adjuntos son contexto temporal, no se escriben en disco, no se persisten y
+no se incorporan automáticamente a la base vectorial. Las URLs HTTPS se
+recuperan directamente por el proveedor. Las referencias opacas, cuando existe
+una credencial dedicada, se descargan en memoria con un máximo de 10 MiB y se
+descartan al terminar la solicitud. Todas las descargas de una solicitud
+comparten el mismo presupuesto máximo de 10 MiB. Sus
 instrucciones se consideran contenido no confiable para impedir prompt
 injection; las afirmaciones sobre Gael siguen requiriendo evidencia autorizada.
 La skill `attachment_analysis` hace una sola llamada generativa con el adjunto
@@ -150,10 +170,11 @@ transferible, además de señalar fortalezas, brechas honestas y un siguiente
 paso de aprendizaje.
 
 Las pruebas automatizadas incluyen fixtures PNG y PDF reales para verificar
-su estructura con Pillow y pypdf, la construcción del payload multimodal y el comportamiento del proveedor
-simulado sin gastar tokens. No realizan una recuperación real del archivo por
-OpenAI: esa prueba end-to-end queda reservada para el despliegue final mediante
-la carga de un adjunto desde la plataforma y un host explícitamente autorizado.
+su estructura con Pillow y pypdf, el transporte autenticado simulado, el
+payload multimodal y el comportamiento del proveedor sin gastar tokens. La
+prueba end-to-end con una referencia opaca requiere que el operador del portal
+entregue una credencial de lectura o una URL HTTPS firmada; la clave configurada
+para invocar al agente no concede ese acceso.
 
 ## Demostración de la solución
 
@@ -180,8 +201,8 @@ el proveedor LLM o el motor vectorial sin reescribir el contrato público.
 
 **Integración.** Se eligió Open Responses porque permite que la plataforma
 consuma el agente mediante `POST /v1/responses`, tanto en JSON como en SSE. Los
-archivos se entregan mediante URLs HTTPS temporales y no se incorporan al RAG
-sin un proceso explícito de revisión.
+archivos se entregan mediante URLs HTTPS temporales o un resolver opaco
+autenticado y no se incorporan al RAG sin un proceso explícito de revisión.
 
 **Despliegue.** La aplicación se empaqueta en Docker como usuario sin
 privilegios y se ejecuta en Azure Container Apps. Los secretos se inyectan en
