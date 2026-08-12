@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from cv_agent.knowledge.loader import load_knowledge_chunks
 from cv_agent.web.suggestions import SUGGESTED_QUESTIONS
 
 
@@ -11,6 +12,23 @@ def test_readme_describes_active_azure_search_architecture():
     assert "En producción se migraría a Azure AI Search" not in text
     assert "índice en memoria" not in text
     assert "python -m cv_agent.retrieval.ingest" in text
+
+
+def test_authorized_architecture_evidence_describes_current_deployed_state():
+    text = Path("knowledge/05_genai.md").read_text(encoding="utf-8")
+
+    assert "Azure Container Apps" in text
+    assert "Azure AI Search" in text
+    assert "53 chunks" in text
+    assert len(load_knowledge_chunks(Path("knowledge"))) == 53
+    assert "/health" in text
+    assert "/health/ready" in text
+    for stale in (
+        "no es un despliegue terminado",
+        "no está desplegado en producción",
+        "aún no está en producción",
+    ):
+        assert stale not in text.casefold()
 
 
 def test_response_quality_documents_the_exact_eight_suggested_questions():

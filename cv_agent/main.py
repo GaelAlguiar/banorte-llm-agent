@@ -13,7 +13,7 @@ from cv_agent.agent.service import CvAgentService
 from cv_agent.api.responses import router as responses_router
 from cv_agent.api.models import AttachmentPolicy
 from cv_agent.config import Settings
-from cv_agent.observability.logging import log_event
+from cv_agent.observability.logging import configure_logging, log_event
 from cv_agent.retrieval.factory import build_retrieval
 from cv_agent.security.limits import SlidingWindowLimiter
 from cv_agent.security.privacy_intent import OpenAIPrivacyIntentClassifier
@@ -48,6 +48,7 @@ def create_app(
     settings: Settings | None = None,
     agent: Any | None = None,
 ) -> FastAPI:
+    configure_logging()
     active_settings = settings or Settings.from_env()
     app = FastAPI(title="Gael CV Agent", version="1.0.0")
     app.state.settings = active_settings

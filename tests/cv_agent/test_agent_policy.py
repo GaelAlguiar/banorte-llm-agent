@@ -33,6 +33,13 @@ class RecordingModel:
         )
 
 
+def _expected_professional_redirect() -> str:
+    return (
+        "Puedo ayudarte con la experiencia profesional de Gael, sus proyectos "
+        "de IA y cloud, o su ajuste a la posición Junior."
+    )
+
+
 def build_agent(
     privacy_classifier=None,
     professional_classifier=None,
@@ -478,14 +485,29 @@ def test_benign_multi_question_and_prevention_queries_retrieve_evidence(question
     assert model.calls[0]["evidence"]
 
 
-def test_out_of_scope_question_returns_no_profile_evidence():
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Cuál es la capital de Australia?",
+        "¿Me compartes una receta fácil para cenar?",
+        "¿Quién crees que gane el partido de mañana?",
+        "¿Qué clima hará este fin de semana?",
+        "¿Cuánto cuesta hoy una acción tecnológica?",
+    ),
+)
+def test_out_of_scope_question_returns_only_a_professional_redirect(question):
     agent, model = build_agent()
 
-    result = agent.answer("¿Cuál es la receta de paella valenciana?")
+    result = agent.answer(question)
 
     assert result.skill_name == "profile_summary"
     assert result.evidence_ids == ()
-    assert model.calls[0]["evidence"] == []
+    assert model.calls == []
+    assert result.text == (
+        "Puedo ayudarte con la experiencia profesional de Gael, sus proyectos "
+        "de IA y cloud, o su ajuste a la posición Junior."
+    )
+    assert "Canberra" not in result.text
 
 
 def test_instructions_prohibit_material_invention():
@@ -1193,6 +1215,15 @@ def test_behavioral_policy_never_invents_star_incidents():
     assert "solo si" in instructions
     assert "incidente" in instructions
     assert "no inventes" in instructions
+    for negative_preamble in (
+        "no hay un incidente",
+        "no existe un caso",
+        "la evidencia no confirma",
+        "no está documentado",
+    ):
+        assert negative_preamble not in instructions
+    assert "responde de forma positiva" in instructions
+    assert "comportamiento verificable más cercano" in instructions
 
 
 def test_low_relevance_capability_search_falls_back_within_explicit_allowlist(monkeypatch):
@@ -1228,10 +1259,8 @@ def test_unrelated_questions_retrieve_nothing_and_use_redirect_policy():
 
     assert result.skill_name == "profile_summary"
     assert result.evidence_ids == ()
-    assert model.calls[0]["evidence"] == []
-    instructions = model.calls[0]["instructions"].lower()
-    assert "redirige" in instructions
-    assert "perfil profesional" in instructions
+    assert model.calls == []
+    assert result.text == _expected_professional_redirect()
 
 
 def test_role_fit_can_use_direct_enerey_ai_impact_evidence():
@@ -1277,7 +1306,8 @@ def test_unrelated_questions_about_gael_redirect_without_profile_evidence(questi
 
     assert result.skill_name == "profile_summary"
     assert result.evidence_ids == ()
-    assert model.calls[0]["evidence"] == []
+    assert model.calls == []
+    assert result.text == _expected_professional_redirect()
 
 
 @pytest.mark.parametrize(
@@ -1350,7 +1380,8 @@ def test_semantic_fallback_redirects_unforeseen_personal_topics_without_evidence
     result = agent.answer(question)
     assert result.skill_name == "profile_summary"
     assert result.evidence_ids == ()
-    assert model.calls[0]["evidence"] == []
+    assert model.calls == []
+    assert result.text == _expected_professional_redirect()
 
 
 @pytest.mark.parametrize(
@@ -1389,7 +1420,8 @@ def test_professional_classifier_error_redirects_without_retrieval():
     result = agent.answer("Consulta profesional ambigua sobre Gael")
 
     assert result.evidence_ids == ()
-    assert model.calls[0]["evidence"] == []
+    assert model.calls == []
+    assert result.text == _expected_professional_redirect()
 
 
 @pytest.mark.parametrize(
