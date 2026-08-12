@@ -299,6 +299,69 @@ def test_global_and_lugra_freelance_participation_routes_to_project_story():
         assert term in evidence_text
 
 
+def test_architecture_skill_cannot_retrieve_project_only_freelance_source():
+    agent, model = build_agent()
+
+    result = agent.answer("¿Qué arquitectura usó Gael para los sitios Global y Lugra?")
+
+    assert result.skill_name == "architecture_explainer"
+    assert "freelance-global-lugra" not in result.evidence_ids
+    assert all(
+        item["document_id"] != "freelance-global-lugra"
+        for item in model.calls[0]["evidence"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_skill"),
+    (
+        ("Háblame del perfil profesional de Gael", "profile_summary"),
+        ("¿Qué hizo Gael para Global y Lugra?", "project_story"),
+        ("¿Por qué deberían elegir a Gael para la vacante?", "role_fit"),
+        ("¿Cómo diseñó Gael una arquitectura RAG?", "architecture_explainer"),
+        ("¿Cómo aprende Gael una tecnología nueva?", "learning_evidence"),
+    ),
+)
+def test_each_skill_retrieves_only_its_allowed_sources(question, expected_skill):
+    agent, model = build_agent()
+    documents = {item.id: item for item in agent.retrieval.documents}
+
+    result = agent.answer(question)
+
+    assert result.skill_name == expected_skill
+    assert result.evidence_ids
+    skill = next(item for item in agent.skills if item.name == expected_skill)
+    assert {
+        documents[identifier].source_path for identifier in result.evidence_ids
+    } <= set(skill.allowed_sources)
+    assert model.calls[0]["evidence"]
+
+
+def test_fallback_search_preserves_the_selected_skill_source_allowlist(monkeypatch):
+    agent, _ = build_agent()
+    calls = []
+
+    def recording_search(query, categories=None, top_k=5, allowed_document_ids=None):
+        calls.append((categories, allowed_document_ids))
+        if categories:
+            return []
+        return [{
+            "document_id": "perfil-gael",
+            "score": 1.0,
+            "excerpt": "Perfil profesional",
+            "category": "perfil",
+        }]
+
+    monkeypatch.setattr(agent.tools, "search_profile", recording_search)
+
+    result = agent.answer("Háblame del perfil profesional de Gael")
+
+    assert result.evidence_ids == ("perfil-gael",)
+    assert len(calls) == 2
+    assert calls[0][1]
+    assert calls[1][1] == calls[0][1]
+
+
 @pytest.mark.parametrize(
     "question",
     (

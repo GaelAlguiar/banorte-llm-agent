@@ -103,11 +103,16 @@ class HybridCvRetrieval:
         query: str,
         top_k: int = 5,
         categories: set[str] | None = None,
+        allowed_document_ids: set[str] | None = None,
     ) -> list[RetrievalHit]:
         documents = [
             document
             for document in self.documents
-            if categories is None or document.category in categories
+            if (categories is None or document.category in categories)
+            and (
+                allowed_document_ids is None
+                or document.id in allowed_document_ids
+            )
         ]
         if not documents:
             return []

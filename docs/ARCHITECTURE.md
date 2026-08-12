@@ -7,7 +7,8 @@ La solución separa transporte, política del agente, recuperación, conocimient
 1. El cliente envía JSON y un Bearer token a `/v1/responses`.
 2. La API valida tipo, tamaño, tasa y posibles solicitudes sensibles.
 3. El agente elige una skill determinista según la intención.
-4. La skill restringe las categorías de conocimiento consultables.
+4. La skill restringe las categorías y las fuentes exactas de conocimiento
+   consultables; el mismo allowlist se aplica al intento principal y al fallback.
 5. Azure AI Search combina BM25 y similitud vectorial, aplica filtros y un umbral.
 6. El modelo recibe pregunta, reglas y fragmentos sanitizados.
 7. La API devuelve JSON tipado o eventos SSE.

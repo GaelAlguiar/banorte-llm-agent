@@ -74,6 +74,39 @@ def test_search_escapes_filters_and_caps_top_k():
     )
 
 
+def test_search_combines_categories_with_allowed_document_ids():
+    client = FakeSearchClient([result()])
+    retrieval = AzureSearchRetrieval(
+        documents=[], client=client, embeddings=FakeEmbeddings()
+    )
+
+    retrieval.search(
+        "consulta",
+        categories={"proyecto", "habilidad"},
+        allowed_document_ids={"terraform-banregio", "id'quoted"},
+    )
+
+    assert client.kwargs["filter"] == (
+        "(category eq 'habilidad' or category eq 'proyecto') and "
+        "(id eq 'id''quoted' or id eq 'terraform-banregio')"
+    )
+
+
+def test_search_defensively_discards_a_result_outside_the_allowlist():
+    retrieval = AzureSearchRetrieval(
+        documents=[],
+        client=FakeSearchClient([result()]),
+        embeddings=FakeEmbeddings(),
+    )
+
+    hits = retrieval.search(
+        "consulta",
+        allowed_document_ids={"different-authorized-document"},
+    )
+
+    assert hits == []
+
+
 def test_search_discards_results_below_threshold():
     retrieval = AzureSearchRetrieval(
         documents=[],

@@ -122,6 +122,13 @@ def test_older_knowledge_defaults_to_profile_source_kind():
     assert profile.source_kind == "perfil"
 
 
+def test_loaded_knowledge_exposes_its_canonical_skill_source_path():
+    documents = load_knowledge(Path("knowledge"))
+    freelance = next(item for item in documents if item.id == "freelance-global-lugra")
+
+    assert freelance.source_path == "knowledge/17_freelance_global_lugra.md"
+
+
 def test_rag_story_describes_the_deployed_search_backend():
     document = next(
         item

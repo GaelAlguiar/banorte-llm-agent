@@ -201,13 +201,23 @@ class CvAgentService:
         skill = self._select_skill(question)
         evidence = []
         if skill.name != "privacy_guard":
+            allowed_document_ids = {
+                document.id
+                for document in self.retrieval.documents
+                if document.source_path in skill.allowed_sources
+            }
             evidence = self.tools.search_profile(
                 question,
                 categories=list(skill.allowed_categories),
                 top_k=8,
+                allowed_document_ids=allowed_document_ids,
             )
             if not evidence:
-                evidence = self.tools.search_profile(question, top_k=3)
+                evidence = self.tools.search_profile(
+                    question,
+                    top_k=3,
+                    allowed_document_ids=allowed_document_ids,
+                )
             if (
                 skill.name == "profile_summary"
                 and evidence

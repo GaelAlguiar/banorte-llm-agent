@@ -29,6 +29,31 @@ def _category_filter(categories: set[str] | None) -> str | None:
     return " or ".join(expressions)
 
 
+def _document_filter(
+    allowed_document_ids: set[str] | None,
+) -> str | None:
+    if allowed_document_ids is None:
+        return None
+    if not allowed_document_ids:
+        return "id eq '__no_allowed_documents__'"
+    expressions = [
+        f"id eq '{identifier.replace(chr(39), chr(39) * 2)}'"
+        for identifier in sorted(allowed_document_ids)
+    ]
+    return " or ".join(expressions)
+
+
+def _search_filter(
+    categories: set[str] | None,
+    allowed_document_ids: set[str] | None,
+) -> str | None:
+    category_filter = _category_filter(categories)
+    document_filter = _document_filter(allowed_document_ids)
+    if category_filter and document_filter:
+        return f"({category_filter}) and ({document_filter})"
+    return category_filter or document_filter
+
+
 class AzureSearchRetrieval:
     def __init__(
         self,
@@ -48,6 +73,7 @@ class AzureSearchRetrieval:
         query: str,
         top_k: int = 5,
         categories: set[str] | None = None,
+        allowed_document_ids: set[str] | None = None,
     ) -> list[RetrievalHit]:
         limit = max(1, min(top_k, 8))
         vector = self.embeddings.embed(query)
@@ -59,13 +85,18 @@ class AzureSearchRetrieval:
         results = self.client.search(
             search_text=query,
             vector_queries=[vector_query],
-            filter=_category_filter(categories),
+            filter=_search_filter(categories, allowed_document_ids),
             search_fields=["title", "content"],
             select=RESULT_FIELDS,
             top=limit,
         )
         hits: list[RetrievalHit] = []
         for item in results:
+            if (
+                allowed_document_ids is not None
+                and item["id"] not in allowed_document_ids
+            ):
+                continue
             score = float(item.get("@search.score", 0.0))
             if score < self.min_score:
                 continue

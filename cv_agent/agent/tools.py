@@ -12,6 +12,7 @@ class ProfileTools:
         query: str,
         categories: list[str] | None = None,
         top_k: int = 5,
+        allowed_document_ids: set[str] | None = None,
     ) -> list[dict]:
         if not query.strip():
             raise ValueError("query es obligatorio")
@@ -21,6 +22,7 @@ class ProfileTools:
             query,
             top_k=top_k,
             categories=set(categories) if categories else None,
+            allowed_document_ids=allowed_document_ids,
         )
         return [asdict(hit) for hit in hits]
 

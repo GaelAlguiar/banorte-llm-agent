@@ -47,6 +47,20 @@ def test_retrieval_can_filter_by_category():
     assert {hit.category for hit in hits} == {"vacante"}
 
 
+def test_retrieval_filters_the_corpus_by_allowed_document_ids_before_ranking():
+    retrieval = HybridCvRetrieval.from_directory(
+        Path("knowledge"), relevance_threshold=0.10
+    )
+
+    hits = retrieval.search(
+        "Global Lugra Enerey",
+        top_k=8,
+        allowed_document_ids={"freelance-global-lugra"},
+    )
+
+    assert [hit.document_id for hit in hits] == ["freelance-global-lugra"]
+
+
 def test_retrieval_prioritizes_quotations_impact_story():
     retrieval = HybridCvRetrieval.from_directory(
         Path("knowledge"),
