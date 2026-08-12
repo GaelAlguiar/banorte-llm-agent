@@ -147,6 +147,7 @@ def create_response(body: CreateResponseRequest, request: Request):
         user_input = extract_user_input(
             body.input,
             policy=request.app.state.attachment_policy,
+            resolver=request.app.state.attachment_resolver,
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error

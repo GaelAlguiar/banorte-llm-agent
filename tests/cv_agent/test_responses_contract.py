@@ -391,7 +391,7 @@ def test_streamed_body_over_limit_is_rejected_without_content_length():
 
     response = client.post(
         "/v1/responses",
-        content=iter((b'{"input":"', b"a" * 65_536, b'"}')),
+        content=iter((b'{"input":"', b"a" * 1_048_576, b'"}')),
         headers={"content-type": "application/json"},
     )
 
@@ -409,6 +409,28 @@ def test_streamed_body_under_limit_is_replayed_to_json_parser():
     )
 
     assert response.status_code == 200
+
+
+def test_configured_body_limit_accepts_boundary_and_rejects_next_byte():
+    settings = Settings(max_request_body_bytes=65_536)
+    client = TestClient(create_app(settings=settings, agent=StubAgent()))
+    payload = b'{"input":"x"}'
+    accepted_body = payload + b" " * (65_536 - len(payload))
+
+    accepted = client.post(
+        "/v1/responses",
+        content=accepted_body,
+        headers={"content-type": "application/json"},
+    )
+    rejected = client.post(
+        "/v1/responses",
+        content=accepted_body + b" ",
+        headers={"content-type": "application/json"},
+    )
+
+    assert accepted.status_code == 200
+    assert rejected.status_code == 413
+    assert rejected.json()["error"]["code"] == "request_too_large"
 
 
 def test_reasoning_effort_is_forwarded_to_agent():

@@ -191,7 +191,7 @@ def test_non_json_content_type_is_rejected():
     assert response.json()["error"]["code"] == "unsupported_media_type"
 
 
-def test_body_over_64_kib_is_rejected_before_parsing():
+def test_body_over_configured_limit_is_rejected_before_parsing():
     client, _ = secure_client()
 
     response = client.post(
@@ -200,11 +200,28 @@ def test_body_over_64_kib_is_rejected_before_parsing():
             "Authorization": "Bearer clave-del-reto",
             "Content-Type": "application/json",
         },
-        content=b"{" + b" " * 65_536 + b"}",
+        content=b"{" + b" " * 1_048_576 + b"}",
     )
 
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "request_too_large"
+
+
+def test_authentication_precedes_request_body_buffering():
+    client, _ = secure_client()
+
+    response = client.post(
+        "/v1/responses",
+        headers={
+            "Authorization": "Bearer incorrecta",
+            "Content-Type": "application/json",
+        },
+        content=b"{" + b" " * 1_048_576 + b"}",
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "invalid_api_key"
+    assert response.json()["error"]["type"] == "authentication_error"
 
 
 def test_rate_limit_rejects_request_31_in_same_minute():

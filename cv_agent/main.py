@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.wsgi import WSGIMiddleware
 
 from cv_agent.agent.openai_model import OpenAIResponsesModel
+from cv_agent.attachments.parley import ParleyFileResolver
 from cv_agent.agent.professional_intent import OpenAIProfessionalIntentClassifier
 from cv_agent.agent.service import CvAgentService
 from cv_agent.api.responses import router as responses_router
@@ -16,6 +17,7 @@ from cv_agent.config import Settings
 from cv_agent.observability.logging import configure_logging, log_event
 from cv_agent.retrieval.factory import build_retrieval
 from cv_agent.security.limits import SlidingWindowLimiter
+from cv_agent.security.auth import valid_bearer
 from cv_agent.security.privacy_intent import OpenAIPrivacyIntentClassifier
 from cv_agent.skills.registry import load_skills
 from cv_agent.web.app import create_flask_app
@@ -47,6 +49,7 @@ def _build_agent(settings: Settings) -> CvAgentService | None:
 def create_app(
     settings: Settings | None = None,
     agent: Any | None = None,
+    attachment_resolver: Any | None = None,
 ) -> FastAPI:
     configure_logging()
     active_settings = settings or Settings.from_env()
@@ -54,6 +57,17 @@ def create_app(
     app.state.settings = active_settings
     app.state.agent = agent if agent is not None else _build_agent(active_settings)
     app.state.rate_limiter = SlidingWindowLimiter()
+    app.state.attachment_resolver = attachment_resolver
+    if (
+        app.state.attachment_resolver is None
+        and active_settings.parley_file_base_url
+        and active_settings.parley_file_bearer_token
+    ):
+        app.state.attachment_resolver = ParleyFileResolver(
+            base_url=active_settings.parley_file_base_url,
+            bearer_token=active_settings.parley_file_bearer_token,
+            max_file_bytes=active_settings.parley_file_max_bytes,
+        )
     app.state.attachment_policy = AttachmentPolicy(
         max_attachments=active_settings.max_attachments,
         trusted_hosts=active_settings.trusted_attachment_hosts,
@@ -110,13 +124,18 @@ def create_app(
     return app
 
 
-def _error(status: int, message: str, code: str) -> JSONResponse:
+def _error(
+    status: int,
+    message: str,
+    code: str,
+    error_type: str = "invalid_request_error",
+) -> JSONResponse:
     return JSONResponse(
         status_code=status,
         content={
             "error": {
                 "message": message,
-                "type": "invalid_request_error",
+                "type": error_type,
                 "code": code,
                 "param": None,
             }
@@ -130,22 +149,42 @@ async def _apply_request_controls(request: Request, call_next):
     content_type = request.headers.get("content-type", "")
     if content_type.split(";", 1)[0].strip().lower() != "application/json":
         return _error(415, "Se requiere Content-Type application/json.", "unsupported_media_type")
+    if not valid_bearer(
+        request.headers.get("Authorization"),
+        request.app.state.settings.agent_api_key,
+    ):
+        return _error(
+            401,
+            "API key inválida o ausente.",
+            "invalid_api_key",
+            "authentication_error",
+        )
+    identity = request.client.host if request.client else "unknown"
+    if not request.app.state.rate_limiter.allow(identity):
+        return _error(429, "Límite de 30 solicitudes por minuto excedido.", "rate_limit_exceeded")
+    max_body_bytes = request.app.state.settings.max_request_body_bytes
     try:
         content_length = int(request.headers.get("content-length", "0"))
     except ValueError:
         return _error(400, "Content-Length inválido.", "invalid_content_length")
-    if content_length > 65_536:
-        return _error(413, "El cuerpo excede 64 KiB.", "request_too_large")
+    if content_length < 0:
+        return _error(400, "Content-Length inválido.", "invalid_content_length")
+    if content_length > max_body_bytes:
+        return _error(
+            413,
+            f"El cuerpo excede {max_body_bytes} bytes.",
+            "request_too_large",
+        )
     body = bytearray()
     async for chunk in request.stream():
+        if len(body) + len(chunk) > max_body_bytes:
+            return _error(
+                413,
+                f"El cuerpo excede {max_body_bytes} bytes.",
+                "request_too_large",
+            )
         body.extend(chunk)
-        if len(body) > 65_536:
-            return _error(413, "El cuerpo excede 64 KiB.", "request_too_large")
     # Starlette's cached request replays `_body` to the downstream JSON parser.
-    # We retain at most the accepted 64 KiB and stop consuming at the first
-    # over-limit chunk, independent of Content-Length.
+    # Only the accepted bounded body is retained, independent of Content-Length.
     request._body = bytes(body)
-    identity = request.client.host if request.client else "unknown"
-    if not request.app.state.rate_limiter.allow(identity):
-        return _error(429, "Límite de 30 solicitudes por minuto excedido.", "rate_limit_exceeded")
     return await call_next(request)

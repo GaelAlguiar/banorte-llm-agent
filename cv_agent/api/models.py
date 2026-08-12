@@ -3,10 +3,12 @@ import ipaddress
 from pathlib import PurePosixPath
 import re
 import socket
-from typing import Any, Literal
+from typing import Any, Literal, Mapping, Protocol
 from urllib.parse import unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from cv_agent.attachments.parley import content_matches_declared_type
 
 
 class CreateResponseRequest(BaseModel):
@@ -30,8 +32,10 @@ class ReasoningOptions(BaseModel):
 @dataclass(frozen=True)
 class UserAttachment:
     kind: Literal["image", "file"]
-    url: str
+    url: str | None
     filename: str | None = None
+    data: bytes | None = None
+    mime_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +64,13 @@ _FILE_MIME_TYPES = frozenset({
     "text/markdown",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 })
+_PARLEY_FILE_REFERENCE = re.compile(
+    r"^parley-file:(file_[a-z0-9]{8,64})$"
+)
+
+
+class AttachmentResolver(Protocol):
+    def resolve(self, file_id: str) -> Mapping[str, Any]: ...
 
 
 @dataclass(frozen=True)
@@ -153,12 +164,15 @@ def _validated_filename(value: Any) -> str | None:
 
 
 def _validate_attachment_type(
-    *, kind: Literal["image", "file"], url: str, filename: str | None,
+    *, kind: Literal["image", "file"], url: str | None, filename: str | None,
     mime_hints: tuple[Any, ...],
 ) -> None:
     allowed_extensions = _IMAGE_EXTENSIONS if kind == "image" else _FILE_EXTENSIONS
     allowed_mime_types = _IMAGE_MIME_TYPES if kind == "image" else _FILE_MIME_TYPES
-    url_extension = PurePosixPath(unquote(urlsplit(url).path)).suffix.lower()
+    url_extension = (
+        PurePosixPath(unquote(urlsplit(url).path)).suffix.lower()
+        if url else ""
+    )
     filename_extension = PurePosixPath(filename).suffix.lower() if filename else ""
     extensions = tuple(
         extension for extension in (url_extension, filename_extension) if extension
@@ -178,9 +192,81 @@ def _validate_attachment_type(
         raise ValueError("El tipo o extensión del adjunto no está permitido")
 
 
+def _resolved_attachment(
+    value: Any,
+    *,
+    policy: AttachmentPolicy,
+    resolver: AttachmentResolver | None,
+) -> UserAttachment | None:
+    if not isinstance(value, str) or not value.startswith("parley-file:"):
+        return None
+    match = _PARLEY_FILE_REFERENCE.fullmatch(value)
+    if not match:
+        raise ValueError("La referencia del archivo del portal es inválida")
+    if resolver is None:
+        raise ValueError(
+            "No hay un resolver seguro configurado para archivos del portal"
+        )
+    try:
+        result = resolver.resolve(match.group(1))
+    except Exception as error:
+        raise ValueError(
+            "El archivo del portal no pudo resolverse de forma segura"
+        ) from error
+    if not isinstance(result, Mapping):
+        raise ValueError(
+            "El archivo del portal no pudo resolverse de forma segura"
+        )
+    raw_mime = result.get("mime_type")
+    if not isinstance(raw_mime, str):
+        raise ValueError(
+            "El archivo del portal no pudo resolverse de forma segura"
+        )
+    mime_type = raw_mime.strip().lower()
+    if mime_type in _IMAGE_MIME_TYPES:
+        kind: Literal["image", "file"] = "image"
+    elif mime_type in _FILE_MIME_TYPES:
+        kind = "file"
+    else:
+        raise ValueError("El tipo o extensión del adjunto no está permitido")
+    filename = _validated_filename(result.get("filename"))
+    raw_data = result.get("data")
+    raw_url = result.get("url")
+    if (raw_data is None) == (raw_url is None):
+        raise ValueError(
+            "El archivo del portal no pudo resolverse de forma segura"
+        )
+    if raw_data is not None:
+        if not isinstance(raw_data, bytes) or not raw_data:
+            raise ValueError(
+                "El archivo del portal no pudo resolverse de forma segura"
+            )
+        url = None
+        data = raw_data
+        if not content_matches_declared_type(mime_type, data):
+            raise ValueError("El contenido del archivo no coincide con su tipo")
+    else:
+        url = _validated_https_url(raw_url, policy)
+        data = None
+    _validate_attachment_type(
+        kind=kind,
+        url=url,
+        filename=filename,
+        mime_hints=(mime_type,),
+    )
+    return UserAttachment(
+        kind=kind,
+        url=url,
+        filename=filename,
+        data=data,
+        mime_type=mime_type,
+    )
+
+
 def extract_user_input(
     value: str | list[dict[str, Any]],
     policy: AttachmentPolicy | None = None,
+    resolver: AttachmentResolver | None = None,
 ) -> UserInput:
     active_policy = policy or AttachmentPolicy()
     if isinstance(value, str):
@@ -203,11 +289,34 @@ def extract_user_input(
                 and isinstance(part.get("text"), str)
             ]
             attachments: list[UserAttachment] = []
+            attachment_part_count = sum(
+                1
+                for part in content
+                if isinstance(part, dict)
+                and part.get("type") in {"input_image", "input_file"}
+            )
+            if attachment_part_count > active_policy.max_attachments:
+                noun = (
+                    "adjunto" if active_policy.max_attachments == 1
+                    else "adjuntos"
+                )
+                raise ValueError(
+                    f"Se permiten como máximo {active_policy.max_attachments} "
+                    f"{noun} por solicitud"
+                )
             for part in content:
                 if not isinstance(part, dict):
                     continue
                 part_type = part.get("type")
                 if part_type == "input_image":
+                    resolved = _resolved_attachment(
+                        part.get("image_url"),
+                        policy=active_policy,
+                        resolver=resolver,
+                    )
+                    if resolved is not None:
+                        attachments.append(resolved)
+                        continue
                     url = _validated_https_url(part.get("image_url"), active_policy)
                     _validate_attachment_type(
                         kind="image", url=url, filename=None,
@@ -221,6 +330,14 @@ def extract_user_input(
                         url=url,
                     ))
                 elif part_type == "input_file":
+                    resolved = _resolved_attachment(
+                        part.get("file_url"),
+                        policy=active_policy,
+                        resolver=resolver,
+                    )
+                    if resolved is not None:
+                        attachments.append(resolved)
+                        continue
                     filename = _validated_filename(part.get("filename"))
                     url = _validated_https_url(part.get("file_url"), active_policy)
                     _validate_attachment_type(

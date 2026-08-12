@@ -64,6 +64,51 @@ def test_model_sends_image_and_file_as_responses_content_parts():
     assert captured["store"] is False
 
 
+def test_model_encodes_ephemeral_resolver_bytes_for_image_and_pdf():
+    model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
+    captured = {}
+
+    def create(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(output_text="Respuesta")
+
+    model.client.responses.create = create
+    model.generate(
+        question="Analiza los adjuntos",
+        evidence=[],
+        skill=load_skills()[0],
+        instructions="Instrucciones",
+        attachments=(
+            UserAttachment(
+                kind="image",
+                url=None,
+                filename="captura.png",
+                data=b"\x89PNG\r\n\x1a\n",
+                mime_type="image/png",
+            ),
+            UserAttachment(
+                kind="file",
+                url=None,
+                filename="vacante.pdf",
+                data=b"%PDF-1.4",
+                mime_type="application/pdf",
+            ),
+        ),
+    )
+
+    content = captured["input"][0]["content"]
+    assert content[1] == {
+        "type": "input_image",
+        "image_url": "data:image/png;base64,iVBORw0KGgo=",
+        "detail": "auto",
+    }
+    assert content[2] == {
+        "type": "input_file",
+        "file_data": "data:application/pdf;base64,JVBERi0xLjQ=",
+        "filename": "vacante.pdf",
+    }
+
+
 def test_model_sends_only_allowed_reasoning_configuration():
     model = OpenAIResponsesModel(api_key="test-key", model="gpt-test")
     captured = {}

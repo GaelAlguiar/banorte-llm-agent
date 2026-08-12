@@ -18,13 +18,47 @@ command -v jq >/dev/null || { echo "jq no está instalado." >&2; exit 1; }
 : "${AGENT_API_KEY:?Exporta AGENT_API_KEY antes de desplegar.}"
 : "${MAX_ATTACHMENTS:=0}"
 : "${ATTACHMENT_TRUSTED_HOSTS:=}"
+: "${MAX_REQUEST_BODY_BYTES:=1048576}"
+: "${PARLEY_FILE_BASE_URL:=}"
+: "${PARLEY_FILE_BEARER_TOKEN:=}"
+: "${PARLEY_FILE_MAX_BYTES:=10485760}"
 if ! [[ "$MAX_ATTACHMENTS" =~ ^[0-4]$ ]]; then
   echo "MAX_ATTACHMENTS debe ser un entero entre 0 y 4." >&2
   exit 6
 fi
-if [[ "$MAX_ATTACHMENTS" -gt 0 && -z "$ATTACHMENT_TRUSTED_HOSTS" ]]; then
+if [[ "$MAX_ATTACHMENTS" -gt 0 \
+  && -z "$ATTACHMENT_TRUSTED_HOSTS" \
+  && -z "$PARLEY_FILE_BASE_URL" ]]; then
   echo "No habilites adjuntos sin hosts autorizados en ATTACHMENT_TRUSTED_HOSTS." >&2
   exit 6
+fi
+if ! [[ "$MAX_REQUEST_BODY_BYTES" =~ ^[0-9]+$ ]] \
+  || (( MAX_REQUEST_BODY_BYTES < 65536 || MAX_REQUEST_BODY_BYTES > 2097152 )); then
+  echo "MAX_REQUEST_BODY_BYTES debe estar entre 65536 y 2097152." >&2
+  exit 6
+fi
+if ! [[ "$PARLEY_FILE_MAX_BYTES" =~ ^[0-9]+$ ]] \
+  || (( PARLEY_FILE_MAX_BYTES < 1 || PARLEY_FILE_MAX_BYTES > 10485760 )); then
+  echo "PARLEY_FILE_MAX_BYTES debe estar entre 1 y 10485760." >&2
+  exit 6
+fi
+bool_resolver_base=0
+bool_resolver_token=0
+[[ -n "$PARLEY_FILE_BASE_URL" ]] && bool_resolver_base=1
+[[ -n "$PARLEY_FILE_BEARER_TOKEN" ]] && bool_resolver_token=1
+if [[ "$bool_resolver_base" != "$bool_resolver_token" ]]; then
+  echo "Configura juntos PARLEY_FILE_BASE_URL y PARLEY_FILE_BEARER_TOKEN." >&2
+  exit 6
+fi
+resolver_secret_args=()
+resolver_env_args=()
+if [[ "$bool_resolver_base" == "1" ]]; then
+  resolver_secret_args+=(parley-file-token="$PARLEY_FILE_BEARER_TOKEN")
+  resolver_env_args+=(
+    PARLEY_FILE_BASE_URL="$PARLEY_FILE_BASE_URL"
+    PARLEY_FILE_BEARER_TOKEN=secretref:parley-file-token
+    PARLEY_FILE_MAX_BYTES="$PARLEY_FILE_MAX_BYTES"
+  )
 fi
 
 echo "Contexto de Azure que recibirá los recursos:"
@@ -109,7 +143,18 @@ if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/
     --name "$APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --secrets openai-api-key="$OPENAI_API_KEY" agent-api-key="$AGENT_API_KEY" \
+      "${resolver_secret_args[@]}" \
     --output none
+  if [[ "$bool_resolver_base" == "0" ]]; then
+    az containerapp update \
+      --name "$APP_NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --remove-env-vars \
+        PARLEY_FILE_BASE_URL \
+        PARLEY_FILE_BEARER_TOKEN \
+        PARLEY_FILE_MAX_BYTES \
+      --output none
+  fi
   az containerapp update \
     --name "$APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
@@ -125,6 +170,8 @@ if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/
       AZURE_SEARCH_MIN_SCORE=0.03 \
       MAX_ATTACHMENTS="$MAX_ATTACHMENTS" \
       ATTACHMENT_TRUSTED_HOSTS="$ATTACHMENT_TRUSTED_HOSTS" \
+      MAX_REQUEST_BODY_BYTES="$MAX_REQUEST_BODY_BYTES" \
+      "${resolver_env_args[@]}" \
       APP_ENV=production \
     --min-replicas 1 \
     --max-replicas 3 \
@@ -144,6 +191,7 @@ else
     --target-port 8000 \
     --transport auto \
     --secrets openai-api-key="$OPENAI_API_KEY" agent-api-key="$AGENT_API_KEY" \
+      "${resolver_secret_args[@]}" \
     --env-vars \
       OPENAI_API_KEY=secretref:openai-api-key \
       AGENT_API_KEY=secretref:agent-api-key \
@@ -155,6 +203,8 @@ else
       AZURE_SEARCH_MIN_SCORE=0.03 \
       MAX_ATTACHMENTS="$MAX_ATTACHMENTS" \
       ATTACHMENT_TRUSTED_HOSTS="$ATTACHMENT_TRUSTED_HOSTS" \
+      MAX_REQUEST_BODY_BYTES="$MAX_REQUEST_BODY_BYTES" \
+      "${resolver_env_args[@]}" \
       APP_ENV=production \
     --min-replicas 1 \
     --max-replicas 3 \

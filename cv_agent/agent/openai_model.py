@@ -1,4 +1,5 @@
 import json
+import base64
 
 from openai import OpenAI
 
@@ -57,16 +58,26 @@ class OpenAIResponsesModel:
         content: list[dict] = [{"type": "input_text", "text": text_part}]
         for attachment in attachments:
             if attachment.kind == "image":
+                image_url = attachment.url
+                if attachment.data is not None:
+                    image_url = (
+                        f"data:{attachment.mime_type};base64,"
+                        f"{base64.b64encode(attachment.data).decode('ascii')}"
+                    )
                 content.append({
                     "type": "input_image",
-                    "image_url": attachment.url,
+                    "image_url": image_url,
                     "detail": "auto",
                 })
             else:
-                file_part = {
-                    "type": "input_file",
-                    "file_url": attachment.url,
-                }
+                file_part = {"type": "input_file"}
+                if attachment.data is not None:
+                    file_part["file_data"] = (
+                        f"data:{attachment.mime_type};base64,"
+                        f"{base64.b64encode(attachment.data).decode('ascii')}"
+                    )
+                else:
+                    file_part["file_url"] = attachment.url
                 if attachment.filename:
                     file_part["filename"] = attachment.filename
                 content.append(file_part)

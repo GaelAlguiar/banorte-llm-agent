@@ -2,6 +2,11 @@ import os
 from dataclasses import dataclass
 
 
+MIN_REQUEST_BODY_BYTES = 65_536
+DEFAULT_MAX_REQUEST_BODY_BYTES = 1_048_576
+MAX_REQUEST_BODY_BYTES = 2_097_152
+
+
 @dataclass(frozen=True)
 class Settings:
     openai_api_key: str | None = None
@@ -17,6 +22,29 @@ class Settings:
     environment: str = "local"
     max_attachments: int = 4
     trusted_attachment_hosts: tuple[str, ...] = ()
+    max_request_body_bytes: int = DEFAULT_MAX_REQUEST_BODY_BYTES
+    parley_file_base_url: str | None = None
+    parley_file_bearer_token: str | None = None
+    parley_file_max_bytes: int = 10_485_760
+
+    def __post_init__(self) -> None:
+        if not (
+            MIN_REQUEST_BODY_BYTES
+            <= self.max_request_body_bytes
+            <= MAX_REQUEST_BODY_BYTES
+        ):
+            raise ValueError(
+                "max_request_body_bytes debe estar entre "
+                f"{MIN_REQUEST_BODY_BYTES} y {MAX_REQUEST_BODY_BYTES}"
+            )
+        if bool(self.parley_file_base_url) != bool(self.parley_file_bearer_token):
+            raise ValueError(
+                "parley_file_base_url y parley_file_bearer_token deben configurarse juntos"
+            )
+        if not 1 <= self.parley_file_max_bytes <= 10_485_760:
+            raise ValueError(
+                "parley_file_max_bytes debe estar entre 1 y 10485760"
+            )
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -56,4 +84,16 @@ class Settings:
                 ).split(",")
                 if host.strip()
             ),
+            max_request_body_bytes=int(os.getenv(
+                "MAX_REQUEST_BODY_BYTES",
+                str(DEFAULT_MAX_REQUEST_BODY_BYTES),
+            )),
+            parley_file_base_url=os.getenv("PARLEY_FILE_BASE_URL") or None,
+            parley_file_bearer_token=(
+                os.getenv("PARLEY_FILE_BEARER_TOKEN") or None
+            ),
+            parley_file_max_bytes=int(os.getenv(
+                "PARLEY_FILE_MAX_BYTES",
+                "10485760",
+            )),
         )

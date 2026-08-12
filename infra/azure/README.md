@@ -27,6 +27,21 @@ No documentes aquí el valor operativo real si es privado. El script transmite
 ambas variables tanto al crear como al actualizar la Container App y se detiene
 antes de tocar Azure si se habilitan adjuntos sin hosts autorizados.
 
+Si la plataforma entrega referencias opacas en lugar de URLs firmadas, utiliza
+una credencial de lectura independiente. No reutilices `AGENT_API_KEY`:
+
+```bash
+export MAX_ATTACHMENTS=2
+export PARLEY_FILE_BASE_URL="https://portal.example.com/ruta/api/files"
+export PARLEY_FILE_BEARER_TOKEN
+export PARLEY_FILE_MAX_BYTES=10485760
+CONFIRM_AZURE_CONTEXT=YES bash infra/azure/deploy.sh
+```
+
+El token se registra como un secreto separado de Container Apps. Si falta la
+base o el token, el despliegue se detiene; si ambos se omiten, elimina variables
+antiguas del resolver y mantiene el flujo deshabilitado.
+
 Antes de crear recursos, el script muestra tenant y suscripción y se detiene salvo que la confirmación sea explícita. Las claves se registran como secretos de Container Apps y la aplicación sólo recibe referencias. El endpoint público y la revisión se muestran al finalizar, pero las claves nunca se imprimen.
 
 El script se detiene si la suscripción ya utiliza su servicio Search Free; no

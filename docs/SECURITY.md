@@ -10,7 +10,8 @@ logger raíz ni añade handlers duplicados.
 Controles implementados:
 
 - autenticación Bearer con comparación en tiempo constante;
-- máximo de 64 KiB por cuerpo y 8,000 caracteres de entrada;
+- máximo predeterminado de 1 MiB por cuerpo, configurable entre 64 KiB y 2 MiB,
+  y 8,000 caracteres de entrada;
 - máximo configurable de cuatro adjuntos, nombres de hasta 128 caracteres y
   allowlist de imágenes (PNG, JPEG, WebP, GIF) y documentos (PDF, texto,
   Markdown, DOCX), con validación de extensión y MIME cuando se declara;
@@ -46,29 +47,39 @@ Controles implementados:
 
 ## Frontera de confianza de adjuntos
 
-La aplicación no descarga archivos ni sigue redirecciones. Después de validar
-la URL, OpenAI Responses recupera el adjunto remoto con `store: false`; por ello
-la resolución DNS, el contenido final y cualquier redirección quedan dentro de
-la frontera de confianza del proveedor. Para producción se recomienda configurar
+Para URLs HTTPS, OpenAI Responses recupera el adjunto remoto con `store: false`;
+por ello la resolución DNS y el contenido final quedan dentro de la frontera de
+confianza del proveedor. Para producción se recomienda configurar
 `ATTACHMENT_TRUSTED_HOSTS` con los dominios exactos de la plataforma que emite
 URLs firmadas y limitar su expiración. Cada entrada autoriza ese FQDN y sus
 subdominios delimitados por punto; una lista vacía bloquea todos los adjuntos.
 Ninguna URL, firma, nombre de archivo o
 contenido se escribe en logs, respuestas, RAG ni almacenamiento de la aplicación.
 
+Las referencias opacas `parley-file:` siguen otra frontera. Permanecen
+deshabilitadas salvo que existan una base HTTPS fija y un bearer dedicado
+distinto de `AGENT_API_KEY`. El identificador sólo admite caracteres
+alfanuméricos minúsculos dentro de una longitud acotada. Antes de descargar, el
+resolver comprueba que el host configurado resuelva únicamente a direcciones
+públicas; no acepta redirecciones, credenciales en URL, puertos alternativos ni
+destinos elegidos por el usuario. Durante la descarga limita bytes declarados y
+reales, valida MIME y firma de PNG, JPEG, GIF, WebP o PDF —o estructura básica
+para texto y DOCX— y conserva el contenido sólo en memoria durante la llamada.
+
 Una solicitud sensible se bloquea antes de recuperación y el adjunto ni siquiera
 se reenvía al proveedor. Para una comparación permitida, el modelo recibe el
 adjunto como dato temporal no confiable junto con evidencia autorizada acotada;
 las instrucciones embebidas nunca sustituyen la política del sistema.
 
-El middleware no confía en `Content-Length`: consume el flujo ASGI por chunks,
-detiene la solicitud al superar 64 KiB y sólo reproduce para el parser JSON un
-cuerpo aceptado. Esto cubre transferencias fragmentadas o sin esa cabecera.
+El middleware no confía en `Content-Length`: autentica y aplica el rate limit
+antes de reservar el cuerpo, consume el flujo ASGI por chunks y detiene la
+solicitud al superar `MAX_REQUEST_BODY_BYTES`. Sólo reproduce para el parser
+JSON un cuerpo aceptado. Esto cubre transferencias fragmentadas o sin cabecera.
 
-CI prueba fixtures PNG y PDF reales, pero usa un proveedor simulado y URLs HTTPS
-ficticias; no demuestra que OpenAI pueda recuperar un archivo remoto. La prueba
-provider-backed se ejecutará tras configurar el host de cargas de la plataforma
-en el despliegue final, usando un adjunto público inocuo y efímero.
+CI prueba fixtures PNG y PDF reales con un resolver HTTP falso: verifica bearer
+separado, DNS, redirecciones, errores upstream, límites, MIME, firma binaria y
+payload de OpenAI. No demuestra acceso al almacenamiento real del portal; ese
+acceso depende de una credencial de lectura que su contrato actual no entrega.
 
 La versión del reto no afirma cumplimiento bancario. En producción se agregarían APIM/WAF, Key Vault con identidad administrada, rate limiting distribuido, SIEM, escaneo de imágenes y dependencias, rotación de secretos, redes privadas y políticas formales de retención.
 
