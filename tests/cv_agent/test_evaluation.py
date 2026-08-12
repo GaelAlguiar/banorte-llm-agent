@@ -16,12 +16,11 @@ def test_azure_search_cases_are_not_orphaned_from_offline_matrix():
         for item in map(json.loads, Path("evals/cv_agent_cases.jsonl").read_text().splitlines())
     }
 
-    covered_expectations = {
-        tuple(item["expected_document_ids"])
-        for item in offline.values()
-    }
     assert len(azure) >= 5
-    assert all(tuple(case["expected_document_ids"]) in covered_expectations for case in azure.values())
+    assert azure.keys() <= offline.keys()
+    for question, case in azure.items():
+        assert case["expected_document_ids"] == offline[question]["expected_document_ids"]
+        assert case["category"] == offline[question]["category"]
 
 
 class Answer:

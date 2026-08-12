@@ -43,7 +43,7 @@ def test_public_project_evidence_uses_reviewed_https_sources():
 
 def test_demo_documents_use_current_verified_counts():
     assert sum(1 for _ in Path("knowledge").glob("*.md")) == 17
-    assert sum(1 for _ in Path("evals/cv_agent_cases.jsonl").open()) == 124
+    assert sum(1 for _ in Path("evals/cv_agent_cases.jsonl").open()) == 125
     video = Path("docs/VIDEO_DEMO_SCRIPT.md").read_text(encoding="utf-8")
 
     assert "diecisiete documentos" in video

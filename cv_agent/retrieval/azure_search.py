@@ -21,6 +21,7 @@ RESULT_FIELDS = [
     "source",
     "content",
 ]
+AZURE_RRF_REFERENCE_SCORE = 0.032
 
 
 def _category_filter(categories: set[str] | None) -> str | None:
@@ -97,8 +98,7 @@ class AzureSearchRetrieval:
         )
         candidates = list(results)
         hits: list[RetrievalHit] = []
-        candidate_count = len(candidates)
-        for rank, item in enumerate(candidates, start=1):
+        for item in candidates:
             if (
                 allowed_document_ids is not None
                 and item.get("document_id", item["id"]) not in allowed_document_ids
@@ -107,7 +107,7 @@ class AzureSearchRetrieval:
             raw_score = float(item.get("@search.score", 0.0))
             if raw_score <= 0:
                 continue
-            score = (candidate_count - rank + 1) / candidate_count
+            score = min(1.0, raw_score / AZURE_RRF_REFERENCE_SCORE)
             if score < self.min_score:
                 continue
             hits.append(
@@ -128,14 +128,16 @@ class AzureSearchRetrieval:
                     score=score,
                 )
             )
-        if allowed_document_ids and len(allowed_document_ids) == 1:
-            return hits[:limit]
         selected: list[RetrievalHit] = []
         per_parent: Counter[str] = Counter()
         per_section: Counter[tuple[str, str | None]] = Counter()
         for hit in hits:
             key = (hit.document_id, hit.section)
-            if per_parent[hit.document_id] >= 2 or per_section[key] >= 1:
+            parent_cap = (
+                limit if allowed_document_ids and len(allowed_document_ids) == 1
+                else 2
+            )
+            if per_parent[hit.document_id] >= parent_cap or per_section[key] >= 1:
                 continue
             selected.append(hit)
             per_parent[hit.document_id] += 1

@@ -126,8 +126,17 @@ def test_search_normalizes_realistic_rrf_scores_instead_of_raw_thresholding():
 
     hits = retrieval.search("consulta")
 
-    assert [round(hit.score, 2) for hit in hits] == [1.0, 0.67, 0.33]
+    assert [round(hit.score, 2) for hit in hits] == [1.0, 0.5, 0.31]
     assert all(0 <= hit.score <= 1 for hit in hits)
+
+
+def test_single_weak_rrf_result_does_not_become_high_confidence():
+    retrieval = AzureSearchRetrieval(
+        documents=[], client=FakeSearchClient([result(score=0.005)]),
+        embeddings=FakeEmbeddings(), min_score=0.20,
+    )
+
+    assert retrieval.search("consulta débil") == []
 
 
 def test_ready_uses_a_minimal_search_request():
@@ -190,6 +199,20 @@ def test_azure_diversity_prefers_distinct_sections_over_overlapping_parts():
         ("terraform-banregio", "Seguridad"),
         ("otro", "Otro"),
     ]
+
+
+def test_single_parent_allowlist_still_deduplicates_overlapping_parts():
+    items = [
+        {**result(0.032, section="Operación"), "chunk_id": "p--op--part-01"},
+        {**result(0.031, section="Operación"), "chunk_id": "p--op--part-02"},
+        {**result(0.030, section="Seguridad"), "chunk_id": "p--seguridad"},
+    ]
+    hits = AzureSearchRetrieval(
+        documents=[], client=FakeSearchClient(items), embeddings=FakeEmbeddings(),
+        min_score=0.0,
+    ).search("operación", top_k=8, allowed_document_ids={"terraform-banregio"})
+
+    assert [hit.section for hit in hits] == ["Operación", "Seguridad"]
 
 
 def test_azure_diversity_fetches_candidates_beyond_first_eight_chunks():
