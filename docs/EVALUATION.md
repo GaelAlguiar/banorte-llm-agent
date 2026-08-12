@@ -46,6 +46,13 @@ autorizada, afirmaciones senior, detalles inventados o sensibles, respuestas
 indirectas y estructuras innecesariamente extensas. Exige cero fallos core y
 un piso de 90% por categoría.
 
+La cobertura conductual contiene ambos límites: una historia técnica confirmada
+que exige los cuatro elementos STAR y una pregunta de conflicto/liderazgo sin
+anécdota confirmada que prohíbe emitir etiquetas STAR o inventar el incidente.
+La detección de detalles sensibles reconoce direcciones privadas RFC 1918 en
+los rangos completos `10/8`, `172.16/12` y `192.168/16`, valida cada dirección
+antes de clasificarla y no bloquea texto con direcciones públicas o inválidas.
+
 ```bash
 python -m cv_agent.evaluation.runner
 python -m cv_agent.evaluation.response_contracts

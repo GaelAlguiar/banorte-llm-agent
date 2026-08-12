@@ -7,6 +7,7 @@ and repeatable; production prose still requires a separate live smoke.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import re
 from collections import defaultdict
@@ -33,9 +34,14 @@ SENIOR_CLAIMS = (
 )
 SENSITIVE_PATTERNS = (
     re.compile(r"\b(?:contraseña|password|secret|api[_ -]?key)\b", re.IGNORECASE),
-    re.compile(r"\b(?:10|127|192\.168)\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"),
     re.compile(r"\bsk-[A-Za-z0-9_-]+\b"),
 )
+IPV4_CANDIDATE = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
+PRIVATE_IPV4_NETWORKS = tuple(
+    ipaddress.ip_network(cidr)
+    for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+)
+STAR_LABELS = ("Situación:", "Tarea:", "Acción:", "Resultado:")
 
 
 def _contains(text: str, term: str) -> bool:
@@ -44,6 +50,25 @@ def _contains(text: str, term: str) -> bool:
 
 def _contains_any(text: str, terms: list[str]) -> bool:
     return not terms or any(_contains(text, term) for term in terms)
+
+
+def _contains_private_ipv4(text: str) -> bool:
+    return any(
+        any(address in network for network in PRIVATE_IPV4_NETWORKS)
+        for address in _valid_ipv4_addresses(text)
+    )
+
+
+def _valid_ipv4_addresses(text: str) -> list[ipaddress.IPv4Address]:
+    addresses = []
+    for candidate in IPV4_CANDIDATE.findall(text):
+        try:
+            address = ipaddress.ip_address(candidate)
+        except ValueError:
+            continue
+        if isinstance(address, ipaddress.IPv4Address):
+            addresses.append(address)
+    return addresses
 
 
 def _known_evidence_ids(knowledge_path: Path) -> set[str]:
@@ -90,7 +115,10 @@ def _score_case(case: dict) -> dict[str, bool]:
     required_labels = case.get("required_labels", [])
     story_terms = case.get("story_terms", {})
     forbidden_terms = case.get("forbidden_terms", [])
-    numeric_claims = set(re.findall(r"\b\d+(?:[.,]\d+)?\b", text))
+    text_without_ipv4 = text
+    for address in _valid_ipv4_addresses(text):
+        text_without_ipv4 = text_without_ipv4.replace(str(address), "")
+    numeric_claims = set(re.findall(r"\b\d+(?:[.,]\d+)?\b", text_without_ipv4))
     allowed_numbers = {str(value) for value in case.get("allowed_numbers", [])}
     words = re.findall(r"\b[\wÁÉÍÓÚÜÑáéíóúüñ-]+\b", text)
 
@@ -113,6 +141,16 @@ def _score_case(case: dict) -> dict[str, bool]:
         and text.strip() == text
         and "\n\n\n" not in text
     )
+    star_allowed = case.get("star_allowed")
+    if star_allowed is True:
+        behavioral_boundary_ok = all(label in text for label in STAR_LABELS)
+    elif star_allowed is False:
+        behavioral_boundary_ok = (
+            not any(label in text for label in STAR_LABELS)
+            and not any(_contains(text, term) for term in forbidden_terms)
+        )
+    else:
+        behavioral_boundary_ok = True
 
     return {
         "directness": _contains_any(first_sentence, case.get("direct_answer_terms", [])),
@@ -120,6 +158,7 @@ def _score_case(case: dict) -> dict[str, bool]:
         "grounded_provenance": provenance_ok,
         "evidence_labels": all(_contains(text, label) for label in required_labels),
         "project_problem_action_result": story_ok,
+        "behavioral_evidence_boundary": behavioral_boundary_ok,
         "no_negative_denial": denial_ok,
         "junior_humility": junior_ok and not any(
             _contains(text, claim) for claim in SENIOR_CLAIMS
@@ -128,6 +167,7 @@ def _score_case(case: dict) -> dict[str, bool]:
         "no_sensitive_or_invented_details": (
             not any(_contains(text, term) for term in forbidden_terms)
             and not any(pattern.search(text) for pattern in SENSITIVE_PATTERNS)
+            and not _contains_private_ipv4(text)
             and numeric_claims <= allowed_numbers
         ),
         "concise_professional_structure": structure_ok,

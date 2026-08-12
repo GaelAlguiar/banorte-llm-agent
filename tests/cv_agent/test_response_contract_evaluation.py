@@ -3,7 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from cv_agent.evaluation.response_contracts import run_response_contract_evaluation
+from cv_agent.evaluation.response_contracts import (
+    _contains_private_ipv4,
+    run_response_contract_evaluation,
+)
 
 
 FIXTURES = Path("evals/response_contract_cases.jsonl")
@@ -47,7 +50,7 @@ def test_curated_response_contract_matrix_passes_all_gates(tmp_path: Path) -> No
         tmp_path / "report.json",
     )
 
-    assert report["case_count"] >= 12
+    assert report["case_count"] >= 13
     assert set(report["category_pass_rates"]) == {
         "adjacent_unknown_transfer",
         "behavioral_confirmed_only",
@@ -66,6 +69,51 @@ def test_curated_response_contract_matrix_passes_all_gates(tmp_path: Path) -> No
     assert json.loads((tmp_path / "report.json").read_text())["mode"] == (
         "offline_curated_response_contract_fixtures"
     )
+
+
+def test_behavioral_matrix_covers_confirmed_and_unconfirmed_star_boundaries() -> None:
+    cases = [
+        json.loads(line)
+        for line in FIXTURES.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    behavioral = [
+        case for case in cases if case["category"] == "behavioral_confirmed_only"
+    ]
+
+    assert {case["star_allowed"] for case in behavioral} == {True, False}
+    confirmed = next(case for case in behavioral if case["star_allowed"])
+    assert all(
+        label in confirmed["response"]
+        for label in ("Situación:", "Tarea:", "Acción:", "Resultado:")
+    )
+
+
+def test_unconfirmed_behavioral_case_rejects_star_and_invented_anecdote(
+    tmp_path: Path,
+) -> None:
+    cases = tmp_path / "cases.jsonl"
+    _write_case(
+        cases,
+        category="behavioral_confirmed_only",
+        response=(
+            "Situación: Gael discutió con un gerente. Tarea: imponer su criterio. "
+            "Acción: lideró al equipo durante el conflicto. Resultado: todos aceptaron."
+        ),
+        star_allowed=False,
+        forbidden_terms=["discutió con un gerente", "lideró al equipo"],
+        min_words=1,
+    )
+
+    report = run_response_contract_evaluation(
+        cases,
+        tmp_path / "report.json",
+        enforce_thresholds=False,
+    )
+
+    assert "behavioral_evidence_boundary" in report["failures"][0][
+        "failed_contracts"
+    ]
 
 
 @pytest.mark.parametrize(
@@ -163,3 +211,40 @@ def test_fixture_validation_rejects_duplicate_ids_and_unknown_provenance(
     )
     with pytest.raises(ValueError, match="procedencia no autorizada"):
         run_response_contract_evaluation(invalid, tmp_path / "report.json")
+
+
+@pytest.mark.parametrize(
+    "address",
+    ["10.0.0.1", "10.255.255.254", "172.16.0.1", "172.31.255.254", "192.168.0.1"],
+)
+def test_private_rfc1918_addresses_fail_sensitive_detail_contract(
+    tmp_path: Path,
+    address: str,
+) -> None:
+    cases = tmp_path / "cases.jsonl"
+    _write_case(
+        cases,
+        response=f"Experiencia directa: Proyecto Uno usa la dirección {address}.",
+        allowed_numbers=address.split("."),
+        min_words=1,
+    )
+
+    report = run_response_contract_evaluation(
+        cases,
+        tmp_path / "report.json",
+        enforce_thresholds=False,
+    )
+
+    assert "no_sensitive_or_invented_details" in report["failures"][0][
+        "failed_contracts"
+    ]
+
+
+@pytest.mark.parametrize(
+    "address",
+    ["8.8.8.8", "10.0.0.999", "172.15.255.255", "172.32.0.1", "192.169.0.1"],
+)
+def test_public_or_invalid_ipv4_text_does_not_trigger_private_address_guard(
+    address: str,
+) -> None:
+    assert _contains_private_ipv4(f"La referencia pública es {address}.") is False
