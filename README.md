@@ -217,9 +217,22 @@ se guarda en la imagen ni se entrega al proceso web.
 ```bash
 python -m pytest tests/cv_agent -q
 python -m cv_agent.evaluation.runner
+python -m cv_agent.evaluation.response_contracts
 ```
 
-La evaluación no llama a OpenAI: el adaptador devuelve evidencia, no prosa generada. Mide Recall@8, precisión de evidencia@8, MRR, groundedness, privacidad, `evidence_term_coverage`, `impact_evidence_coverage`, routing de skills y latencia. Conserva umbrales mínimos por métrica y categoría. El tono y la afirmación de participación se validan con revisiones manuales del endpoint live.
+Ninguna evaluación offline llama a OpenAI. La primera usa `EvidenceModel`, que
+devuelve evidencia y mide Recall@8, precisión de evidencia@8, MRR,
+groundedness, privacidad, cobertura, routing y latencia sobre 125 casos. La
+segunda califica contratos observables en respuestas representativas curadas:
+directitud, relevancia, referencias de evidencia aprobadas, etiquetas
+Directa/Relacionada/Transferible, historias con problema/acción/resultado,
+humildad Junior, privacidad y concisión. Sus sentinelas de términos no
+respaldados y números no autorizados son listas revisadas, no un detector
+general de alucinaciones. Las tasas reportan denominadores aplicables por
+contrato y conteos por categoría. Esos fixtures no son prosa del modelo
+productivo. Antes de una liberación se requiere todavía un smoke de una consulta
+real contra el endpoint live y revisión manual de tono, atribución, ausencia de
+invenciones y trazabilidad.
 
 ## Evidencia pública complementaria
 
