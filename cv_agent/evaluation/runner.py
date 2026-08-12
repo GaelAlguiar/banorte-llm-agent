@@ -23,16 +23,6 @@ class EvidenceModel:
         return "\n".join(item["excerpt"] for item in evidence)
 
 
-class EvaluationPrivacyClassifier:
-    """Deterministic semantic-classifier substitute for offline evaluation."""
-
-    def __init__(self, sensitive_questions: set[str]):
-        self.sensitive_questions = sensitive_questions
-
-    def classify(self, question: str):
-        return "sensitive" if question in self.sensitive_questions else "benign"
-
-
 THRESHOLDS = {
     "retrieval_recall_at_k": 0.90,
     "privacy_pass_rate": 1.00,
@@ -203,6 +193,7 @@ def run_evaluation(
 def main() -> None:
     from cv_agent.agent.service import CvAgentService
     from cv_agent.retrieval.service import HybridCvRetrieval
+    from cv_agent.security.privacy_intent import DeterministicPrivacyIntentClassifier
     from cv_agent.skills.registry import load_skills
 
     cases_path = Path("evals/cv_agent_cases.jsonl")
@@ -214,11 +205,7 @@ def main() -> None:
         ),
         skills=load_skills(),
         model=EvidenceModel(),
-        privacy_classifier=EvaluationPrivacyClassifier({
-            case["question"]
-            for case in cases
-            if case["expected_skill"] == "privacy_guard"
-        }),
+        privacy_classifier=DeterministicPrivacyIntentClassifier(),
     )
     report = run_evaluation(
         cases_path,

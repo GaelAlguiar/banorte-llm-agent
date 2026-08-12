@@ -3,10 +3,6 @@ from typing import Any
 
 from flask import Flask, jsonify, render_template, request
 
-from cv_agent.security.guardrails import (
-    SAFE_PRIVACY_RESPONSE,
-    requests_sensitive_information,
-)
 from cv_agent.security.limits import SlidingWindowLimiter
 from cv_agent.web.suggestions import SUGGESTED_QUESTIONS
 
@@ -57,8 +53,6 @@ def create_flask_app(agent_provider: Callable[[], Any]) -> Flask:
         message = message.strip()
         if len(message) > 8_000:
             return _error(413, "El mensaje excede 8000 caracteres.", "input_too_large")
-        if requests_sensitive_information(message):
-            return jsonify({"response": SAFE_PRIVACY_RESPONSE})
         agent = agent_provider()
         if agent is None:
             return _error(503, "El agente no está disponible.", "agent_unavailable")

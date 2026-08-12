@@ -12,7 +12,7 @@ Controles implementados:
 - guardrail previo a recuperación: las solicitudes inequívocas de secretos,
   inyección o recursos privados se bloquean de forma determinista;
 - clasificación semántica con salida estructurada `sensitive|benign` para
-  preguntas ambiguas sobre tokens o prompts; recibe únicamente la pregunta,
+  preguntas no inequívocas, incluidas las de tokens o prompts; recibe únicamente la pregunta,
   nunca evidencia del CV, y ante error, timeout o salida inválida falla cerrado
   sin consultar el índice;
 - logs allowlistados sin prompts, chunks, tokens de autorización ni secretos;
@@ -26,3 +26,7 @@ palabras, a cambio de una llamada adicional y algo de latencia únicamente en
 consultas de doble uso. El modelo predeterminado es el mismo configurado para
 generación; `OPENAI_PRIVACY_CLASSIFIER_MODEL` permite separarlo sin codificar
 un modelo que pudiera no estar disponible.
+
+La decisión se ejecuta únicamente en el servicio compartido. FastAPI y Flask
+no mantienen listas de bloqueo independientes, evitando resultados distintos
+entre el endpoint registrado y la interfaz de demostración.

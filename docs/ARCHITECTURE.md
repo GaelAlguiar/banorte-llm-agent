@@ -17,6 +17,11 @@ La solución separa transporte, política del agente, recuperación, conocimient
 7. El modelo recibe pregunta, reglas y fragmentos sanitizados.
 8. La API devuelve JSON tipado o eventos SSE.
 
+Tanto el endpoint Open Responses como la interfaz Flask delegan en la misma
+instancia de `CvAgentService`. Los transportes validan su contrato, pero no
+repiten decisiones de privacidad; por ello cada consulta se clasifica una sola
+vez y tiene el mismo comportamiento antes de recuperar evidencia.
+
 ## Implementación productiva
 
 Azure Container Apps consulta el índice con identidad administrada y el rol
