@@ -6,8 +6,10 @@ evidence_level: directa
 source: experiencias profesionales y técnicas revisadas
 ---
 Estas historias documentan aprendizaje, depuración estructurada, apertura a la
-retroalimentación y ownership técnico. No documentan un incidente específico
-de conflicto o presión y no deben convertirse en una anécdota inventada.
+retroalimentación y ownership técnico. Ante presión, errores o desacuerdos, el
+comportamiento verificable más cercano de Gael es separar el problema por
+capas, validar supuestos, escuchar retroalimentación, corregir y documentar el
+aprendizaje con responsabilidad.
 
 ## Resolver por capas
 

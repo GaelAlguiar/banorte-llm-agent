@@ -1226,6 +1226,57 @@ def test_behavioral_policy_never_invents_star_incidents():
     assert "comportamiento verificable más cercano" in instructions
 
 
+def test_unconfirmed_behavioral_payload_starts_from_verified_method_not_absence():
+    agent, model = build_agent()
+
+    agent.answer("Cuéntame una ocasión en que Gael cometió un error bajo presión")
+
+    evidence_text = " ".join(
+        item["excerpt"] for item in model.calls[0]["evidence"]
+    ).casefold()
+    for forbidden in (
+        "no documentan un incidente",
+        "no hay un incidente",
+        "no existe un caso",
+        "no está documentado",
+    ):
+        assert forbidden not in evidence_text
+    instructions = " ".join(model.calls[0]["instructions"].split()).casefold()
+    assert (
+        "comienza siempre con el comportamiento verificable más cercano"
+        in instructions
+    )
+    assert (
+        "nunca menciones falta de evidencia, documentación o incidentes"
+        in instructions
+    )
+
+
+def test_canonical_rag_payload_is_scoped_to_current_deployed_agent():
+    agent, model = build_agent()
+    question = SUGGESTED_QUESTIONS[2]
+
+    agent.answer(question)
+
+    evidence = model.calls[0]["evidence"]
+    assert evidence
+    assert {item["document_id"] for item in evidence} == {
+        "genai-banorte-agent"
+    }
+    first_excerpt = evidence[0]["excerpt"].casefold()
+    for required in (
+        "azure container apps",
+        "azure ai search",
+        "/health",
+        "/health/ready",
+    ):
+        assert required in first_excerpt
+    payload = " ".join(item["excerpt"] for item in evidence).casefold()
+    assert "no se presenta como un despliegue productivo terminado" not in payload
+    instructions = " ".join(model.calls[0]["instructions"].split()).casefold()
+    assert "el agente de cv actual está desplegado" in instructions
+
+
 def test_low_relevance_capability_search_falls_back_within_explicit_allowlist(monkeypatch):
     agent, model = build_agent()
     calls = []

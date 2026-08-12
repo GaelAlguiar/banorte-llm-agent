@@ -317,6 +317,15 @@ def test_rag_story_describes_the_deployed_search_backend():
     assert "poder migrar" not in document.text
 
 
+def test_runtime_knowledge_does_not_seed_known_production_contradictions():
+    text = "\n".join(
+        document.text for document in load_knowledge(Path("knowledge"))
+    ).casefold()
+
+    assert "no documentan un incidente específico" not in text
+    assert "no se presenta como un despliegue productivo terminado" not in text
+
+
 def test_enerey_ai_evidence_distinguishes_customer_and_internal_chatbots():
     document = next(
         item
