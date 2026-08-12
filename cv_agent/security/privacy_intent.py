@@ -19,7 +19,11 @@ DIRECT_SECRET_MARKERS = {
 
 
 CLAUSE_BOUNDARY = re.compile(
-    r"[.!?;:\n]+|\b(?:y\s+despues|y\s+luego|ahora|despues|luego|pero)\b"
+    r"[,.!?;:\n]+"
+    r"|\b(?:y\s+despues|y\s+luego|ahora|despues|luego|pero|ademas|tambien)\b"
+    r"|\by\s+(?=(?:puedes|podrias|quiero|necesito|dame|dime|muestra|revela|"
+    r"comparte|entrega|pasa|devuelve|proporciona|imprime|extrae|obten|que|"
+    r"como|cual)\b)"
 )
 DEFINITION_INTENT = re.compile(r"\bque\s+(?:es|son|significa)\b")
 EDUCATIONAL_STEMS = (
@@ -29,6 +33,20 @@ EDUCATIONAL_STEMS = (
 PROFESSIONAL_STEMS = (
     "experien", "usa", "uso", "utiliz", "trabaj", "proyect",
     "implement", "aplic", "engineering", "tokeniz",
+)
+
+# Transfer/extraction morphology is evaluated across the complete query. This
+# prevents an educational phrase in one clause from masking a disclosure ask.
+DISCLOSURE_STEMS = (
+    "entreg", "pas", "extra", "devolv", "compart", "imprim", "obten",
+    "revel", "mostr", "proporcion", "filtr", "expon",
+)
+PREVENTION_STEMS = (
+    "preven", "evit", "proteg", "imped", "mitig", "defend",
+)
+BENIGN_FOLLOWUP_STEMS = (
+    "experien", "proyect", "trabaj", "usa", "uso", "utiliz", "implement",
+    "resum", "perfil", "trayector", "rag", "llm", "gael",
 )
 def _has_stem(tokens: set[str], stems: tuple[str, ...]) -> bool:
     return any(
@@ -47,6 +65,36 @@ def _clauses(question: str) -> tuple[str, ...]:
     )
 
 
+def _is_prevention_context(tokens: set[str]) -> bool:
+    return _has_stem(tokens, PREVENTION_STEMS)
+
+
+def _has_full_query_disclosure(question: str) -> bool:
+    normalized = normalize_text(question)
+    tokens = set(tokenize(normalized))
+    if not tokens & DUAL_USE_TERMS:
+        return False
+
+    has_disclosure = _has_stem(tokens, DISCLOSURE_STEMS)
+    has_possessive_object = bool(
+        re.search(
+            r"\b(?:mi|mis|tu|tus)\s+(?:token|tokens|prompt|prompts)\b"
+            r"|\b(?:token|tokens|prompt|prompts)\s+(?:mio|mia|tuyo|tuya|suyo|suya)\b",
+            normalized,
+        )
+    )
+    if has_possessive_object:
+        return True
+    if not has_disclosure:
+        return False
+    if not _is_prevention_context(tokens):
+        return True
+
+    # Prevention makes quoted/hypothetical disclosure educational. A separate
+    # extraction clause is still caught by the clause-level pass below.
+    return False
+
+
 def _classify_clause(
     clause: str,
     *,
@@ -63,13 +111,18 @@ def _classify_clause(
         and (
             definition
             or _has_stem(tokens, EDUCATIONAL_STEMS)
+            or _is_prevention_context(tokens)
         )
     )
     professional = bool(
         terms and _has_stem(tokens, PROFESSIONAL_STEMS)
     )
 
-    if terms & {"prompt", "prompts"} and "sistema" in tokens:
+    if (
+        terms & {"prompt", "prompts"}
+        and "sistema" in tokens
+        and not _is_prevention_context(tokens)
+    ):
         return "sensitive"
     if terms & {"token", "tokens"}:
         if "acceso" in tokens and not definition:
@@ -80,6 +133,10 @@ def _classify_clause(
     ):
         return "sensitive"
     if inherited_dual_use and not terms:
+        if _has_stem(tokens, DISCLOSURE_STEMS):
+            return "sensitive"
+        if _has_stem(tokens, BENIGN_FOLLOWUP_STEMS):
+            return "not_applicable"
         return "sensitive"
     if educational:
         return "educational"
@@ -89,6 +146,8 @@ def _classify_clause(
 
 
 def classify_dual_use_intent(question: str) -> DualUseIntent:
+    if _has_full_query_disclosure(question):
+        return "sensitive"
     dual_use_seen = False
     result: DualUseIntent = "not_applicable"
     for clause in _clauses(question):
