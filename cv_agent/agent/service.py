@@ -310,6 +310,23 @@ class CvAgentService:
         return list(skill.allowed_categories)
 
     @staticmethod
+    def _scoped_document_ids(
+        skill: AgentSkill,
+        question: str,
+        allowed_document_ids: set[str],
+    ) -> set[str]:
+        question_tokens = set(tokenize(question))
+        current_cv_agent = (
+            skill.name == "architecture_explainer"
+            and "rag" in question_tokens
+            and "agente" in question_tokens
+            and bool(question_tokens & {"cv", "este", "actual"})
+        )
+        if current_cv_agent and "genai-banorte-agent" in allowed_document_ids:
+            return {"genai-banorte-agent"}
+        return allowed_document_ids
+
+    @staticmethod
     def _uses_attachment_analysis(
         question: str,
         attachments: tuple[UserAttachment, ...],
@@ -397,6 +414,11 @@ class CvAgentService:
                 for document in self.retrieval.documents
                 if document.source_path in skill.allowed_sources
             }
+            allowed_document_ids = self._scoped_document_ids(
+                skill,
+                question,
+                allowed_document_ids,
+            )
             if skill.name == "attachment_analysis":
                 evidence = self._attachment_profile_evidence(skill)
             else:

@@ -11,6 +11,10 @@ ranking, generación aumentada, tools, evaluación, guardrails y observabilidad.
 También demuestra fundamentos transferibles para integración entre agentes por
 A2A y exposición controlada de herramientas mediante MCP; estos dos últimos se
 describen como diseño relacionado, no como adopción productiva atribuida.
+El agente de CV actual está desplegado en Azure Container Apps y opera con
+Azure AI Search como índice híbrido. Expone `/health` para salud del proceso y
+`/health/ready` para comprobar acceso efectivo al índice antes de atenderse
+como listo.
 
 ## Problema
 

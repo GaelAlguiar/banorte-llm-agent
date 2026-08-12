@@ -3,6 +3,6 @@ description: Responde preguntas conductuales con comportamientos verificados y s
 intent_examples: debilidad | presión | error | conflicto | retroalimentación | Scrum | trabajo en equipo
 allowed_categories: perfil | historia
 allowed_sources: knowledge/01_perfil.md | knowledge/08_historias.md | knowledge/16_entrega_jira.md
-output_rules: usar STAR solo con un incidente confirmado | usar el comportamiento verificable más cercano si no hay incidente | explicar método y aprendizaje | no inventar conflicto ni presión
+output_rules: usar STAR solo con una situación completa confirmada | comenzar con el comportamiento verificable más cercano | explicar método y aprendizaje | evitar referencias a evidencia faltante | no inventar conflicto ni presión
 network_access: false
 shell_access: false

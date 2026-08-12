@@ -135,7 +135,23 @@ def test_production_regression_fixtures_cover_scope_behavior_and_deployment() ->
         "out-scope-capital-regression",
         "behavior-unconfirmed-02",
         "architecture-deployed-regression",
+        "architecture-canonical-deployed-regression",
     } <= {case["id"] for case in cases}
+
+    canonical = next(
+        case for case in cases
+        if case["id"] == "architecture-canonical-deployed-regression"
+    )
+    assert canonical["question"] == (
+        "¿Cómo construyó Gael este agente de CV y qué decisiones técnicas tomó "
+        "para llevar su arquitectura RAG a producción?"
+    )
+    assert {
+        "Azure Container Apps", "Azure AI Search", "health", "readiness"
+    } <= set(canonical["required_terms"])
+    assert "no se presenta como un despliegue productivo terminado" in {
+        term.casefold() for term in canonical["forbidden_terms"]
+    }
 
 
 def test_unconfirmed_behavioral_case_rejects_star_and_invented_anecdote(

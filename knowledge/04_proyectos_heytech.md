@@ -20,7 +20,7 @@ Trabajó en diseños y pruebas de VPN Site-to-Site entre Azure y AWS, y entre Az
 
 ## Arquitectura para cargas de IA
 
-Analizó alternativas para ejecutar modelos de IA cuando una región no tenía capacidad disponible. Consideró separar el servicio de inferencia, exponerlo detrás de APIM, conectar regiones de forma privada, mantener estado compartido y medir latencia. Esta participación fue de análisis y diseño técnico; no se presenta como un despliegue productivo terminado.
+Analizó alternativas para ejecutar modelos de IA cuando una región no tenía capacidad disponible. Consideró separar el servicio de inferencia, exponerlo detrás de APIM, conectar regiones de forma privada, mantener estado compartido y medir latencia. Su alcance confirmado en esta alternativa regional fue el análisis y diseño técnico de la solución.
 
 ## Seguridad y operación
 
