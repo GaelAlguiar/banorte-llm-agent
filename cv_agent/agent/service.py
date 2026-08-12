@@ -318,9 +318,12 @@ class CvAgentService:
         question_tokens = set(tokenize(question))
         current_cv_agent = (
             skill.name == "architecture_explainer"
-            and "rag" in question_tokens
             and "agente" in question_tokens
             and bool(question_tokens & {"cv", "este", "actual"})
+            and bool(
+                question_tokens
+                & {"rag", "arquitectura", "codigo", "construyo", "repositorio"}
+            )
         )
         if current_cv_agent and "genai-banorte-agent" in allowed_document_ids:
             return {"genai-banorte-agent"}
