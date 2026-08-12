@@ -52,15 +52,10 @@ def test_public_project_evidence_uses_reviewed_https_sources():
     assert "no demuestra por sí sola cada componente" in " ".join(enerey.split())
 
 
-def test_demo_documents_use_current_verified_counts():
+def test_public_repository_uses_current_verified_counts():
     assert sum(1 for _ in Path("knowledge").glob("*.md")) == 17
     assert sum(1 for _ in Path("evals/cv_agent_cases.jsonl").open()) == 125
-    video = Path("docs/VIDEO_DEMO_SCRIPT.md").read_text(encoding="utf-8")
-
-    assert "diecisiete documentos" in video
-    assert "noventa y siete casos" in video
-    assert "doce documentos" not in video
-    assert "ochenta pruebas" not in video
+    assert not Path("docs/VIDEO_DEMO_SCRIPT.md").exists()
 
 
 def test_public_repository_excludes_internal_development_workflow_artifacts():

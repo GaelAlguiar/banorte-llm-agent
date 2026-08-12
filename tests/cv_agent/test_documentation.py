@@ -4,6 +4,22 @@ from cv_agent.knowledge.loader import load_knowledge_chunks
 from cv_agent.web.suggestions import SUGGESTED_QUESTIONS
 
 
+def test_readme_leads_with_the_own_web_demo_and_open_responses_endpoint():
+    text = Path("README.md").read_text(encoding="utf-8")
+    intro = text.split("## Qué demuestra", 1)[0]
+
+    assert (
+        "https://ca-prueba-b-gael-ai.agreeablefield-a028190c."
+        "eastus.azurecontainerapps.io/chat/"
+    ) in intro
+    assert (
+        "https://ca-prueba-b-gael-ai.agreeablefield-a028190c."
+        "eastus.azurecontainerapps.io/v1/responses"
+    ) in intro
+    assert "Demo web propia" in intro
+    assert "Endpoint Open Responses" in intro
+
+
 def test_readme_describes_active_azure_search_architecture():
     text = Path("README.md").read_text(encoding="utf-8")
 
