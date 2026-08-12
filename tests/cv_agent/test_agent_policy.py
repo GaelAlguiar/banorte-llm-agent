@@ -1147,3 +1147,77 @@ def test_suggested_questions_are_byte_identical_to_release_baseline():
         "¿Qué diferencia a Gael de otros candidatos y qué aportaría durante sus primeros meses en un equipo de IA?",
     )
     assert SUGGESTED_QUESTIONS == expected
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Cuál es la comida favorita de Gael?",
+        "¿Qué opina Gael del partido de fútbol?",
+        "¿Qué platillo prefiere Gael?",
+        "¿A qué equipo deportivo apoya Gael?",
+    ),
+)
+def test_unrelated_questions_about_gael_redirect_without_profile_evidence(question):
+    agent, model = build_agent()
+
+    result = agent.answer(question)
+
+    assert result.skill_name == "profile_summary"
+    assert result.evidence_ids == ()
+    assert model.calls[0]["evidence"] == []
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_evidence"),
+    (
+        ("¿Qué experiencia tiene Gael con Grafana?", "habilidades-tecnicas"),
+        ("¿Podría trabajar con Snowflake?", "habilidades-tecnicas"),
+        ("¿Cómo adoptaría una plataforma como Kubeflow?", "habilidades-tecnicas"),
+        ("¿Tiene fundamentos para trabajar con Apache Airflow?", "habilidades-tecnicas"),
+    ),
+)
+def test_arbitrary_technology_frames_route_to_capability_advisor(
+    question, expected_evidence
+):
+    agent, _ = build_agent()
+
+    result = agent.answer(question)
+
+    assert result.skill_name == "capability_advisor"
+    assert expected_evidence in result.evidence_ids
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "¿Cómo ejerce liderazgo en un equipo?",
+        "¿Cómo lideraría Gael a un equipo ante un bloqueo?",
+        "¿Cómo colabora y recibe feedback?",
+    ),
+)
+def test_behavioral_leadership_frames_route_without_inventing_incidents(question):
+    agent, model = build_agent()
+
+    result = agent.answer(question)
+
+    assert result.skill_name == "behavioral_interview"
+    assert "historias-profesionales" in result.evidence_ids
+    assert model.calls[0]["evidence"]
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_skill"),
+    (
+        ("¿Cuál es el proyecto favorito de Gael?", "project_story"),
+        ("¿Qué experiencia tiene Gael con Azure?", "architecture_explainer"),
+        ("¿Qué experiencia tiene Gael en Enerey?", "profile_summary"),
+        ("¿Por qué Gael es valioso para un equipo de IA?", "role_fit"),
+        ("¿Cómo diseñó Gael el monitoreo del agente RAG?", "architecture_explainer"),
+    ),
+)
+def test_scope_and_generic_technology_frames_do_not_collide_with_known_intents(
+    question, expected_skill
+):
+    agent, _ = build_agent()
+    assert agent.answer(question).skill_name == expected_skill

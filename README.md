@@ -10,7 +10,7 @@ Agente conversacional en español construido para el Reto IA Banorte. Permite ex
 - Guardrail semántico previo al RAG contra extracción de secretos e instrucciones internas.
 - Análisis multimodal de imágenes y archivos temporales sin agregarlos al RAG.
 - Autenticación Bearer, límites de cuerpo, tipo de contenido y 30 solicitudes por minuto.
-- Evaluación offline reproducible con 107 preguntas en español.
+- Evaluación offline reproducible con 117 preguntas en español.
 - Contenedor no root preparado para Azure Container Apps.
 
 ## Arquitectura

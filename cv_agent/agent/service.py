@@ -11,6 +11,7 @@ from cv_agent.security.privacy_intent import (
 )
 from cv_agent.skills.models import AgentSkill
 from cv_agent.retrieval.text import tokenize
+from cv_agent.retrieval.text import normalize_text
 
 
 class ModelClient(Protocol):
@@ -50,6 +51,30 @@ class CvAgentService:
         self.trusted_benign_questions = frozenset(trusted_benign_questions)
         self.tools = ProfileTools(retrieval)
 
+    @staticmethod
+    def _is_unrelated_personal_question(question: str) -> bool:
+        tokens = set(tokenize(question))
+        unrelated_topics = {
+            "comida", "platillo", "receta", "futbol", "deportivo",
+            "deporte", "partido", "pelicula", "musica", "vacaciones",
+        }
+        return bool(tokens & unrelated_topics)
+
+    @staticmethod
+    def _has_generic_technology_frame(question: str) -> bool:
+        normalized = normalize_text(question)
+        frames = (
+            "experiencia tiene gael con ",
+            "experiencia tiene con ",
+            "experiencia con ",
+            "podria trabajar con ",
+            "trabajar con ",
+            "fundamentos para trabajar con ",
+            "adoptaria una plataforma ",
+            "adoptaria un framework ",
+        )
+        return any(frame in normalized for frame in frames)
+
     def _select_skill(self, question: str) -> AgentSkill:
         question_tokens = set(tokenize(question))
         scores = {
@@ -62,21 +87,27 @@ class CvAgentService:
         behavioral_terms = {
             "debilidad", "debilidades", "presion", "error", "errores",
             "conflicto", "conflictos", "feedback", "retroalimentacion",
-            "scrum", "fracaso", "fallo",
+            "scrum", "fracaso", "fallo", "liderazgo", "lidera", "liderar",
+            "lideraria", "colabora", "colaboracion",
         }
         scores["behavioral_interview"] += 7 * len(
             question_tokens & behavioral_terms
         )
-        capability_terms = {
-            "databricks", "react", "ci", "cd", "mlops", "monitoreo",
-            "monitorizacion", "owasp", "crewai", "framework", "frameworks",
-            "adoptar", "adoptaria",
+        named_capability_terms = {
+            "databricks", "react", "crewai", "framework", "frameworks",
         }
         scores["capability_advisor"] += 7 * len(
-            question_tokens & capability_terms
+            question_tokens & named_capability_terms
+        )
+        adjacent_practice_terms = {
+            "ci", "cd", "mlops", "monitoreo", "monitorizacion", "owasp",
+            "adoptar", "adoptaria",
+        }
+        scores["capability_advisor"] += 4 * len(
+            question_tokens & adjacent_practice_terms
         )
         scores["architecture_explainer"] += 5 * len(question_tokens & {"arquitectura", "rag", "terraform", "apim", "infraestructura"})
-        scores["architecture_explainer"] += 2 * len(question_tokens & {"a2a", "aks", "container", "dns", "embeddings", "mcp", "redes", "llms", "backend", "frontend", "apis", "produccion"})
+        scores["architecture_explainer"] += 2 * len(question_tokens & {"a2a", "aks", "azure", "container", "dns", "embeddings", "mcp", "redes", "llms", "backend", "frontend", "apis", "produccion"})
         dual_use_terms = question_tokens & {"token", "tokens", "prompt", "prompts"}
         if dual_use_terms:
             scores["architecture_explainer"] += 4
@@ -157,6 +188,11 @@ class CvAgentService:
             scores["project_story"] += 5
         if question_tokens & {"contratar", "elegir", "vacante", "banorte", "aportaria", "diferencia"}:
             scores["role_fit"] += 5
+        if "valioso" in question_tokens and (
+            "candidato" in question_tokens
+            or {"equipo", "ia"} <= question_tokens
+        ):
+            scores["role_fit"] += 5
         if question_tokens & {"candidato", "candidatos"} and question_tokens & {"por", "valioso", "aportaria", "diferencia"}:
             scores["role_fit"] += 4
         if {"primeros", "meses"} <= question_tokens:
@@ -169,6 +205,14 @@ class CvAgentService:
             examples = set(tokenize(" ".join(skill.intent_examples)))
             scored.append((len(question_tokens & examples), skill))
         score, selected = max(scored, key=lambda item: item[0])
+        if (
+            self._has_generic_technology_frame(question)
+            and (score == 0 or selected.name == "profile_summary")
+        ):
+            return next(
+                skill for skill in self.skills
+                if skill.name == "capability_advisor"
+            )
         if score == 0:
             return next(
                 skill
@@ -214,7 +258,15 @@ class CvAgentService:
         else:
             skill = self._select_skill(question)
         evidence = []
-        if skill.name != "privacy_guard":
+        unrelated = (
+            skill.name != "privacy_guard"
+            and self._is_unrelated_personal_question(question)
+        )
+        if unrelated:
+            skill = next(
+                item for item in self.skills if item.name == "profile_summary"
+            )
+        if skill.name != "privacy_guard" and not unrelated:
             allowed_document_ids = {
                 document.id
                 for document in self.retrieval.documents
