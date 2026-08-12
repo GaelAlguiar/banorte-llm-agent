@@ -69,7 +69,15 @@ def test_real_api_path_emits_allowlisted_error_without_exception_content(caplog)
 
     response = client.post("/v1/responses", json={"input": "private prompt"})
 
-    assert response.status_code == 500
+    assert response.status_code == 502
+    assert response.json() == {
+        "error": {
+            "message": "El proveedor del modelo no pudo completar la respuesta.",
+            "type": "server_error",
+            "code": "model_provider_error",
+            "param": None,
+        }
+    }
     event = next(item for item in _events(caplog)
                  if item["event"] == "agent_response")
     assert event["status"] == "error"
@@ -77,6 +85,32 @@ def test_real_api_path_emits_allowlisted_error_without_exception_content(caplog)
     serialized = "\n".join(record.message for record in caplog.records)
     assert "secret-value" not in serialized
     assert "private prompt" not in serialized
+
+
+def test_stream_request_provider_error_is_generic_and_content_free(caplog):
+    secret = "provider-secret-id https://provider.example/private"
+
+    class FailingAgent:
+        def answer(self, **kwargs):
+            raise RuntimeError(secret)
+
+    caplog.set_level(logging.INFO, logger="gael_cv_agent")
+    client = TestClient(create_app(agent=FailingAgent()))
+
+    response = client.post(
+        "/v1/responses",
+        json={"input": "private streaming prompt", "stream": True},
+    )
+
+    assert response.status_code == 502
+    assert response.headers["content-type"].startswith("application/json")
+    serialized = response.text + "\n" + "\n".join(
+        record.message for record in caplog.records
+    )
+    for forbidden in (
+        secret, "provider-secret-id", "provider.example", "private streaming prompt",
+    ):
+        assert forbidden not in serialized
 
 
 def test_logger_rejects_unallowlisted_values_as_well_as_fields(caplog):

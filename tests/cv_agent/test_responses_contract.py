@@ -516,6 +516,20 @@ def test_previous_response_id_is_rejected_instead_of_ignored():
     assert agent.calls == []
 
 
+def test_output_budget_below_supported_minimum_is_rejected_not_increased():
+    agent = StubAgent()
+    response = TestClient(create_app(agent=agent)).post(
+        "/v1/responses",
+        json={"input": "¿Quién es Gael?", "max_output_tokens": 255},
+    )
+
+    assert response.status_code == 422
+    error = response.json()["detail"][0]
+    assert error["loc"] == ["body", "max_output_tokens"]
+    assert "256" in error["msg"]
+    assert agent.calls == []
+
+
 def test_response_evidence_never_exposes_local_or_private_sources():
     class PrivateEvidenceAgent(StubAgent):
         def answer(self, question, attachments=(), reasoning_effort=None,

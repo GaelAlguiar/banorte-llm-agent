@@ -188,7 +188,15 @@ def create_response(body: CreateResponseRequest, request: Request):
             attachment_count=min(len(user_input.attachments), 4),
             attachment_kinds=sorted({item.kind for item in user_input.attachments}),
         )
-        raise
+        return JSONResponse(
+            status_code=502,
+            content={"error": {
+                "message": "El proveedor del modelo no pudo completar la respuesta.",
+                "type": "server_error",
+                "code": "model_provider_error",
+                "param": None,
+            }},
+        )
     log_event(
         "agent_response",
         status="success",

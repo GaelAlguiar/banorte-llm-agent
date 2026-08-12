@@ -61,7 +61,6 @@ class AgentAnswer:
     safety_decision: str = "allowed"
 
 
-MIN_OUTPUT_TOKENS = 256
 MAX_OUTPUT_TOKENS = 1_200
 _OUTPUT_TOKEN_DEFAULTS = {
     "privacy_guard": 256,
@@ -411,7 +410,7 @@ class CvAgentService:
         effective_max_output_tokens = (
             _OUTPUT_TOKEN_DEFAULTS[skill.name]
             if max_output_tokens is None
-            else min(MAX_OUTPUT_TOKENS, max(MIN_OUTPUT_TOKENS, max_output_tokens))
+            else min(MAX_OUTPUT_TOKENS, max_output_tokens)
         )
         text = self.model.generate(
             question=question,
@@ -421,7 +420,9 @@ class CvAgentService:
             attachments=(
                 () if skill.name == "privacy_guard" else attachments
             ),
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=(
+                "low" if skill.name == "privacy_guard" else reasoning_effort
+            ),
             max_output_tokens=effective_max_output_tokens,
         ).strip()
         evidence_ids = tuple(dict.fromkeys(

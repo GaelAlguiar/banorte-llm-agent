@@ -32,6 +32,8 @@ def test_platform_contract_documents_output_limits_and_stateless_continuation():
     assert "256" in text and "1,200" in text
     assert "previous_response_id" in text
     assert "no está soportado" in text
+    assert "rechaza" in text and "inferior a 256" in text
+    assert "nunca aumenta" in text
 
 
 def test_security_documentation_promises_only_emitted_safe_dimensions():
@@ -43,3 +45,5 @@ def test_security_documentation_promises_only_emitted_safe_dimensions():
     ):
         assert dimension in text
     assert "prompts ni respuestas" in text
+    assert "detalles del proveedor" in text
+    assert "razonamiento `low`" in text

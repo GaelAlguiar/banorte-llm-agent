@@ -17,7 +17,7 @@ class CreateResponseRequest(BaseModel):
     stream: bool = False
     previous_response_id: str | None = None
     instructions: str | None = None
-    max_output_tokens: int | None = Field(default=None, ge=1)
+    max_output_tokens: int | None = Field(default=None, ge=256)
     reasoning: "ReasoningOptions | None" = None
 
 
