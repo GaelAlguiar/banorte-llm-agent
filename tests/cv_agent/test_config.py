@@ -74,6 +74,15 @@ def test_parley_resolver_requires_base_and_secret_together():
         Settings(parley_file_base_url="https://portal.example.com/api/files")
 
 
+def test_parley_resolver_rejects_reusing_the_agent_api_key():
+    with pytest.raises(ValueError, match="distinta"):
+        Settings(
+            agent_api_key="shared-secret",
+            parley_file_base_url="https://portal.example.com/api/files",
+            parley_file_bearer_token="shared-secret",
+        )
+
+
 @pytest.mark.parametrize("value", [0, 10_485_761])
 def test_parley_file_limit_is_bounded(value):
     with pytest.raises(ValueError, match="parley_file_max_bytes"):

@@ -50,6 +50,11 @@ if [[ "$bool_resolver_base" != "$bool_resolver_token" ]]; then
   echo "Configura juntos PARLEY_FILE_BASE_URL y PARLEY_FILE_BEARER_TOKEN." >&2
   exit 6
 fi
+if [[ -n "$PARLEY_FILE_BEARER_TOKEN" \
+  && "$PARLEY_FILE_BEARER_TOKEN" == "$AGENT_API_KEY" ]]; then
+  echo "La credencial de archivos debe ser distinta de AGENT_API_KEY." >&2
+  exit 6
+fi
 resolver_secret_args=()
 resolver_env_args=()
 if [[ "$bool_resolver_base" == "1" ]]; then
@@ -154,6 +159,18 @@ if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/
         PARLEY_FILE_BEARER_TOKEN \
         PARLEY_FILE_MAX_BYTES \
       --output none
+    stale_resolver_secret="$(az containerapp secret list \
+      --name "$APP_NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --query "[?name=='parley-file-token'].name | [0]" \
+      --output tsv)"
+    if [[ -n "$stale_resolver_secret" ]]; then
+      az containerapp secret remove \
+        --name "$APP_NAME" \
+        --resource-group "$RESOURCE_GROUP" \
+        --secret-names parley-file-token \
+        --output none
+    fi
   fi
   az containerapp update \
     --name "$APP_NAME" \

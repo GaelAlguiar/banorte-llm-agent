@@ -132,7 +132,8 @@ PDF— como `input_image` con una referencia opaca
 `parley-file:file_<identificador>`. El agente valida estrictamente ese formato y
 puede resolverlo mediante `PARLEY_FILE_BASE_URL` y una credencial de lectura
 dedicada `PARLEY_FILE_BEARER_TOKEN`. Nunca reutiliza `AGENT_API_KEY`. El resolver
-mantiene fijo el host y la ruta, rechaza DNS privado y redirecciones, valida
+mantiene fijo el host y la ruta, hace una comprobación DNS pública preventiva,
+rechaza redirecciones, valida
 MIME, firma binaria y tamaño, y entrega los bytes temporalmente al proveedor
 como Base64. Si falta la credencial o la plataforma no la reconoce, la
 solicitud falla cerrada sin exponer el identificador ni detalles internos.

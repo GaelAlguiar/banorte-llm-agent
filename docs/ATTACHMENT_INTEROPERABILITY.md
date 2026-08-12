@@ -30,7 +30,9 @@ Referencia opaca
   -> descarte al finalizar la solicitud
 ```
 
-No se aceptan rutas, queries o hosts desde el mensaje. Los errores del servicio
+La comprobación DNS es preventiva; en producción se combina con un host fijo de
+DNS estable y controles de red de salida, porque una resolución puede cambiar
+entre la validación y la conexión. No se aceptan rutas, queries o hosts desde el mensaje. Los errores del servicio
 remoto se convierten en una respuesta genérica que no incluye el identificador,
 la URL ni la credencial. Los bytes no se escriben en disco, logs, respuestas ni
 la base de conocimiento.

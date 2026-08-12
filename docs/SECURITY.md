@@ -60,9 +60,12 @@ Las referencias opacas `parley-file:` siguen otra frontera. Permanecen
 deshabilitadas salvo que existan una base HTTPS fija y un bearer dedicado
 distinto de `AGENT_API_KEY`. El identificador sólo admite caracteres
 alfanuméricos minúsculos dentro de una longitud acotada. Antes de descargar, el
-resolver comprueba que el host configurado resuelva únicamente a direcciones
-públicas; no acepta redirecciones, credenciales en URL, puertos alternativos ni
-destinos elegidos por el usuario. Durante la descarga limita bytes declarados y
+resolver hace una comprobación DNS preventiva y rechaza la operación si observa
+una dirección no pública. El host es fijo, configurado por operación y debe usar
+DNS estable; esa comprobación no sustituye controles de red de salida contra un
+cambio de resolución entre validación y conexión. No acepta redirecciones,
+credenciales en URL, puertos alternativos ni destinos elegidos por el usuario.
+Durante la descarga limita bytes declarados y
 reales, valida MIME y firma de PNG, JPEG, GIF, WebP o PDF —o estructura básica
 para texto y DOCX— y conserva el contenido sólo en memoria durante la llamada.
 

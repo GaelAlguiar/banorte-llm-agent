@@ -48,7 +48,7 @@ Para la referencia opaca observada, el agente exige un resolver independiente:
 `PARLEY_FILE_BASE_URL` y `PARLEY_FILE_BEARER_TOKEN`. La referencia sólo admite
 el identificador alfanumérico esperado; no acepta rutas, queries, fragmentos ni
 espacios. El resolver consulta una única base HTTPS, no sigue redirecciones,
-rechaza destinos DNS no públicos, limita la descarga a 10 MiB y valida el tipo
+realiza una comprobación DNS pública preventiva, limita la descarga a 10 MiB y valida el tipo
 de contenido antes de convertirlo en una entrada Base64 temporal para OpenAI.
 
 La descarga del portal requiere una sesión o credencial que no se reenvía al

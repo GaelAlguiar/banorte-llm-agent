@@ -123,3 +123,11 @@ def test_deploy_script_requires_complete_resolver_configuration() -> None:
     assert 'bool_resolver_base=' in text
     assert 'bool_resolver_token=' in text
     assert '[[ "$bool_resolver_base" != "$bool_resolver_token" ]]' in text
+
+
+def test_deploy_script_rejects_agent_key_reuse_and_removes_stale_secret() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+
+    assert '"$PARLEY_FILE_BEARER_TOKEN" == "$AGENT_API_KEY"' in text
+    assert "az containerapp secret remove" in text
+    assert "--secret-names parley-file-token" in text

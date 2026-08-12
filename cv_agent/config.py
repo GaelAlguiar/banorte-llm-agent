@@ -41,6 +41,14 @@ class Settings:
             raise ValueError(
                 "parley_file_base_url y parley_file_bearer_token deben configurarse juntos"
             )
+        if (
+            self.agent_api_key
+            and self.parley_file_bearer_token
+            and self.agent_api_key == self.parley_file_bearer_token
+        ):
+            raise ValueError(
+                "parley_file_bearer_token debe ser distinta de agent_api_key"
+            )
         if not 1 <= self.parley_file_max_bytes <= 10_485_760:
             raise ValueError(
                 "parley_file_max_bytes debe estar entre 1 y 10485760"
