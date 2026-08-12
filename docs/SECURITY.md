@@ -65,8 +65,8 @@ ella conservando el Host y SNI del FQDN fijo. Así la conexión autenticada no
 vuelve a resolver el nombre entre la validación y el GET. No acepta redirecciones,
 credenciales en URL, puertos alternativos ni destinos elegidos por el usuario.
 Durante la descarga solicita codificación `identity`, rechaza contenido
-comprimido y limita bytes declarados, reales y acumulados por solicitud
-reales, valida MIME y firma de PNG, JPEG, GIF, WebP o PDF —o estructura básica
+comprimido y limita bytes declarados, reales y acumulados por solicitud,
+valida MIME y firma de PNG, JPEG, GIF, WebP o PDF —o estructura básica
 para texto— y conserva el contenido sólo en memoria durante la llamada. Las
 referencias opacas no admiten DOCX porque un contenedor OOXML requiere
 inspección antivirus y límites de descompresión adicionales.

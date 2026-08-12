@@ -539,3 +539,56 @@ def test_invalid_attachment_envelope_is_rejected_before_classifier(content):
     assert response.status_code == 400
     assert agent.privacy_calls == 0
     assert resolver.references == []
+
+
+def test_preclassification_failure_returns_sanitized_gateway_error():
+    class FailingPrivacyAgent(RecordingAgent):
+        def privacy_decision(self, question):
+            raise RuntimeError("provider secret detail")
+
+    response = TestClient(create_app(
+        settings=_settings(),
+        agent=FailingPrivacyAgent(),
+        attachment_resolver=StaticPortalResolver({
+            "data": b"safe",
+            "filename": "nota.txt",
+            "mime_type": "text/plain",
+        }),
+    )).post(
+        "/v1/responses",
+        json=_request("parley-file:file_abcdefgh12345678"),
+    )
+
+    assert response.status_code == 502
+    assert "provider secret detail" not in response.text
+
+
+def test_parser_enforces_aggregate_budget_if_resolver_ignores_hint():
+    class HintIgnoringResolver:
+        max_file_bytes = 10
+
+        def resolve(self, file_id, *, max_bytes=None):
+            return {
+                "data": b"12345678",
+                "filename": "nota.txt",
+                "mime_type": "text/plain",
+            }
+
+    content = [
+        {
+            "type": "input_image",
+            "image_url": f"parley-file:file_abcdefgh1234567{index}",
+        }
+        for index in range(2)
+    ]
+    response = TestClient(create_app(
+        settings=_settings(),
+        agent=RecordingAgent(),
+        attachment_resolver=HintIgnoringResolver(),
+    )).post(
+        "/v1/responses",
+        json={"input": [{"role": "user", "content": content}]},
+    )
+
+    assert response.status_code == 400
+    assert "tamaño total" in response.json()["detail"].lower()

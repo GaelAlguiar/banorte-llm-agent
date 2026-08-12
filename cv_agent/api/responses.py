@@ -172,7 +172,25 @@ def create_response(body: CreateResponseRequest, request: Request):
                 body.input,
                 request.app.state.attachment_policy,
             )
-            privacy_decision = agent.privacy_decision(question)
+            try:
+                privacy_decision = agent.privacy_decision(question)
+            except Exception:
+                log_event(
+                    "agent_response",
+                    status="error",
+                    error_type="privacy_classifier_error",
+                    attachment_count=0,
+                    attachment_kinds=[],
+                )
+                return JSONResponse(
+                    status_code=502,
+                    content={"error": {
+                        "message": "No fue posible procesar la solicitud.",
+                        "type": "api_error",
+                        "code": "agent_error",
+                        "param": None,
+                    }},
+                )
             user_input = (
                 UserInput(text=question)
                 if privacy_decision == "sensitive"

@@ -270,6 +270,8 @@ def _resolved_attachment(
             )
         url = None
         data = raw_data
+        if remaining_bytes is not None and len(data) > remaining_bytes:
+            raise ValueError("El tamaño total de adjuntos excede el límite")
         if not content_matches_declared_type(mime_type, data):
             raise ValueError("El contenido del archivo no coincide con su tipo")
     else:
