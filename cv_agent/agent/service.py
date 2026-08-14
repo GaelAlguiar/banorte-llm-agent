@@ -18,7 +18,7 @@ from cv_agent.security.privacy_intent import (
     direct_privacy_decision,
 )
 from cv_agent.skills.models import AgentSkill
-from cv_agent.retrieval.text import normalize_text, tokenize
+from cv_agent.retrieval.text import tokenize
 from cv_agent.usage.meter import UsageMeter, format_usage_footer
 from cv_agent.usage.models import ModelGeneration, PublicUsage
 
@@ -86,9 +86,6 @@ _OUT_OF_SCOPE_REDIRECT = (
 _USAGE_FOOTER_SUFFIX = re.compile(
     r"(?:\n\n)?[\d,]+ tokens · \d+(?:\.\d)?% disponible\s*$"
 )
-_PUBLIC_REPOSITORY_URL = (
-    "https://github.com/GaelAlguiar/banorte-llm-agent"
-)
 
 
 _PUBLIC_EVIDENCE_URLS = {
@@ -97,57 +94,6 @@ _PUBLIC_EVIDENCE_URLS = {
     "https://globalfls.com/",
     "https://www.lugramx.com/",
 }
-
-
-def _requests_public_repository_link(question: str) -> bool:
-    normalized = normalize_text(question)
-    words = set(re.findall(r"[a-z0-9]+", normalized))
-    if (
-        words & {"enerey", "heytech", "banregio"}
-        and not words & {"agente", "cv"}
-    ):
-        return False
-    repository_terms = {
-        "github", "repo", "repositorio", "repository",
-    }
-    source_code_terms = (
-        "codigo fuente" in normalized or "source code" in normalized
-    )
-    current_agent_code = (
-        "codigo" in words
-        and bool(words & {"agente", "cv"})
-    )
-    if not (words & repository_terms or source_code_terms or current_agent_code):
-        return False
-    locator_terms = {
-        "cual", "donde", "enlace", "link", "url", "pasame",
-        "comparteme", "consultar", "ver", "publicado", "acceder",
-        "muestrame",
-    }
-    if source_code_terms or "repo" in words or "repository" in words:
-        return True
-    if "repositorio" in words and not words & {"repositorios", "equipo", "heytech"}:
-        return True
-    return bool(words & locator_terms) or current_agent_code
-
-
-def _should_include_public_repository_url(question: str) -> bool:
-    normalized = normalize_text(question)
-    words = set(re.findall(r"[a-z0-9]+", normalized))
-    if (
-        words & {"enerey", "heytech", "banregio"}
-        and not words & {"agente", "cv"}
-    ):
-        return False
-    return "github" in words or _requests_public_repository_link(question)
-
-
-def _needs_repository_retrieval_focus(question: str) -> bool:
-    words = set(re.findall(r"[a-z0-9]+", normalize_text(question)))
-    return (
-        _requests_public_repository_link(question)
-        and not words & {"arquitectura", "rag"}
-    )
 
 
 def _public_source_url(source: str) -> str | None:
@@ -213,11 +159,6 @@ class CvAgentService:
 
     def _select_skill(self, question: str) -> AgentSkill | None:
         question_tokens = set(tokenize(question))
-        if _requests_public_repository_link(question):
-            return next(
-                skill for skill in self.skills
-                if skill.name == "architecture_explainer"
-            )
         scores = {
             name: 0
             for name in (
@@ -385,11 +326,6 @@ class CvAgentService:
         allowed_document_ids: set[str],
     ) -> set[str]:
         question_tokens = set(tokenize(question))
-        if (
-            _requests_public_repository_link(question)
-            and "genai-banorte-agent" in allowed_document_ids
-        ):
-            return {"genai-banorte-agent"}
         current_cv_agent = (
             skill.name == "architecture_explainer"
             and "agente" in question_tokens
@@ -504,14 +440,8 @@ class CvAgentService:
             if skill.name == "attachment_analysis":
                 evidence = self._attachment_profile_evidence(skill)
             else:
-                retrieval_question = (
-                    "repositorio público GitHub código arquitectura "
-                    "instrucciones ejecución evidencia evaluación"
-                    if _needs_repository_retrieval_focus(question)
-                    else question
-                )
                 evidence = self.tools.search_profile(
-                    retrieval_question,
+                    question,
                     categories=self._retrieval_categories(skill, question),
                     top_k=8,
                     allowed_document_ids=allowed_document_ids,
@@ -549,12 +479,6 @@ class CvAgentService:
         text = generation.text.strip()
         while _USAGE_FOOTER_SUFFIX.search(text):
             text = _USAGE_FOOTER_SUFFIX.sub("", text).rstrip()
-        if (
-            skill.name != "privacy_guard"
-            and _should_include_public_repository_url(question)
-            and _PUBLIC_REPOSITORY_URL.casefold() not in text.casefold()
-        ):
-            text = f"{text}\n\n{_PUBLIC_REPOSITORY_URL}"
         public_usage = None
         if generation.usage is not None and self.usage_meter is not None:
             public_usage = self.usage_meter.record(
